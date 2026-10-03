@@ -1,0 +1,6 @@
+# Cada proyecto tiene su propio .gitignore (api/.gitignore y app/.gitignore).
+# Aquí solo archivos del sistema y del editor.
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
