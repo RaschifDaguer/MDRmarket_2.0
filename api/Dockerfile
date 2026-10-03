@@ -7,6 +7,12 @@ RUN apt-get update \
     && a2enmod rewrite \
     && rm -rf /var/lib/apt/lists/*
 
+# Apache solo puede tener UN modo de procesos (MPM). PHP necesita "prefork";
+# si queda también "event" o "worker" activo, Apache no arranca
+# (error AH00534: More than one MPM loaded).
+RUN rm -f /etc/apache2/mods-enabled/mpm_event.* /etc/apache2/mods-enabled/mpm_worker.* \
+    && a2enmod mpm_prefork
+
 # Apache sirve la carpeta public/ y respeta el .htaccess de Laravel.
 ENV APACHE_DOCUMENT_ROOT=/var/www/html/public
 RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-available/*.conf \
