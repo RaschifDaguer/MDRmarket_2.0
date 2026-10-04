@@ -11,9 +11,13 @@ rm -f /etc/apache2/mods-enabled/mpm_event.* /etc/apache2/mods-enabled/mpm_worker
 sed -i "s/^Listen .*/Listen ${PORT}/" /etc/apache2/ports.conf
 sed -i "s/<VirtualHost \*:[0-9]*>/<VirtualHost *:${PORT}>/" /etc/apache2/sites-available/000-default.conf
 
-# Bases que exigen conexión cifrada (ej. Aiven): el certificado CA llega como
-# texto en DB_SSL_CA, se guarda en un archivo y Laravel lo usa al conectarse.
-if [ -n "${DB_SSL_CA:-}" ]; then
+# Bases que exigen conexión cifrada (ej. Aiven): el certificado CA llega en
+# DB_SSL_CA_BASE64 (una sola línea, más fácil de pegar) o en DB_SSL_CA (texto
+# PEM). Se guarda en un archivo y Laravel lo usa al conectarse.
+if [ -n "${DB_SSL_CA_BASE64:-}" ]; then
+    printf '%s' "$DB_SSL_CA_BASE64" | base64 -d > /tmp/db-ca.pem
+    export MYSQL_ATTR_SSL_CA=/tmp/db-ca.pem
+elif [ -n "${DB_SSL_CA:-}" ]; then
     printf '%s\n' "$DB_SSL_CA" > /tmp/db-ca.pem
     export MYSQL_ATTR_SSL_CA=/tmp/db-ca.pem
 fi

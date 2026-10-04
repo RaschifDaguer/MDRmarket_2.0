@@ -4,3 +4,8 @@
 Thumbs.db
 desktop.ini
 .vscode/
+
+# Certificados y credenciales de bases externas (ej. ca.pem de Aiven)
+*.pem
+.env*
+!.env.example
