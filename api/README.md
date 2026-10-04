@@ -46,11 +46,23 @@ ejemplo "Stock insuficiente") también llegan como 422 con su mensaje.
 
 ## Docker y Railway
 
-`Dockerfile` arma la API con PHP 8.3 + Apache. En Railway:
+Publicada en **https://api-mdrmarket-production.up.railway.app/api**.
 
-1. **New → GitHub Repo →** `MDRmarket_2.0`, y en **Settings → Root Directory** poner `api`.
+| Parte | Dónde |
+|---|---|
+| API | Railway (plan Free), se despliega sola con cada push que cambie `api/` |
+| Base de datos | Aiven for MySQL 8.4 (plan Free), base `mdrmarket_new`, conexión SSL |
+
+`Dockerfile` arma la API con PHP 8.3 + Apache. Configuración en Railway:
+
+1. **New → GitHub Repo →** `MDRmarket_2.0`; en **Settings**: Root Directory `/api`
+   y Watch Paths `/api/**`.
 2. Variables: `APP_KEY` (de `php artisan key:generate --show`), `APP_ENV=production`,
    `APP_DEBUG=false`, `APP_LOCALE=es`, `LOG_CHANNEL=stderr`, `DB_CONNECTION=mysql`,
-   `DB_HOST=<servicio-mysql>.railway.internal`, `DB_PORT=3306`,
-   `DB_DATABASE=mdrmarket_new`, `DB_USERNAME=root`, `DB_PASSWORD=<la del MySQL>`.
-3. Railway asigna el puerto en `$PORT`; `docker/entrypoint.sh` lo configura solo.
+   `DB_HOST`, `DB_PORT`, `DB_DATABASE=mdrmarket_new`, `DB_USERNAME`, `DB_PASSWORD`
+   (los de Aiven) y `DB_SSL_CA_BASE64` (el `ca.pem` de Aiven en base64:
+   `base64 -w0 ca.pem`).
+3. Railway asigna el puerto en `$PORT`; `docker/entrypoint.sh` lo configura solo,
+   escribe el certificado de la base y deja Apache con un solo MPM (prefork).
+
+> Nunca subir al repositorio la contraseña de la base ni el `ca.pem`.
