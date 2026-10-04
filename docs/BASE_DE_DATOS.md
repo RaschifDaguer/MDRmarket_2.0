@@ -12,6 +12,8 @@ MySQL 8.4 · base **`mdrmarket_new`** · todo guardado en **UTC**.
 > La estructura la define **el script**, no las migraciones de Laravel
 > (`api/database/migrations` está vacío a propósito).
 
+📊 **Diagrama visual de las tablas y sus relaciones:** [DIAGRAMA_BD.md](DIAGRAMA_BD.md).
+
 ---
 
 ## Contenido

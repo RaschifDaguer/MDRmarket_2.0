@@ -39,9 +39,14 @@ Lo mínimo para empezar, **sin Laragon ni base de datos local**:
    flutter run --dart-define=API_URL=https://api-mdrmarket-production.up.railway.app/api
    ```
 4. Crea tu propia cuenta desde la pantalla de registro y prueba.
-5. Las pantallas que faltan y **cómo probar cada una** están en
-   [docs/HOJA_DE_RUTA.md](docs/HOJA_DE_RUTA.md). Antes de subir cambios:
-   `flutter analyze` y `flutter test` sin errores.
+5. **Para no trabajar a ciegas**, lee:
+   - [docs/API_FRONTEND.md](docs/API_FRONTEND.md): qué manda y recibe cada
+     pantalla (JSON de ejemplo), estados del pedido y cómo mostrar los errores.
+   - [docs/DIAGRAMA_BD.md](docs/DIAGRAMA_BD.md): diagrama de las tablas y cómo se relacionan.
+   - [docs/HOJA_DE_RUTA.md](docs/HOJA_DE_RUTA.md): pantallas que faltan y
+     **cómo probar cada una**.
+
+   Antes de subir cambios: `flutter analyze` y `flutter test` sin errores.
 6. **Si algo falla, abre un Issue en GitHub** con: qué hiciste, qué esperabas,
    qué pasó, captura de pantalla y dispositivo (Chrome / emulador / celular).
 
@@ -292,6 +297,8 @@ MDRmarket_2.0/
 ├── README.md                 ← este archivo
 ├── docs/
 │   ├── HOJA_DE_RUTA.md       ← qué falta y cómo hacerlo
+│   ├── API_FRONTEND.md       ← qué manda y recibe cada pantalla
+│   ├── DIAGRAMA_BD.md        ← diagrama de la base
 │   └── BASE_DE_DATOS.md      ← cómo está la base y cómo cambiarla
 ├── api/                      ← Laravel 12
 │   ├── app/Http/Controllers/Api/AuthController.php
@@ -401,6 +408,8 @@ demuestre que cumple su función** (ver "Cómo probarlo" en cada módulo de la
 ## Documentación adicional
 
 - [docs/HOJA_DE_RUTA.md](docs/HOJA_DE_RUTA.md) — módulos pendientes, uno por uno.
+- [docs/API_FRONTEND.md](docs/API_FRONTEND.md) — qué manda y recibe la app en cada pantalla (JSON de ejemplo).
+- [docs/DIAGRAMA_BD.md](docs/DIAGRAMA_BD.md) — diagrama de la base de datos.
 - [docs/BASE_DE_DATOS.md](docs/BASE_DE_DATOS.md) — tablas, vistas, triggers y cómo cambiar la base.
 - [api/README.md](api/README.md) — API y despliegue en Railway.
 - [app/README.md](app/README.md) — app Flutter.
