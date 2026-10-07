@@ -13,6 +13,9 @@ class MdrMarketApp extends ConsumerWidget {
       title: 'MDR Market',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.claro,
+      darkTheme: AppTheme.oscuro,
+      // Claro u oscuro según lo que tenga elegido el equipo de la persona.
+      themeMode: ThemeMode.system,
       routerConfig: ref.watch(routerProvider),
     );
   }
