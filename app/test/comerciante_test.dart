@@ -117,8 +117,9 @@ void main() {
     testWidgets('no pide el carnet si ya lo subió', (tester) async {
       await abrir(tester, const RegistrarNegocioScreen());
       expect(find.text('Tu carnet de identidad'), findsNothing);
-      // NIT y razón social son opcionales.
-      expect(find.text('Datos fiscales'), findsOneWidget);
+      // NIT y nombre para facturas (razón social) son opcionales.
+      expect(find.text('Datos para facturas'), findsOneWidget);
+      expect(find.text('Nombre para facturas'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
 

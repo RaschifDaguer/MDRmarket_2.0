@@ -40,7 +40,7 @@ class NegocioRequest extends FormRequest
             'nombre' => 'nombre del negocio',
             'categoria_id' => 'rubro',
             'nit' => 'NIT',
-            'razon_social' => 'razón social',
+            'razon_social' => 'nombre para facturas',
             'latitud' => 'ubicación',
             'longitud' => 'ubicación',
             'foto' => 'foto del negocio',

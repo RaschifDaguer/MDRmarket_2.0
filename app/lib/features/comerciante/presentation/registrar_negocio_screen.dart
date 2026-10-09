@@ -437,7 +437,7 @@ class _RegistrarNegocioScreenState extends ConsumerState<RegistrarNegocioScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const TituloSeccion('Datos fiscales', Icons.receipt_long_outlined, opcional: true),
+        const TituloSeccion('Datos para facturas', Icons.receipt_long_outlined, opcional: true),
         TextFormField(
           controller: _nit,
           keyboardType: TextInputType.number,
@@ -453,7 +453,13 @@ class _RegistrarNegocioScreenState extends ConsumerState<RegistrarNegocioScreen>
         TextFormField(
           controller: _razonSocial,
           textCapitalization: TextCapitalization.words,
-          decoration: const InputDecoration(labelText: 'Razón social', prefixIcon: Icon(Icons.business_outlined)),
+          // En la API es "razón social"; aquí con palabras simples.
+          decoration: const InputDecoration(
+            labelText: 'Nombre para facturas',
+            helperText: 'Como figura en tu NIT. Ej.: Comercial Suárez S.R.L. o tu nombre completo.',
+            helperMaxLines: 2,
+            prefixIcon: Icon(Icons.business_outlined),
+          ),
           forceErrorText: _errores['razon_social'],
         ),
       ],
