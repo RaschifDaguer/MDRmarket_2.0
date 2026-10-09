@@ -1,0 +1,4 @@
+{
+  "API_URL": "http://localhost:8001/api",
+  "GOOGLE_MAPS_KEY": "pega-aqui-tu-clave-de-google-maps"
+}

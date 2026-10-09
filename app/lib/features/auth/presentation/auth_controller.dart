@@ -26,6 +26,15 @@ class AuthController extends AsyncNotifier<Usuario?> {
     state = AsyncData(await _repo.cambiarVista(vista));
   }
 
+  /// Vuelve a pedir los datos del usuario (ej. después de registrar un
+  /// negocio, para que aparezca la vista comerciante en el selector).
+  Future<void> refrescar() async {
+    state = AsyncData(await _repo.usuarioActual());
+  }
+
+  /// Reemplaza el usuario por uno ya actualizado (ej. tras editar el perfil).
+  void actualizarUsuario(Usuario usuario) => state = AsyncData(usuario);
+
   Future<void> logout() async {
     await _repo.logout();
     state = const AsyncData(null);
