@@ -15,7 +15,9 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
-        //
+        // Railway pone un proxy HTTPS delante: así las URLs (ej. de las fotos)
+        // salen con https y no con http.
+        $middleware->trustProxies(at: '*');
     })
     ->withExceptions(function (Exceptions $exceptions) {
         // La app siempre recibe JSON, aunque olvide mandar "Accept: application/json".

@@ -5,6 +5,10 @@ Thumbs.db
 desktop.ini
 .vscode/
 
+# Registros de caídas de Java (daemon de Gradle sin memoria)
+hs_err_pid*.log
+replay_pid*.log
+
 # Certificados y credenciales de bases externas (ej. ca.pem de Aiven)
 *.pem
 .env*

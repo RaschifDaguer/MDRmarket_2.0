@@ -173,7 +173,7 @@ Pídeselos al dueño del proyecto (**Raschif Daguer**, GitHub `RaschifDaguer`):
 | **Railway** — proyecto `confident-hope` | Ver logs y variables de la API | *Project Settings → Members* (si el plan lo permite; si no, te comparte los logs) |
 | **Aiven** — proyecto `mdrmarket` | Ver/administrar la base de producción | *Admin → Users → Invite* |
 | **Valores del `.env` de producción** | Solo si vas a tocar el servidor | Por mensaje privado, **nunca** por el repo ni grupos |
-| **Clave de Google Maps** | Módulos de mapa y rastreo (9) | Es la misma de la versión anterior; va en `.env`, no en el código |
+| **Clave de Google Maps** | Mapa al registrar el negocio; rastreo (9) | Es la misma de la versión anterior; va en `app/dart_defines.local.json` (ver [app/README.md](app/README.md#con-el-mapa-de-google-chrome)), nunca en el código |
 
 > 🔒 **Secretos:** contraseñas, `APP_KEY`, la clave de Google y el `ca.pem` de
 > Aiven **nunca** se suben al repositorio. Los `.gitignore` ya excluyen `.env`
@@ -226,6 +226,10 @@ flutter run                     # emulador Android abierto en Android Studio
 | Emulador Android | `http://10.0.2.2:8001/api` (así ve el emulador a tu PC) |
 | Celular real en tu Wi-Fi | `flutter run --dart-define=API_URL=http://IP-DE-TU-PC:8001/api` |
 | Contra el servidor de internet | `flutter run --dart-define=API_URL=https://api-mdrmarket-production.up.railway.app/api` |
+
+Para ver el **mapa de Google** en Chrome hace falta la clave en un archivo local:
+ver [app/README.md](app/README.md#con-el-mapa-de-google-chrome). Sin clave, la
+app usa solo el botón de GPS.
 
 Usuarios de ejemplo: los `*@mdrmarket.local` del script. Lo más simple es
 **crear tu propia cuenta** desde la pantalla de registro.
@@ -312,9 +316,13 @@ MDRmarket_2.0/
 │   └── README.md
 └── app/                      ← Flutter
     ├── lib/main.dart, app.dart
-    ├── lib/core/            config (URL de la API), red (Dio), router, tema, almacenamiento
+    ├── lib/core/            config (URL de la API), red (Dio), router, tema, almacenamiento,
+    │                        maps/ (mapa + GPS), archivos/ (elegir fotos)
     ├── lib/features/auth/   login, registro, sesión
     ├── lib/features/inicio/ pantalla de inicio por vista + cambio de vista
+    ├── lib/features/catalogo/    categorías (rubros)
+    ├── lib/features/comerciante/ registrar mi negocio
+    ├── lib/features/perfil/      lo que falta para cada rol + subir documentos
     ├── test/                pruebas
     └── README.md
 ```
@@ -333,6 +341,16 @@ En la PC del dueño, `C:\Raschif\laragon\www\mdrmarket_v2_api` es un enlace a
 | POST | `/api/auth/logout` | ✔ | Cerrar sesión en este dispositivo |
 | GET | `/api/me` | ✔ | Usuario, `vistas` y `puede_cambiar_vista` |
 | PUT | `/api/me/vista` | ✔ | Guardar la vista activa (`cliente` / `repartidor` / `comerciante`) |
+| PUT | `/api/me` | ✔ | Completar datos personales (apellido, CI, teléfono…) |
+| GET | `/api/me/faltantes/{rol}` | ✔ | Lo que le falta para ser `repartidor` o `comerciante` |
+| GET | `/api/categorias` | — | Rubros principales con sus subcategorías |
+| GET | `/api/negocios` | ✔ | Mis negocios |
+| POST | `/api/negocios` | ✔ | Registrar mi negocio (con foto; queda en revisión) |
+| GET | `/api/documentos` | ✔ | Mis documentos subidos y su estado |
+| POST | `/api/documentos` | ✔ | Subir la foto de un documento (carnet, licencia…) |
+| GET | `/api/archivos/{ruta}` | — | Ver una foto pública (negocios, productos) |
+
+Detalle de cada ruta en [docs/API_FRONTEND.md](docs/API_FRONTEND.md).
 
 Sesión = cabecera `Authorization: Bearer <token>` (Laravel Sanctum).
 Prueba rápida:
@@ -378,8 +396,8 @@ Detalle completo en [docs/BASE_DE_DATOS.md](docs/BASE_DE_DATOS.md).
 ```bash
 # App (desde app/)
 flutter analyze
-flutter test                                                        # formulario de registro
-flutter test --dart-define=API_URL=http://127.0.0.1:8001/api        # + recorrido real contra la API local
+flutter test                                                        # pantallas, registro y comerciante (datos falsos)
+flutter test --dart-define=API_URL=http://127.0.0.1:8001/api        # + recorridos reales contra la API local
 
 # API (con la API encendida)
 curl http://localhost:8001/up
@@ -401,6 +419,8 @@ demuestre que cumple su función** (ver "Cómo probarlo" en cada módulo de la
 | Railway: "Free plan resource provision limit exceeded" | Límite del plan Free (1 USD/mes) | Por eso la base está en Aiven y no en Railway |
 | La app en el emulador no conecta | Usa `localhost` | El emulador usa `10.0.2.2`; un celular real necesita la IP de la PC |
 | Error de CORS en Chrome | API apagada o URL mal escrita | Revisa que la API esté encendida y la URL termine en `/api` |
+| Al registrar el negocio no aparece el mapa, solo el botón GPS | Falta la clave de Google Maps, o la clave no tiene activada la Maps JavaScript API | Ver [app/README.md](app/README.md#con-el-mapa-de-google-chrome) |
+| Las fotos subidas desaparecen en el servidor de internet | El disco de Railway se borra en cada despliegue | Pendiente: pasar las fotos a Cloudinary (`MEDIA_DISK`) antes de publicar |
 | VS Code marca en rojo cosas de Laravel | El editor no tiene indexado `vendor/` | Abre la carpeta `api/` sola en VS Code o corre `composer install` |
 
 ---

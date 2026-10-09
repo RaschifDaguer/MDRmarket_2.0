@@ -6,6 +6,7 @@ import '../../features/auth/presentation/auth_controller.dart';
 import '../../features/auth/presentation/login_screen.dart';
 import '../../features/auth/presentation/registro_screen.dart';
 import '../../features/auth/presentation/splash_screen.dart';
+import '../../features/comerciante/presentation/registrar_negocio_screen.dart';
 import '../../features/inicio/presentation/inicio_screen.dart';
 
 /// Rutas de la app. Lleva solo a cada pantalla según la sesión:
@@ -38,6 +39,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/login', builder: (_, _) => const LoginScreen()),
       GoRoute(path: '/registro', builder: (_, _) => const RegistroScreen()),
       GoRoute(path: '/inicio', builder: (_, _) => const InicioScreen()),
+      GoRoute(path: '/registrar-negocio', builder: (_, _) => const RegistrarNegocioScreen()),
     ],
   );
 });

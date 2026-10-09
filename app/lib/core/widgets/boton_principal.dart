@@ -62,7 +62,8 @@ class BotonPrincipal extends StatelessWidget {
                         Icon(icono, size: 20),
                         const SizedBox(width: AppEspacios.s),
                       ],
-                      Text(texto),
+                      // Flexible: en pantallas angostas o con letra grande no desborda.
+                      Flexible(child: Text(texto, overflow: TextOverflow.ellipsis)),
                     ],
                   ),
           ),

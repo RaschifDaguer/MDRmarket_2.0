@@ -9,5 +9,7 @@ export 'cabecera_flotante.dart';
 export 'fondo_marca.dart';
 export 'logo_marca.dart';
 export 'reaccion_toque.dart';
+export 'selector_foto.dart';
 export 'tarjeta_3d.dart';
 export 'temblor.dart';
+export 'titulo_seccion.dart';

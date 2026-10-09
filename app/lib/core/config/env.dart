@@ -20,4 +20,10 @@ class Env {
     }
     return 'http://localhost:8001/api';
   }
+
+  /// Clave de Google Maps. NUNCA se escribe en el código (el repo es público):
+  /// se pasa al ejecutar, por ejemplo con el archivo local de configuración:
+  ///   flutter run -d chrome --dart-define-from-file=dart_defines.local.json
+  /// Sin clave, la app funciona igual pero sin mapa (solo el botón de GPS).
+  static const googleMapsKey = String.fromEnvironment('GOOGLE_MAPS_KEY');
 }
