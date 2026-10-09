@@ -13,27 +13,40 @@ trabajo que falta es **API (Laravel) + pantallas (Flutter)**.
 | 2 | API base | Registro, login, logout, `GET /me`, `PUT /me/vista`; errores en JSON y español |
 | 3 | App base | Arranque, login, registro (2 contraseñas + requisitos en vivo), inicio por vista y cambio de vista |
 | — | Publicación | API en Railway (despliegue automático) + base en Aiven |
+| 4a | Registrar mi negocio | Formulario con rubro, mapa de Google + GPS, foto, NIT opcional y carnet (solo si falta); vista comerciante con estado "en revisión" y lista de lo que falta con botón **Subir**. API: `/categorias`, `/negocios`, `/documentos`, `/me/faltantes/{rol}`, `PUT /me` |
+
+---
+
+## Vista comerciante — se hace por partes
+
+Toda la interfaz del comerciante, una parte a la vez, cada una con su prueba:
+
+| Parte | Qué | Estado |
+|---|---|---|
+| 1 | Registrar mi negocio | ✅ |
+| 2 | Mis productos (crear, editar, foto, precio, oferta, stock) | ⏳ siguiente |
+| 3 | Compras y gastos | ⏳ |
+| 4 | Ganancias (hoy, semana, mes, año; gráfico) | ⏳ |
+| 5 | Pedidos entrantes (con datos de ejemplo hasta que exista el carrito) | ⏳ |
+| 6 | Calificaciones del negocio | ⏳ |
+| 7 | Perfil del negocio (editar datos, horario, abierto/cerrado) | ⏳ |
+
+Las partes 2–7 cubren lo que abajo figura como módulos 7 y 11, y la parte de
+reseñas del negocio del módulo 10.
 
 ---
 
 ## Pendiente
 
-### Módulo 4 — Registro de repartidor y comerciante ⏳ *siguiente*
-**Objetivo:** que un cliente se convierta en repartidor o comerciante pidiendo solo lo que le falta.
+### Módulo 4b — Registro de repartidor ⏳
+**Objetivo:** que un cliente se convierta en repartidor pidiendo solo lo que le falta.
 
-- **Pantallas:** "Quiero ser repartidor" (tipo de vehículo, placa, RUAT, fotos) y
-  "Registrar mi negocio" (nombre, NIT opcional, categoría, ubicación marcada con
-  GPS en un mapa, foto del negocio). Una pantalla de "Te falta subir…" con la
-  lista de `sp_datos_faltantes`.
-- **API:** `GET /api/catalogos` (tipos de vehículo, tipos de documento,
-  categorías), `GET /api/me/faltantes/{rol}`, `POST /api/repartidor`,
-  `POST /api/vehiculos`, `POST /api/negocios`, `POST /api/documentos` (subida de foto).
-- **Base (ya existe):** `repartidor`, `vehiculo`, `negocio`, `documento`,
-  `requisito_rol`, `sp_datos_faltantes`, `trg_documento_bi`.
-- **⚠️ Decisión pendiente: dónde guardar las fotos.** El disco de Railway se
-  borra en cada despliegue. Opciones gratuitas: **Cloudinary** o un bucket S3
-  compatible. En la base solo se guarda la URL.
-- **Paquetes Flutter:** `image_picker`, `geolocator`, `google_maps_flutter`.
+- **Pantallas:** "Quiero ser repartidor" (tipo de vehículo, placa, RUAT, fotos).
+  La lista "Te falta subir…" y la hoja para subir documentos ya existen
+  (`features/perfil/`): se reutilizan.
+- **API:** `GET /api/tipos-vehiculo`, `POST /api/repartidor`, `POST /api/vehiculos`.
+  `GET /api/me/faltantes/repartidor` y `POST /api/documentos` ya funcionan.
+- **Base (ya existe):** `repartidor`, `vehiculo`, `requisito_rol`, `sp_datos_faltantes`, `trg_documento_bi`.
 - **Cómo probarlo:** un cliente se registra como repartidor en moto → la lista de
   faltantes muestra placa, RUAT y fotos → al subirlas la lista queda vacía y
   aparece el botón "cambiar vista" con estado "en revisión". Con bicicleta solo
@@ -145,8 +158,15 @@ trabajo que falta es **API (Laravel) + pantallas (Flutter)**.
 
 ## Pendientes técnicos
 
-- [ ] Elegir almacenamiento de imágenes (Cloudinary / S3) — **antes del módulo 4**.
-- [ ] Pasar la clave de Google Maps a `.env` (`GOOGLE_MAPS_KEY`) y restringirla en Google Cloud.
+- [x] Almacenamiento de imágenes: **disco local por ahora** (`MEDIA_DISK=public`).
+- [ ] **Pasar las fotos públicas a Cloudinary antes de publicar** (el disco de
+  Railway se borra en cada despliegue). Solo cambia `MEDIA_DISK` y la clase
+  `api/app/Support/Archivos.php`; la app no se toca. Los documentos privados
+  (carnet, licencia) necesitan un disco privado que no se borre.
+- [x] Clave de Google Maps en la app: archivo local `app/dart_defines.local.json` (no se sube).
+- [ ] Restringir la clave de Google Maps en Google Cloud (por dominio web y por paquete `bo.mdrmarket.app`).
+- [ ] Configurar la clave de Google Maps para Android/iOS (al compilar para celular).
+- [ ] Clave de Google Maps en el `.env` de la API para Google Directions (módulo 6).
 - [ ] Pruebas automáticas de la API (`php artisan test`) por cada módulo.
 - [ ] Integración continua en GitHub Actions: `flutter analyze` + `flutter test` + pruebas de la API en cada PR.
 - [ ] Limitar CORS al dominio real cuando exista versión web publicada.

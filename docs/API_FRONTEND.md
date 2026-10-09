@@ -120,6 +120,103 @@ saber si hay sesión.
 Respuesta **200** con el `usuario` actualizado. Si no tiene esa vista → **422**
 `"No tienes acceso a esa vista."`.
 
+### `PUT /me` 🔒
+Completa datos personales; solo se mandan los campos que cambian
+(`nombre`, `apellido`, `telefono`, `ci_numero`, `ci_complemento`, `ci_expedido`).
+```json
+{ "apellido": "Suárez", "ci_numero": "7654321" }
+```
+Respuesta **200** con el `usuario` actualizado. CI repetido → **422** en `ci_numero`.
+
+### `GET /me/faltantes/{rol}` 🔒
+`rol`: `repartidor` o `comerciante`. Sale de `sp_datos_faltantes`. Lista vacía = completo.
+```json
+{
+  "rol": "comerciante",
+  "completo": false,
+  "faltantes": [
+    { "codigo": "negocio", "tipo": "dato", "documento": null,
+      "texto": "Registrar tu negocio", "negocio_id": null, "vehiculo_id": null },
+    { "codigo": "documento.ci_anverso", "tipo": "documento", "documento": "ci_anverso",
+      "texto": "Foto: Carnet de identidad (anverso)", "negocio_id": null, "vehiculo_id": null }
+  ]
+}
+```
+- `tipo: "documento"` → mostrar botón **Subir** (`POST /documentos` con `tipo` = `documento`).
+- `codigo: "apellido"` o `"ci_numero"` → pedir el dato y guardarlo con `PUT /me`.
+
+### `GET /categorias`
+Rubros principales con sus subcategorías (no pide sesión):
+```json
+[
+  { "id": 2, "nombre": "Salud y Belleza", "icono": "💊",
+    "subcategorias": [
+      { "id": 201, "nombre": "Farmacia y medicamentos", "icono": "💊" },
+      { "id": 203, "nombre": "Cosmética y cuidado de la piel", "icono": "💄" }
+    ] }
+]
+```
+Son 12 principales y 49 subcategorías (id de subcategoría = id del padre × 100 + n).
+
+### `POST /negocios` 🔒 — Registrar mi negocio
+Se manda como **`multipart/form-data`** (lleva la foto):
+
+| Campo | | Notas |
+|---|---|---|
+| `nombre` | obligatorio | máx. 150 |
+| `categoria_id` | obligatorio | una categoría **principal** (no subcategoría) |
+| `direccion` | obligatorio | |
+| `latitud`, `longitud` | obligatorios | del mapa o del GPS; deben estar del centro al 10mo anillo |
+| `foto` | obligatorio | jpg, png o webp, hasta 5 MB |
+| `descripcion`, `telefono`, `referencia`, `nit`, `razon_social` | opcionales | `nit` no se puede repetir |
+
+Respuesta **201** (el mismo formato que `GET /negocios`):
+```json
+{
+  "id": 5,
+  "nombre": "Tienda Marta",
+  "descripcion": null,
+  "categoria": { "id": 1, "nombre": "Alimentos y Bebidas", "icono": "🍔" },
+  "telefono": "70012345",
+  "nit": null,
+  "razon_social": null,
+  "direccion": "Av. Busch 1234",
+  "referencia": null,
+  "latitud": -17.78373,
+  "longitud": -63.18214,
+  "logo_url": "http://localhost:8001/api/archivos/negocios/abc123.png",
+  "abierto": true,
+  "estado_verificacion": "pendiente",
+  "rating_promedio": null,
+  "total_resenas": 0,
+  "created_at": "2026-10-09T15:35:58.000000Z"
+}
+```
+- Fuera de cobertura → **422** en `latitud`: *"La ubicación está fuera de la zona de cobertura (del centro al 10mo anillo)."*
+- Al crearlo, el usuario ya tiene la vista `comerciante` (`GET /me`).
+- `estado_verificacion`: `pendiente` (En revisión), `aprobado` (Activo), `rechazado`, `suspendido`. Lo cambia un administrador.
+
+### `GET /negocios` 🔒
+Lista de mis negocios (más reciente primero), con el formato de arriba.
+
+### `POST /documentos` 🔒
+**`multipart/form-data`**: `tipo` (ej. `ci_anverso`, `ci_reverso`, `licencia_conducir`),
+`archivo` (jpg, png, webp o pdf, hasta 5 MB) y, si corresponde, `negocio_id` o `vehiculo_id`.
+Si ya había uno **pendiente** del mismo tipo, lo reemplaza. Respuesta **201**:
+```json
+{ "id": 1, "tipo": "ci_anverso", "nombre": "Carnet de identidad (anverso)",
+  "estado": "pendiente", "observacion": null, "negocio_id": null, "vehiculo_id": null,
+  "created_at": "2026-10-09T15:36:01.000000Z" }
+```
+Los documentos son **privados**: no tienen URL pública.
+
+### `GET /documentos` 🔒
+Mis documentos con su `estado` (`pendiente`, `aprobado`, `rechazado`) y `observacion`.
+
+### `GET /archivos/{ruta}`
+Devuelve una foto pública (logo del negocio, productos). No hace falta armar
+esta URL: la API ya la manda completa en `logo_url`.
+
 ---
 
 ## Parte 2 — Datos para las pantallas pendientes ⏳
@@ -163,18 +260,7 @@ viene de la vista `v_catalogo_producto`. **Ejemplo real** de la base:
 - `rating_promedio: null` → "Sin reseñas todavía".
 - `stock: null` → no se controla stock (ej. comida hecha al momento).
 
-`GET /categorias` — árbol de dos niveles:
-```json
-[
-  { "id": 2, "nombre": "Salud y Belleza", "icono": "💊",
-    "subcategorias": [
-      { "id": 201, "nombre": "Farmacia y medicamentos", "icono": "💊" },
-      { "id": 203, "nombre": "Cosmética y cuidado de la piel", "icono": "💄" }
-    ] }
-]
-```
-Las 12 categorías y 49 subcategorías reales están en el script de la base
-(ids de subcategoría = id del padre × 100 + n; ej. `201`).
+Las categorías ya tienen ruta real: ver [`GET /categorias`](#get-categorias) en la Parte 1.
 
 ### Pedido (módulos 6–8)
 Estados y cómo mostrarlos:
