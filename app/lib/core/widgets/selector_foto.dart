@@ -64,8 +64,12 @@ class SelectorFoto extends StatelessWidget {
                             padding: const EdgeInsets.symmetric(horizontal: AppEspacios.m),
                             child: Text(texto, textAlign: TextAlign.center, style: textos.bodyMedium),
                           ),
-                          Text('Toca para elegir una foto',
-                              style: textos.bodySmall?.copyWith(color: c.onSurfaceVariant)),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: AppEspacios.s),
+                            child: Text('Toca para elegir una foto',
+                                textAlign: TextAlign.center,
+                                style: textos.bodySmall?.copyWith(color: c.onSurfaceVariant)),
+                          ),
                         ],
                       )
                     : Stack(

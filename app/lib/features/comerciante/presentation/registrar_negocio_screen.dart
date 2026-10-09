@@ -300,7 +300,8 @@ class _RegistrarNegocioScreenState extends ConsumerState<RegistrarNegocioScreen>
                     orden: 1,
                     child: Text(
                       'Registrar mi negocio',
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: Colors.white),
+                      // titleLarge: en celular no choca con los íconos que flotan.
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(color: Colors.white),
                     ),
                   ),
                 ],
@@ -362,7 +363,7 @@ class _RegistrarNegocioScreenState extends ConsumerState<RegistrarNegocioScreen>
           controller: _telefono,
           keyboardType: TextInputType.phone,
           decoration: const InputDecoration(
-            labelText: 'Teléfono del negocio (opcional)',
+            labelText: 'Teléfono (opcional)',
             prefixIcon: Icon(Icons.phone_outlined),
           ),
           forceErrorText: _errores['telefono'],
@@ -443,6 +444,7 @@ class _RegistrarNegocioScreenState extends ConsumerState<RegistrarNegocioScreen>
           decoration: const InputDecoration(
             labelText: 'NIT',
             helperText: 'Si no tienes NIT, se usa tu carnet de identidad.',
+            helperMaxLines: 2,
             prefixIcon: Icon(Icons.numbers),
           ),
           forceErrorText: _errores['nit'],
