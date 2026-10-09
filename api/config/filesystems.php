@@ -16,6 +16,18 @@ return [
     'default' => env('FILESYSTEM_DISK', 'local'),
 
     /*
+    | MDR Market: dónde se guardan los archivos que suben los usuarios.
+    |
+    | - media_disk:   fotos públicas (negocios, productos). En local "public";
+    |                 en producción un disco en la nube (ej. Cloudinary), porque
+    |                 el disco de Railway se borra en cada despliegue.
+    | - privado_disk: documentos privados (fotos del carnet, licencia, RUAT).
+    |                 Nunca se sirven sin sesión.
+    */
+    'media_disk' => env('MEDIA_DISK', 'public'),
+    'privado_disk' => env('PRIVADO_DISK', 'local'),
+
+    /*
     |--------------------------------------------------------------------------
     | Filesystem Disks
     |--------------------------------------------------------------------------

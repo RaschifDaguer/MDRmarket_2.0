@@ -7,6 +7,9 @@ RUN apt-get update \
     && a2enmod rewrite \
     && rm -rf /var/lib/apt/lists/*
 
+# Fotos de celular: el límite por defecto de PHP (2 MB) es muy chico.
+RUN printf 'upload_max_filesize=10M\npost_max_size=12M\n' > /usr/local/etc/php/conf.d/subidas.ini
+
 # Apache solo puede tener UN modo de procesos (MPM). PHP necesita "prefork";
 # si queda también "event" o "worker" activo, Apache no arranca
 # (error AH00534: More than one MPM loaded).

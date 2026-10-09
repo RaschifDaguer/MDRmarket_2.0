@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -46,6 +47,11 @@ class Usuario extends Authenticatable
             'es_admin' => 'boolean',
             'activo' => 'boolean',
         ];
+    }
+
+    public function negocios(): HasMany
+    {
+        return $this->hasMany(Negocio::class);
     }
 
     /** ¿Tiene una suspensión o bloqueo vigente para ese rol? ('todos' = cuenta entera). */
