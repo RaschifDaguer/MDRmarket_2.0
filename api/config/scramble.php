@@ -45,16 +45,19 @@ return [
         /*
          * API version.
          */
-        'version' => env('API_VERSION', '0.0.1'),
+        'version' => env('API_VERSION', '2.0'),
 
         /*
          * Description rendered on the home page of the API documentation (`/docs/api`).
          */
-        'description' => '',
+        'description' => "API de MDR Market (delivery en Santa Cruz de la Sierra).\n\n"
+            ."Las rutas con candado piden sesión: haz login en `POST /auth/login`, copia el `token` "
+            ."y pégalo en **Authorize** (Bearer). Errores siempre en JSON y en español; "
+            ."el dinero va como texto con 2 decimales (\"185.00\"). Más detalle en docs/API_FRONTEND.md del repositorio.",
     ],
 
     'ui' => [
-        'title' => null,
+        'title' => 'MDR Market · API',
     ],
 
     /*

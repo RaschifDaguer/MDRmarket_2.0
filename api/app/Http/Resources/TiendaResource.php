@@ -6,7 +6,11 @@ use App\Support\Archivos;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
-/** Negocio tal como lo ve el cliente (sin NIT ni datos del dueño). */
+/**
+ * Negocio tal como lo ve el cliente (sin NIT ni datos del dueño).
+ *
+ * @mixin \App\Models\Negocio
+ */
 class TiendaResource extends JsonResource
 {
     public function toArray(Request $request): array
