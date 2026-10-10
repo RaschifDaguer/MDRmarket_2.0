@@ -43,6 +43,14 @@ class Archivos
         return route('archivos.ver', ['ruta' => $valor]);
     }
 
+    /** Borra una foto pública del disco local (las URLs externas no se tocan). */
+    public static function borrarPublico(?string $valor): void
+    {
+        if ($valor && ! Str::startsWith($valor, ['http://', 'https://'])) {
+            Storage::disk('public')->delete($valor);
+        }
+    }
+
     /** Documento privado (carnet, licencia, RUAT). Devuelve la ruta interna. */
     public static function guardarPrivado(UploadedFile $archivo, string $carpeta): string
     {

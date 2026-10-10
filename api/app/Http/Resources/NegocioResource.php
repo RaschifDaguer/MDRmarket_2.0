@@ -28,6 +28,13 @@ class NegocioResource extends JsonResource
             'longitud' => $this->longitud,
             'logo_url' => Archivos::url($this->logo_url),
             'abierto' => (bool) $this->abierto,
+            'tiempo_preparacion_min' => $this->tiempo_preparacion_min,
+            'pedido_minimo' => $this->pedido_minimo,
+            'horarios' => $this->whenLoaded('horarios', fn () => $this->horarios->map(fn ($h) => [
+                'dia_semana' => $h->dia_semana,
+                'hora_apertura' => substr($h->hora_apertura, 0, 5),
+                'hora_cierre' => substr($h->hora_cierre, 0, 5),
+            ])),
             // pendiente | aprobado | rechazado | suspendido (lo cambia un administrador)
             'estado_verificacion' => $this->estado_verificacion,
             'rating_promedio' => $this->rating_promedio,
