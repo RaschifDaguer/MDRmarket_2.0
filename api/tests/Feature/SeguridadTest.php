@@ -2,7 +2,9 @@
 
 namespace Tests\Feature;
 
+use App\Filament\Auth\AutenticadorApp;
 use App\Http\Controllers\Api\PedidoController;
+use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -108,6 +110,12 @@ class SeguridadTest extends TestCase
 
         $this->actingAs($admin)->get('/admin')
             ->assertRedirect('/admin/multi-factor-authentication/set-up');
+
+        // El QR para escanear es una imagen SVG válida (no doblemente envuelta).
+        Filament::setCurrentPanel('admin');
+        $qr = AutenticadorApp::make()->generateQrCodeDataUri('JBSWY3DPEHPK3PXP');
+        $this->assertStringStartsWith('data:image/svg+xml;base64,', $qr);
+        $this->assertStringStartsWith('<?xml', base64_decode(substr($qr, strlen('data:image/svg+xml;base64,'))));
 
         // La clave del autenticador se guarda cifrada y nunca sale en el JSON.
         $admin->saveAppAuthenticationSecret('JBSWY3DPEHPK3PXP');
