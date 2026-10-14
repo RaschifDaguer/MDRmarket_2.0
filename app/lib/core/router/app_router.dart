@@ -6,8 +6,23 @@ import '../../features/auth/presentation/auth_controller.dart';
 import '../../features/auth/presentation/login_screen.dart';
 import '../../features/auth/presentation/registro_screen.dart';
 import '../../features/auth/presentation/splash_screen.dart';
+import '../../features/carrito/presentation/carrito_screen.dart';
+import '../../features/catalogo/presentation/producto_screen.dart';
+import '../../features/catalogo/presentation/tienda_screen.dart';
+import '../../features/comerciante/domain/mi_producto.dart';
+import '../../features/comerciante/presentation/calificaciones_screen.dart';
+import '../../features/comerciante/presentation/horario_screen.dart';
+import '../../features/comerciante/presentation/pedido_negocio_screen.dart';
+import '../../features/comerciante/presentation/perfil_negocio_screen.dart';
+import '../../features/comerciante/presentation/producto_form_screen.dart';
 import '../../features/comerciante/presentation/registrar_negocio_screen.dart';
+import '../../features/comerciante/presentation/registros_screen.dart';
 import '../../features/inicio/presentation/inicio_screen.dart';
+import '../../features/pedidos/presentation/checkout_screen.dart';
+import '../../features/pedidos/presentation/pedido_screen.dart';
+
+/// Número de la ruta (ej. /producto/12 → 12).
+int _id(GoRouterState estado) => int.tryParse(estado.pathParameters['id'] ?? '') ?? 0;
 
 /// Rutas de la app. Lleva solo a cada pantalla según la sesión:
 /// - revisando sesión o servidor caído -> /splash
@@ -40,6 +55,24 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/registro', builder: (_, _) => const RegistroScreen()),
       GoRoute(path: '/inicio', builder: (_, _) => const InicioScreen()),
       GoRoute(path: '/registrar-negocio', builder: (_, _) => const RegistrarNegocioScreen()),
+
+      // Cliente
+      GoRoute(path: '/producto/:id', builder: (_, s) => ProductoScreen(productoId: _id(s))),
+      GoRoute(path: '/tienda/:id', builder: (_, s) => TiendaScreen(tiendaId: _id(s))),
+      GoRoute(path: '/carrito', builder: (_, _) => const CarritoScreen()),
+      GoRoute(path: '/checkout', builder: (_, _) => const CheckoutScreen()),
+      GoRoute(path: '/pedido/:id', builder: (_, s) => PedidoScreen(pedidoId: _id(s))),
+
+      // Comerciante (su negocio)
+      GoRoute(
+        path: '/negocio/producto',
+        builder: (_, s) => ProductoFormScreen(producto: s.extra is MiProducto ? s.extra! as MiProducto : null),
+      ),
+      GoRoute(path: '/negocio/pedido/:id', builder: (_, s) => PedidoNegocioScreen(pedidoId: _id(s))),
+      GoRoute(path: '/negocio/registros', builder: (_, _) => const RegistrosScreen()),
+      GoRoute(path: '/negocio/calificaciones', builder: (_, _) => const CalificacionesScreen()),
+      GoRoute(path: '/negocio/perfil', builder: (_, _) => const PerfilNegocioScreen()),
+      GoRoute(path: '/negocio/horario', builder: (_, _) => const HorarioScreen()),
     ],
   );
 });

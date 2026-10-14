@@ -12,7 +12,9 @@ class FondoMarca extends StatelessWidget {
     final c = Theme.of(context).colorScheme;
     final oscuro = c.brightness == Brightness.dark;
 
-    return ColoredBox(
+    // Material (y no un simple color): así las listas y botones que van
+    // encima muestran su efecto al tocarlos.
+    return Material(
       color: Theme.of(context).scaffoldBackgroundColor,
       child: Stack(
         children: [
