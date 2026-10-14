@@ -20,15 +20,45 @@ usar un celular conectado a la misma red Wi-Fi.
 
 ## Rutas
 
-| Método | Ruta | Sesión | Para qué |
-|---|---|---|---|
-| POST | `/api/auth/registro` | — | Crear cuenta (correo, contraseña ×2, nombre, apellido, carnet). Devuelve token |
-| POST | `/api/auth/login` | — | Iniciar sesión. Devuelve token |
-| POST | `/api/auth/logout` | ✔ | Cerrar sesión en este dispositivo |
-| GET | `/api/me` | ✔ | Datos del usuario, `vistas` y `puede_cambiar_vista` |
-| PUT | `/api/me/vista` | ✔ | Guardar la vista elegida (`cliente`, `repartidor`, `comerciante`) |
+Todas las rutas, con sus campos y respuestas, en **`/docs/api`**
+(`http://localhost:8001/docs/api`). La documentación la genera **Scramble**
+leyendo los controladores: no hay que mantenerla a mano. Tiene un botón
+**Authorize** para pegar el token y probar las rutas con sesión.
+
+Resumen: cuenta (`/auth/*`, `/me`), catálogo (`/categorias`, `/productos`,
+`/tiendas`), cliente (`/direcciones`, `/envio/cotizar`, `/pedidos`,
+`/resenas`) y comerciante (`/negocios` y todo `/negocios/{negocio}/…`, que
+solo puede usar el dueño). Ejemplos de cada respuesta en
+[docs/API_FRONTEND.md](../docs/API_FRONTEND.md).
 
 Las rutas con sesión necesitan la cabecera `Authorization: Bearer <token>`.
+
+## Panel de administración
+
+En **`/admin`** (Filament 5). Entra quien tenga `usuario.es_admin = 1`, con el
+correo y la contraseña de la app. Para nombrar al primero:
+
+```
+php artisan mdr:admin tu@correo.com            # --quitar para sacarle el permiso
+```
+
+Las fotos de documentos (carnet, licencia) son privadas: el panel las muestra
+desde `/panel/documentos/{id}/archivo`, que solo responde a administradores.
+
+## Pruebas
+
+`php artisan test` usa una **base aparte, `mdrmarket_prueba`**, creada con el
+mismo script maestro (así se prueban los triggers y procedimientos reales).
+Cada prueba se deshace sola al terminar (DatabaseTransactions). Para crearla
+la primera vez (Laragon encendido; en Git Bash):
+
+```bash
+sed 's/mdrmarket_new/mdrmarket_prueba/g' mdrmarketnewdatabase.sql > prueba.sql
+mysql -uroot < prueba.sql
+```
+
+(el script está en el [repo Docker](https://github.com/RaschifDaguer/MDRmarket_2.0_docker)).
+Si cambias el script maestro, vuelve a crearla.
 
 **Contraseña:** mínimo 8 caracteres, con mayúscula, minúscula y número, y debe
 enviarse dos veces (`password` y `password_confirmation`).
@@ -43,6 +73,12 @@ ejemplo "Stock insuficiente") también llegan como 422 con su mensaje.
   Laravel (por eso `database/migrations` está vacío).
 - El modelo de login es `App\Models\Usuario` (tabla `usuario`).
 - La conexión a MySQL usa UTC (`timezone => +00:00`).
+- Los cambios de estado de un pedido pasan siempre por `App\Support\FlujoPedido`
+  (quién puede hacer cada cambio, fechas, historial y avisos). Las ventas, el
+  stock y los promedios de estrellas los actualiza la base con sus triggers.
+- Los archivos de Filament (`public/js/filament`, `public/css/filament`) no se
+  suben: los genera `php artisan filament:upgrade`, que corre solo con
+  `composer install` y al armar la imagen de Docker.
 
 ## Docker y Railway
 

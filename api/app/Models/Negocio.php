@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 /** Negocio de un comerciante. Lo aprueba un administrador (estado_verificacion). */
@@ -51,5 +52,31 @@ class Negocio extends Model
     public function categoria(): BelongsTo
     {
         return $this->belongsTo(Categoria::class);
+    }
+
+    public function productos(): HasMany
+    {
+        return $this->hasMany(Producto::class);
+    }
+
+    public function pedidos(): HasMany
+    {
+        return $this->hasMany(Pedido::class);
+    }
+
+    public function horarios(): HasMany
+    {
+        return $this->hasMany(NegocioHorario::class)->orderBy('dia_semana')->orderBy('hora_apertura');
+    }
+
+    public function registros(): HasMany
+    {
+        return $this->hasMany(RegistroComercio::class);
+    }
+
+    /** Solo los aprobados aparecen en el catálogo y reciben pedidos. */
+    public function estaAprobado(): bool
+    {
+        return $this->estado_verificacion === 'aprobado';
     }
 }

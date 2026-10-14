@@ -6,17 +6,13 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mdrmarket/core/theme/app_theme.dart';
-import 'package:mdrmarket/features/auth/domain/usuario.dart';
-import 'package:mdrmarket/features/auth/presentation/auth_controller.dart';
-import 'package:mdrmarket/features/catalogo/data/catalogo_repository.dart';
-import 'package:mdrmarket/features/catalogo/domain/categoria.dart';
-import 'package:mdrmarket/features/comerciante/data/negocio_repository.dart';
-import 'package:mdrmarket/features/comerciante/domain/negocio.dart';
+import 'package:mdrmarket/app.dart';
+import 'package:mdrmarket/core/router/app_router.dart';
+import 'package:mdrmarket/features/carrito/presentation/carrito_controller.dart';
 import 'package:mdrmarket/features/comerciante/presentation/registrar_negocio_screen.dart';
-import 'package:mdrmarket/features/inicio/presentation/inicio_screen.dart';
-import 'package:mdrmarket/features/perfil/data/perfil_repository.dart';
-import 'package:mdrmarket/features/perfil/domain/faltante.dart';
+import 'package:mdrmarket/features/pedidos/domain/pedido.dart';
+
+import 'falsos.dart';
 
 /// Revisa que las pantallas no se desborden en celular chico, celular, tablet
 /// y laptop (y con letra grande). Con la fuente real de la marca.
@@ -31,55 +27,6 @@ const _tamanos = {
   'tablet': Size(820, 1180),
   'laptop': Size(1366, 768),
 };
-
-class _SesionFalsa extends AuthController {
-  _SesionFalsa(this._usuario);
-
-  final Usuario _usuario;
-
-  @override
-  Future<Usuario?> build() async => _usuario;
-}
-
-const _cliente = Usuario(
-  id: 1,
-  nombre: 'Marta',
-  apellido: 'Suárez',
-  email: 'marta@correo.com',
-  ciNumero: '7654321',
-  telefono: '70012345',
-  vistas: [Vista.cliente],
-  vistaGuardada: 'cliente',
-);
-
-const _comerciante = Usuario(
-  id: 1,
-  nombre: 'Marta',
-  apellido: 'Suárez',
-  email: 'marta@correo.com',
-  ciNumero: '7654321',
-  vistas: [Vista.cliente, Vista.comerciante],
-  vistaGuardada: 'comerciante',
-);
-
-// Sin emojis: en las pruebas no hay fuente de emojis (en el navegador sí se ven).
-const _categorias = [
-  Categoria(id: 1, nombre: 'Alimentos y Bebidas'),
-  Categoria(id: 2, nombre: 'Salud y Belleza'),
-];
-
-const _faltaCarnet = [
-  Faltante(codigo: 'documento.ci_anverso', texto: 'Foto: Carnet de identidad (anverso)', documento: 'ci_anverso'),
-  Faltante(codigo: 'documento.ci_reverso', texto: 'Foto: Carnet de identidad (reverso)', documento: 'ci_reverso'),
-];
-
-const _negocio = Negocio(
-  id: 5,
-  nombre: 'Tienda Marta',
-  estado: EstadoNegocio.pendiente,
-  categoria: Categoria(id: 1, nombre: 'Alimentos y Bebidas'),
-  direccion: 'Av. Busch 1234, entre 2do y 3er anillo',
-);
 
 const _raiz = Key('raiz');
 
@@ -97,32 +44,49 @@ Future<void> _cargarFuentes() async {
 void main() {
   setUpAll(_cargarFuentes);
 
-  Future<void> abrir(
+  /// Abre la app completa en [ruta] (con datos falsos) y deja que cargue.
+  Future<ProviderContainer> abrir(
     WidgetTester tester,
-    Widget pantalla,
     Size tamano, {
-    required Usuario usuario,
-    List<Negocio> negocios = const [],
-    List<Faltante> faltantes = const [],
+    String ruta = '/inicio',
+    bool comoComerciante = false,
+    PedidosFalso? pedidos,
+    MiNegocioFalso? miNegocio,
+    bool conCarrito = false,
   }) async {
     tester.view.physicalSize = tamano;
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
+    final contenedor = ProviderContainer(
+      retry: (_, _) => null,
+      overrides: overridesFalsos(
+        usuario: comoComerciante ? comerciante : cliente,
+        negocios: comoComerciante ? const [negocioAprobado] : const [],
+        faltantes: comoComerciante ? const [] : faltaCarnet,
+        pedidos: pedidos,
+        miNegocio: miNegocio,
+      ).cast(),
+    );
+    addTearDown(contenedor.dispose);
+    if (conCarrito) {
+      contenedor.read(carritoProvider.notifier)
+        ..agregar(pollo, 2)
+        ..agregar(papas, 1);
+    }
     await tester.pumpWidget(RepaintBoundary(
       key: _raiz,
-      child: ProviderScope(
-        retry: (_, _) => null,
-        overrides: [
-          authControllerProvider.overrideWith(() => _SesionFalsa(usuario)),
-          categoriasProvider.overrideWith((ref) async => _categorias),
-          faltantesProvider.overrideWith((ref, rol) async => faltantes),
-          misNegociosProvider.overrideWith((ref) async => negocios),
-        ],
-        child: MaterialApp(theme: AppTheme.claro, debugShowCheckedModeBanner: false, home: pantalla),
-      ),
+      child: UncontrolledProviderScope(container: contenedor, child: const MdrMarketApp()),
     ));
-    await tester.pump();
-    await tester.pump(const Duration(seconds: 2));
+    for (var i = 0; i < 4; i++) {
+      await tester.pump(const Duration(milliseconds: 300));
+    }
+    if (ruta != '/inicio') {
+      contenedor.read(routerProvider).push(ruta);
+      for (var i = 0; i < 4; i++) {
+        await tester.pump(const Duration(milliseconds: 300));
+      }
+    }
+    return contenedor;
   }
 
   Future<void> guardar(WidgetTester tester, String nombre) async {
@@ -137,51 +101,75 @@ void main() {
     });
   }
 
+  Future<void> cerrarYRevisar(WidgetTester tester) async {
+    expect(tester.takeException(), isNull);
+    await cerrar(tester);
+  }
+
+  // Pantallas a revisar: nombre de la captura → cómo se abre.
+  final pantallas = <String, Future<void> Function(WidgetTester, Size)>{
+    '1-catalogo': (t, s) => abrir(t, s),
+    '2-producto': (t, s) => abrir(t, s, ruta: '/producto/10'),
+    '3-carrito': (t, s) => abrir(t, s, ruta: '/carrito', conCarrito: true),
+    '4-confirmar': (t, s) => abrir(t, s, ruta: '/checkout', conCarrito: true),
+    '5-pedido-cliente': (t, s) => abrir(t, s,
+        ruta: '/pedido/42', pedidos: PedidosFalso(pedidoActual: pedidoDeEjemplo(acciones: const [EstadoPedido.cancelado]))),
+    '6-resumen-comerciante': (t, s) => abrir(t, s, comoComerciante: true),
+    '7-pedido-negocio': (t, s) => abrir(t, s, comoComerciante: true, ruta: '/negocio/pedido/42'),
+    '8-producto-form': (t, s) => abrir(t, s, comoComerciante: true, ruta: '/negocio/producto'),
+  };
+
   for (final MapEntry(key: dispositivo, value: tamano) in _tamanos.entries) {
     group(dispositivo, () {
-      testWidgets('inicio cliente', (tester) async {
-        await abrir(tester, const InicioScreen(), tamano, usuario: _cliente);
-        expect(find.text('¿Tienes un negocio?'), findsOneWidget);
-        expect(tester.takeException(), isNull);
-        await guardar(tester, '$dispositivo-1-inicio-cliente');
-      });
-
-      testWidgets('registrar negocio', (tester) async {
-        await abrir(tester, const RegistrarNegocioScreen(), tamano, usuario: _cliente, faltantes: _faltaCarnet);
-        expect(find.text('Registrar mi negocio'), findsOneWidget);
-        expect(tester.takeException(), isNull);
-        await guardar(tester, '$dispositivo-2-registrar-negocio');
-      });
-
-      testWidgets('inicio comerciante', (tester) async {
-        await abrir(tester, const InicioScreen(), tamano,
-            usuario: _comerciante, negocios: const [_negocio], faltantes: _faltaCarnet);
-        expect(find.text('Negocio en revisión'), findsOneWidget);
-        expect(tester.takeException(), isNull);
-        await guardar(tester, '$dispositivo-3-inicio-comerciante');
-      });
+      for (final MapEntry(key: nombre, value: abrirPantalla) in pantallas.entries) {
+        testWidgets(nombre, (tester) async {
+          await abrirPantalla(tester, tamano);
+          expect(tester.takeException(), isNull);
+          await guardar(tester, '$dispositivo-$nombre');
+          await cerrarYRevisar(tester);
+        });
+      }
     });
   }
 
-  testWidgets('formulario completo con errores (celular)', (tester) async {
+  testWidgets('pestañas del comerciante (celular)', (tester) async {
+    await abrir(tester, const Size(390, 844), comoComerciante: true);
+    for (final (pestana, archivo) in [('Productos', 'productos'), ('Pedidos', 'pedidos'), ('Ganancias', 'ganancias'), ('Más', 'mas')]) {
+      await tester.tap(find.text(pestana));
+      for (var i = 0; i < 4; i++) {
+        await tester.pump(const Duration(milliseconds: 300));
+      }
+      expect(tester.takeException(), isNull);
+      await guardar(tester, 'celular-9-comerciante-$archivo');
+    }
+    await cerrarYRevisar(tester);
+  });
+
+  testWidgets('formulario de registro con errores (celular)', (tester) async {
     // Alto grande para ver el formulario entero en una sola imagen.
-    await abrir(tester, const RegistrarNegocioScreen(), const Size(390, 2300),
-        usuario: _cliente, faltantes: _faltaCarnet);
+    await abrir(tester, const Size(390, 2300), ruta: '/registrar-negocio');
+    expect(find.byType(RegistrarNegocioScreen), findsOneWidget);
     await tester.tap(find.widgetWithText(FilledButton, 'Registrar negocio'));
     await tester.pump(const Duration(seconds: 1));
     // Un cuadro más: los errores de los campos aparecen con una animación.
     await tester.pump(const Duration(milliseconds: 300));
     expect(find.text('Agrega una foto del negocio.'), findsOneWidget);
-    expect(tester.takeException(), isNull);
-    await guardar(tester, 'celular-4-formulario-con-errores');
+    await guardar(tester, 'celular-10-registrar-negocio-errores');
+    await cerrarYRevisar(tester);
   });
 
   testWidgets('letra grande en celular chico', (tester) async {
     tester.platformDispatcher.textScaleFactorTestValue = 1.3;
     addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
-    await abrir(tester, const InicioScreen(), const Size(360, 740),
-        usuario: _comerciante, negocios: const [_negocio], faltantes: _faltaCarnet);
+    await abrir(tester, const Size(360, 740));
     expect(tester.takeException(), isNull);
-    await guardar(tester, 'celular-chico-5-letra-grande');
+    await guardar(tester, 'celular-chico-11-letra-grande-catalogo');
+    final contenedor = ProviderScope.containerOf(tester.element(find.byType(Navigator).first));
+    contenedor.read(routerProvider).push('/producto/10');
+    for (var i = 0; i < 4; i++) {
+      await tester.pump(const Duration(milliseconds: 300));
+    }
+    await guardar(tester, 'celular-chico-11-letra-grande-producto');
+    await cerrarYRevisar(tester);
   });
 }

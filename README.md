@@ -84,15 +84,16 @@ romper cosas, importa la copia `mdrmarket_new_aiven_2026-10-03.sql` del
 | 2 | **API:** registro (contraseña segura escrita dos veces), inicio y cierre de sesión, perfil y cambio de vista | ✅ Hecho |
 | 3 | **App:** pantallas de arranque, inicio de sesión, registro e inicio por vista, con el botón "cambiar vista" | ✅ Hecho |
 | — | **Servidor en internet:** API en Railway + base en Aiven, con despliegue automático | ✅ Hecho |
-| 4 | Registro de repartidor (vehículo y documentos) y de comerciante (negocio, GPS y foto) | ⏳ Siguiente |
-| 5 | Catálogo con categorías, búsqueda y ofertas (frontend + API) | ⏳ |
-| 6 | Carrito, pedido y cotización del envío | ⏳ |
-| 7 | Vista comerciante: productos y pedidos entrantes | ⏳ |
-| 8 | Vista repartidor: pedidos disponibles, aceptar y entregar | ⏳ |
+| 4a | Registro de comerciante (negocio, mapa/GPS, foto, carnet) | ✅ Hecho |
+| 4b | Registro de repartidor (vehículo y documentos) | ⏳ Siguiente |
+| 5 | Catálogo con categorías, búsqueda, ofertas y páginas de tienda | ✅ Hecho |
+| 6 | Carrito, direcciones, costo del envío y pedido (con PIN de entrega) | ✅ Hecho |
+| 7 | Vista comerciante: productos, pedidos entrantes, compras y gastos, perfil y horario | ✅ Hecho |
+| 8 | Vista repartidor: pedidos disponibles, aceptar y entregar | ⏳ (mientras tanto, el negocio entrega con su propio delivery y el PIN del cliente) |
 | 9 | **Rastreo del pedido en el mapa** (GPS del repartidor en vivo) | ⏳ |
-| 10 | Reseñas, reportes y sanciones en la app | ⏳ |
-| 11 | Ganancias del comerciante (reportes y gráficos) | ⏳ |
-| 12 | Panel de administrador web (Filament) | ⏳ |
+| 10 | Reseñas (✅ producto y negocio, con respuesta del negocio); reportes y sanciones en la app ⏳ | Parcial |
+| 11 | Ganancias del comerciante (por período con gráfico y por producto) | ✅ Hecho |
+| 12 | Panel de administrador web (Filament) en `/admin`: aprobar negocios y documentos, pedidos, usuarios, tarifas | ✅ Hecho |
 | 13 | Notificaciones, recuperar contraseña y publicación (APK / Play Store / iOS) | ⏳ |
 
 El detalle de cada módulo pendiente, con qué construir y cómo probarlo, está en
@@ -250,6 +251,26 @@ Usuarios de ejemplo: los `*@mdrmarket.local` del script. Lo más simple es
   ```
   ⚠️ Así trabajas sobre **datos reales**: lo que crees o borres se ve en la app publicada.
 
+### 3.6 Panel de administrador
+
+Es una página web dentro de la misma API: **`/admin`**
+(`http://localhost:8001/admin` en tu PC, `https://api-mdrmarket-production.up.railway.app/admin`
+en internet). Se entra con el **correo y la contraseña de la app**, pero solo
+las cuentas marcadas como administrador.
+
+1. Regístrate en la app con tu cuenta normal.
+2. Dale permiso de administrador:
+   - **En tu PC:** desde `api/`, `php artisan mdr:admin tu@correo.com`
+   - **En producción (Aiven):** en tu cliente MySQL,
+     `UPDATE usuario SET es_admin = 1 WHERE email = 'tu@correo.com';`
+3. Entra a `/admin`. Desde ahí, en **Operación → Usuarios**, puedes hacer
+   administradores a otras cuentas sin tocar la base.
+
+Qué tiene: **Aprobaciones** (negocios con su foto, datos y el carnet del
+dueño; documentos con la foto grande; aprobar o rechazar con motivo),
+**Operación** (pedidos, usuarios) y **Configuración** (tarifas de envío,
+tarifa de servicio y comisión).
+
 ---
 
 ## 4. Servidor en internet (Railway + Aiven)
@@ -305,25 +326,29 @@ MDRmarket_2.0/
 │   ├── DIAGRAMA_BD.md        ← diagrama de la base
 │   └── BASE_DE_DATOS.md      ← cómo está la base y cómo cambiarla
 ├── api/                      ← Laravel 12
-│   ├── app/Http/Controllers/Api/AuthController.php
-│   ├── app/Http/Requests/RegistroRequest.php
-│   ├── app/Http/Resources/UsuarioResource.php
-│   ├── app/Models/Usuario.php        (modelo de login, tabla `usuario`)
-│   ├── routes/api.php
-│   ├── bootstrap/app.php             (errores JSON en español)
-│   ├── lang/es/                      (mensajes de validación)
-│   ├── Dockerfile + docker/entrypoint.sh  (imagen para Railway)
+│   ├── app/Http/Controllers/Api/              cuenta, catálogo, pedidos, direcciones, reseñas…
+│   ├── app/Http/Controllers/Api/Comerciante/  productos, pedidos, compras y gastos, ganancias, reseñas
+│   ├── app/Http/Requests/ y Resources/        validaciones y formato de las respuestas
+│   ├── app/Models/                            una clase por tabla (Usuario, Negocio, Producto, Pedido…)
+│   ├── app/Support/                           FlujoPedido (estados), Envio, Revision (admin), Archivos
+│   ├── app/Filament/                          panel de administración (/admin)
+│   ├── routes/api.php, web.php, console.php   rutas y el comando mdr:admin
+│   ├── tests/Feature/                         pruebas (php artisan test)
+│   ├── bootstrap/app.php                      errores JSON en español
+│   ├── Dockerfile + docker/entrypoint.sh      imagen para Railway
 │   └── README.md
 └── app/                      ← Flutter
     ├── lib/main.dart, app.dart
     ├── lib/core/            config (URL de la API), red (Dio), router, tema, almacenamiento,
-    │                        maps/ (mapa + GPS), archivos/ (elegir fotos)
-    ├── lib/features/auth/   login, registro, sesión
-    ├── lib/features/inicio/ pantalla de inicio por vista + cambio de vista
-    ├── lib/features/catalogo/    categorías (rubros)
-    ├── lib/features/comerciante/ registrar mi negocio
+    │                        maps/ (mapa + GPS), archivos/ (fotos), formato/ (Bs y fechas), widgets/
+    ├── lib/features/auth/        login, registro, sesión
+    ├── lib/features/inicio/      inicio por vista (cliente / repartidor / comerciante) + cambio de vista
+    ├── lib/features/catalogo/    catálogo, detalle de producto, tiendas
+    ├── lib/features/carrito/     carrito (de un solo negocio)
+    ├── lib/features/pedidos/     confirmar pedido, direcciones, mis pedidos, calificar
+    ├── lib/features/comerciante/ registrar negocio y todas las pantallas del comerciante
     ├── lib/features/perfil/      lo que falta para cada rol + subir documentos
-    ├── test/                pruebas
+    ├── test/                pruebas (falsos.dart = datos de prueba sin internet)
     └── README.md
 ```
 
@@ -349,8 +374,19 @@ En la PC del dueño, `C:\Raschif\laragon\www\mdrmarket_v2_api` es un enlace a
 | GET | `/api/documentos` | ✔ | Mis documentos subidos y su estado |
 | POST | `/api/documentos` | ✔ | Subir la foto de un documento (carnet, licencia…) |
 | GET | `/api/archivos/{ruta}` | — | Ver una foto pública (negocios, productos) |
+| GET | `/api/productos`, `/api/productos/{id}` | — | Catálogo (filtros: categoría, negocio, texto, ofertas, orden) y detalle |
+| GET | `/api/tiendas`, `/api/tiendas/{id}` | — | Negocios aprobados y página de cada uno |
+| GET/POST/PUT/DELETE | `/api/direcciones` | ✔ | Direcciones guardadas del cliente |
+| POST | `/api/envio/cotizar` | ✔ | Costo del envío hasta una dirección |
+| GET/POST | `/api/pedidos` | ✔ | Mis pedidos / hacer un pedido |
+| GET | `/api/pedidos/{id}` | ✔ | Detalle (lo ven el comprador y el negocio) |
+| POST | `/api/pedidos/{id}/cancelar` | ✔ | Cancelar (solo mientras está pendiente) |
+| PUT | `/api/resenas` | ✔ | Calificar un producto o negocio (crea o edita) |
+| … | `/api/negocios/{id}/…` | ✔ dueño | Perfil, horario, abierto, productos, pedidos, compras y gastos, ganancias, reseñas |
 
-Detalle de cada ruta en [docs/API_FRONTEND.md](docs/API_FRONTEND.md).
+**Todas las rutas, con sus campos y para probarlas:** `http://localhost:8001/docs/api`
+(o `https://api-mdrmarket-production.up.railway.app/docs/api`). La genera
+**Scramble** leyendo el código. Ejemplos en [docs/API_FRONTEND.md](docs/API_FRONTEND.md).
 
 Sesión = cabecera `Authorization: Bearer <token>` (Laravel Sanctum).
 Prueba rápida:
@@ -383,7 +419,17 @@ curl https://api-mdrmarket-production.up.railway.app/api/me -H "Accept: applicat
 - **Reportes y sanciones:** reportes con motivo; las sanciones bloquean pedidos,
   ocultan negocios/productos y vencen solas.
 - **Ganancias del comerciante:** las ventas se registran solas al entregar un
-  pedido; reportes por día, semana, mes o año (`sp_reporte_negocio`).
+  pedido; reportes por día, semana, mes o año (`sp_reporte_negocio`). Las
+  compras de mercadería suman stock y actualizan el costo.
+- **Pedido:** a un solo negocio, aprobado y abierto; el precio sale del
+  catálogo (con la oferta vigente), respeta el pedido mínimo y la cobertura.
+  Estados: pendiente → aceptado → preparando → listo → en camino → entregado
+  (o rechazado / cancelado). El cliente cancela solo mientras está pendiente.
+- **Entrega:** mientras no exista el módulo del repartidor, **el negocio
+  entrega con su propio delivery** y marca "entregado" con el **PIN de 4
+  números** que solo ve el cliente.
+- **Aprobación:** un negocio nuevo queda "en revisión" hasta que un
+  administrador lo aprueba en `/admin`; recién ahí aparece en el catálogo.
 - **Horario:** todo se guarda en **UTC**; los reportes se muestran en hora de
   Bolivia (-04:00).
 
@@ -396,11 +442,12 @@ Detalle completo en [docs/BASE_DE_DATOS.md](docs/BASE_DE_DATOS.md).
 ```bash
 # App (desde app/)
 flutter analyze
-flutter test                                                        # pantallas, registro y comerciante (datos falsos)
+flutter test                                                        # todas las pantallas con datos falsos
 flutter test --dart-define=API_URL=http://127.0.0.1:8001/api        # + recorridos reales contra la API local
+flutter test test/responsivo_test.dart --dart-define=CAPTURAS=true  # imágenes de cada pantalla en build/capturas/
 
-# API (con la API encendida)
-curl http://localhost:8001/up
+# API (desde api/): usa la base aparte mdrmarket_prueba (ver api/README.md)
+php artisan test
 ```
 
 Regla del equipo: **cada módulo nuevo trae al menos una prueba simple que

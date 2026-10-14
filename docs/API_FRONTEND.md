@@ -4,9 +4,13 @@ Qué manda y qué recibe la app en cada pantalla. Sirve para maquetar con
 **datos de prueba** las pantallas cuya ruta de la API todavía no existe, sin
 trabajar a ciegas.
 
-- **Parte 1:** rutas que **ya funcionan** (registro, login, perfil, vistas).
-- **Parte 2:** datos que tendrán las pantallas **pendientes**. Salen de las
-  vistas reales de la base, pero la ruta se confirma al construir cada módulo.
+- **Parte 1:** cuenta, perfil y registro del negocio.
+- **Parte 2:** catálogo, pedidos y todo lo del comerciante (también funcionan).
+- **Parte 3:** lo que todavía **falta** (repartidor y rastreo): datos propuestos
+  para maquetar.
+
+> **Referencia completa y siempre al día:** `/docs/api` en la API (la genera
+> Scramble leyendo el código). Este documento explica *cómo usarla* desde la app.
 
 Ver también: [diagrama de la base](DIAGRAMA_BD.md) · [hoja de ruta](HOJA_DE_RUTA.md).
 
@@ -219,94 +223,170 @@ esta URL: la API ya la manda completa en `logo_url`.
 
 ---
 
-## Parte 2 — Datos para las pantallas pendientes ⏳
+## Parte 2 — Catálogo, pedidos y comerciante ✅
 
-> Las **rutas** de esta parte son propuestas (ver [hoja de ruta](HOJA_DE_RUTA.md)).
-> Los **campos** salen de la base real. Úsalos para maquetar con datos falsos;
-> cuando la ruta exista, solo se cambia el repositorio de datos falso por el real.
+### Catálogo (no pide sesión)
 
-### Catálogo (módulo 5)
-`GET /productos?categoria=2&subcategoria=203&q=crema&ofertas=1` — cada producto
-viene de la vista `v_catalogo_producto`. **Ejemplo real** de la base:
+`GET /productos?categoria=2&subcategoria=203&negocio=4&q=crema&ofertas=1&orden=precio&page=1`
+— todos los filtros son opcionales. `orden`: `populares` (por defecto), `recientes`,
+`precio`, `precio_desc`, `rating`. Viene de a 20, con `data` y `meta`
+(`current_page`, `last_page`). Solo muestra negocios **aprobados** y sin sanción.
+
 ```json
 {
-  "id": 21,
-  "nombre": "Crema Hidratante Facial 50 g",
-  "descripcion": "Hidratación con ácido hialurónico. Para todo tipo de piel.",
-  "precio": "28.00",
-  "precio_final": "28.00",
-  "en_oferta": false,
-  "descuento_pct": 0,
-  "stock": 45,
-  "rating_promedio": null,
-  "total_resenas": 0,
-  "total_vendidos": 0,
-  "imagen_url": "https://placehold.co/400x300/1b5e20/ffffff?text=Crema+Hidratante+Facial+50+g",
-  "categoria_id": 203,
-  "categoria": "Cosmética y cuidado de la piel",
-  "categoria_icono": "💄",
-  "categoria_principal_id": 2,
-  "categoria_principal": "Salud y Belleza",
-  "negocio_id": 4,
-  "negocio": "FarmaSuper",
-  "negocio_logo": "https://placehold.co/150/1b5e20/ffffff?text=Farma",
-  "negocio_rating": null,
-  "negocio_abierto": true,
-  "negocio_latitud": "-17.7696000",
-  "negocio_longitud": "-63.1658000"
+  "data": [{
+    "id": 21,
+    "nombre": "Crema Hidratante Facial 50 g",
+    "descripcion": "Hidratación con ácido hialurónico.",
+    "precio": "28.00",
+    "precio_final": "22.40",
+    "en_oferta": true,
+    "descuento_pct": 20,
+    "stock": 45,
+    "rating_promedio": 4.5,
+    "total_resenas": 2,
+    "total_vendidos": 7,
+    "imagen_url": "https://…",
+    "categoria": { "id": 203, "nombre": "Cosmética y cuidado de la piel", "icono": "💄" },
+    "categoria_principal": { "id": 2, "nombre": "Salud y Belleza" },
+    "negocio": { "id": 4, "nombre": "FarmaSuper", "logo_url": "https://…", "rating_promedio": null, "abierto": true }
+  }],
+  "meta": { "current_page": 1, "last_page": 2 }
 }
 ```
-- Si `en_oferta` es `true`: mostrar `precio` tachado, `precio_final` grande y la etiqueta `-{descuento_pct}%`.
-- `rating_promedio: null` → "Sin reseñas todavía".
-- `stock: null` → no se controla stock (ej. comida hecha al momento).
+- Con `en_oferta: true`: `precio` tachado, `precio_final` grande y la etiqueta `-{descuento_pct}%`.
+- `stock: null` = sin control de stock (siempre disponible). `stock: 0` = agotado.
+- `rating_promedio: null` = todavía sin reseñas ("Nuevo").
 
-Las categorías ya tienen ruta real: ver [`GET /categorias`](#get-categorias) en la Parte 1.
+`GET /productos/{id}` — lo mismo más `imagenes` (lista de URLs), `resenas`
+(las últimas 20) y en `negocio`: `pedido_minimo` y `tiempo_preparacion_min`.
+404 si ya no está disponible.
 
-### Pedido (módulos 6–8)
-Estados y cómo mostrarlos:
+`GET /tiendas?categoria=1&q=pollo` — negocios aprobados (abiertos primero), de a 20.
+`GET /tiendas/{id}` — datos del negocio, `horarios`, `productos` y `resenas`.
 
-| `estado` | Texto sugerido | Lo cambia |
+Reseña (en `resenas` de producto o tienda):
+```json
+{ "id": 9, "tipo": "negocio", "estrellas": 5, "comentario": "¡Muy rico!", "autor": "Lucía R.",
+  "respuesta": "¡Gracias!", "respondido_en": "…", "created_at": "…", "updated_at": "…" }
+```
+
+### Direcciones del cliente 🔒
+
+`GET /direcciones` (la predeterminada primero) · `POST /direcciones` ·
+`PUT /direcciones/{id}` · `DELETE /direcciones/{id}`
+
+```json
+{ "etiqueta": "Casa", "direccion": "Calle Libertad 123", "referencia": "Portón negro",
+  "latitud": -17.7895, "longitud": -63.1803, "predeterminada": true }
+```
+La primera que se guarda queda como predeterminada. Fuera del 10mo anillo → **422** en `latitud`.
+
+### Envío 🔒
+
+`POST /envio/cotizar` `{ "negocio_id": 4, "latitud": -17.7895, "longitud": -63.1803, "productos": [21, 22] }`
+```json
+{ "costo_envio": "5.00", "distancia_km": 3.2, "anillo": 3, "tarifa_servicio": "0.00" }
+```
+Fuera de cobertura → **422** en `latitud`. Tarifas: hasta 3 km 3 Bs · 6 km 5 Bs ·
+10 km 8 Bs · 15 km 12 Bs · 20 km 15 Bs · 30 km 20 Bs (editables en `/admin`).
+
+### Pedidos del cliente 🔒
+
+`POST /pedidos` — a **un** negocio:
+```json
+{
+  "negocio_id": 4,
+  "direccion_id": 7,
+  "metodo_pago": "efectivo",
+  "notas": "Tocar el timbre",
+  "items": [ { "producto_id": 21, "cantidad": 2, "notas": "sin cebolla" } ]
+}
+```
+- En vez de `direccion_id` se puede mandar `direccion`, `referencia`, `latitud` y `longitud`.
+- `metodo_pago`: `efectivo`, `qr` o `transferencia`.
+- El precio de cada producto lo pone la API (con la oferta vigente).
+- **422** con el motivo: negocio cerrado o no disponible, producto agotado
+  ("Solo quedan 2 de «…»" en `items.0.cantidad`), pedido mínimo (`items`),
+  fuera de cobertura (`latitud`), pedir a tu propio negocio (`negocio_id`).
+
+Respuesta **201** (igual que `GET /pedidos/{id}`):
+```json
+{
+  "id": 42,
+  "estado": "pendiente",
+  "negocio": { "id": 4, "nombre": "FarmaSuper", "logo_url": "…", "telefono": "…", "direccion": "…", "latitud": -17.76, "longitud": -63.16 },
+  "direccion_entrega": "Calle Libertad 123",
+  "referencia_entrega": "Portón negro",
+  "latitud_entrega": -17.7895, "longitud_entrega": -63.1803,
+  "notas": "Tocar el timbre",
+  "subtotal": "44.80", "costo_envio": "5.00", "tarifa_servicio": "0.00", "descuento": "0.00", "total": "49.80",
+  "metodo_pago": "efectivo", "estado_pago": "pendiente",
+  "codigo_entrega": "4821",
+  "distancia_km": 3.2,
+  "motivo_cancelacion": null,
+  "items": [ { "id": 1, "producto_id": 21, "nombre": "Crema…", "imagen_url": "…", "precio_unitario": "22.40", "cantidad": 2, "subtotal": "44.80", "notas": "sin cebolla" } ],
+  "historial": [ { "estado": "pendiente", "motivo": null, "fecha": "2026-10-09T16:30:00.000000Z" } ],
+  "acciones": ["cancelado"],
+  "created_at": "…", "confirmado_en": null, "entregado_en": null, "cancelado_en": null
+}
+```
+- `codigo_entrega` (**PIN**) solo lo recibe el comprador; el negocio lo pide al entregar.
+- `acciones` = a qué estados puede pasarlo quien pregunta (para mostrar los botones).
+- Cuando está `entregado`, el comprador recibe además `mis_resenas`:
+  `{ "negocio": {"estrellas": 4, …} | null, "productos": [ {"producto_id": 21, "estrellas": 5, …} ] }`.
+- El negocio no recibe el PIN, pero sí `cliente: { "nombre", "telefono" }`.
+
+`GET /pedidos` — mis pedidos (de a 20, con `total_items`).
+`POST /pedidos/{id}/cancelar` `{ "motivo": "…" }` — solo mientras está `pendiente`.
+
+| `estado` | Texto en la app | Lo cambia |
 |---|---|---|
 | `pendiente` | Esperando al negocio | — |
-| `confirmado` | El negocio aceptó tu pedido | Comerciante |
-| `preparando` | Preparando tu pedido | Comerciante |
-| `listo` | Listo, buscando repartidor | Comerciante |
-| `en_camino` | Tu pedido va en camino 🛵 | Repartidor |
-| `entregado` | Entregado ✅ | Repartidor (con PIN `codigo_entrega`) |
-| `cancelado` / `rechazado` | Cancelado | Cliente / comerciante |
+| `confirmado` | Aceptado | Comerciante |
+| `preparando` | Preparando | Comerciante |
+| `listo` | Listo | Comerciante |
+| `en_camino` | En camino | Comerciante (después, el repartidor) |
+| `entregado` | Entregado | Comerciante con el PIN (después, el repartidor) |
+| `cancelado` / `rechazado` | Cancelado / Rechazado | Cliente (pendiente), comerciante (con motivo), admin |
 
-`GET /pedidos/{id}` — campos principales (tabla `pedido` + vista `v_pedido_resumen`):
+### Reseñas 🔒
+
+`PUT /resenas` — crea o edita la del usuario (una por producto o negocio):
 ```json
-{
-  "id": 100,
-  "estado": "en_camino",
-  "negocio": "TechStore SCZ",
-  "repartidor": "Diego Rodríguez",
-  "vehiculo": "Moto",
-  "placa": "SCZ-1234",
-  "direccion_entrega": "Av. El Trompillo 301",
-  "latitud_entrega": "-17.8007823",
-  "longitud_entrega": "-63.1886937",
-  "anillo_entrega": 3,
-  "subtotal": "384.50",
-  "costo_envio": "5.00",
-  "total": "389.50",
-  "metodo_pago": "efectivo",
-  "estado_pago": "pendiente",
-  "codigo_entrega": "4821",
-  "items": [
-    { "producto_id": 1, "producto_nombre": "Auriculares Bluetooth Premium", "precio_unitario": "185.00", "cantidad": 2, "subtotal": "370.00" },
-    { "producto_id": 2, "producto_nombre": "Cable USB-C a USB-A 2m", "precio_unitario": "14.50", "cantidad": 1, "subtotal": "14.50" }
-  ],
-  "created_at": "2026-10-03T20:15:00Z"
-}
+{ "tipo": "negocio", "negocio_id": 4, "estrellas": 4, "comentario": "Muy amable" }
+{ "tipo": "producto", "producto_id": 21, "estrellas": 5 }
 ```
-- `metodo_pago`: `efectivo`, `qr`, `transferencia`, `tarjeta`.
-- `codigo_entrega` (PIN) solo lo ve el comprador; el repartidor lo pide al entregar.
+Antes de recibir un pedido → **422** "Solo puedes reseñar después de recibir un pedido".
 
-**Cotizar envío** (`POST /envio/cotizar`) → `{ "costo_envio": "5.00", "distancia_km": 3.2, "anillo": 3 }`
-o **422** "Fuera de cobertura" si la dirección está más allá del 10mo anillo.
-Precios: hasta 3 km 3 Bs · 6 km 5 Bs · 10 km 8 Bs · 15 km 12 Bs · 20 km 15 Bs · 30 km 20 Bs.
+### Comerciante: `/negocios/{negocio}/…` 🔒 (solo el dueño; a otro le responde 404)
+
+| Ruta | Para qué |
+|---|---|
+| `POST /negocios/{id}` | Editar perfil (multipart; `foto` opcional). Campos de `POST /negocios` + `tiempo_preparacion_min`, `pedido_minimo` |
+| `PATCH …/abierto` `{abierto}` | Abrir o cerrar ahora (cerrado no recibe pedidos) |
+| `PUT …/horario` | `{"horarios": [{"dia_semana": 1, "hora_apertura": "08:00", "hora_cierre": "20:00"}]}` (1 = lunes) |
+| `GET …/resumen` | Pedidos nuevos y en curso, montos de hoy y del mes, productos activos y sin stock |
+| `GET …/productos` | Mis productos (también los ocultos), con `costo`, `stock`, `disponible`, `categoria_vehiculo_id` |
+| `POST …/productos` | Nuevo (multipart): `nombre`, `categoria_id` (**subcategoría**), `precio`, `costo`, `precio_oferta`, `oferta_fin`, `controlar_stock` (1/0), `stock`, `disponible` (1/0), `categoria_vehiculo_id` (1 moto · 2 auto · 3 camión), `foto` |
+| `POST …/productos/{p}` | Editar (multipart, mismos campos) |
+| `PATCH …/productos/{p}/disponible` | Mostrar u ocultar |
+| `DELETE …/productos/{p}` | Eliminar |
+| `GET …/pedidos?grupo=nuevos\|en_curso\|terminados` | Pedidos que llegan |
+| `PUT …/pedidos/{p}/estado` | `{"estado": "confirmado"}` · rechazar/cancelar con `motivo` · `{"estado": "entregado", "codigo": "4821"}` |
+| `GET/POST …/registros`, `DELETE …/registros/{r}` | Compras (`producto_id`, `cantidad`, `costo_unitario`, `proveedor`) y gastos (`descripcion`, `monto`); `fecha` opcional |
+| `GET …/reporte?desde&hasta&agrupar=dia\|semana\|mes\|anio` | `totales` y `periodos` (ventas, costo, ganancia bruta, compras, gastos, comisiones, ganancia neta, flujo de caja) |
+| `GET …/reporte-productos?desde&hasta` | Por producto: vendidas, ventas, ganancia, margen |
+| `GET …/resenas` · `PUT …/resenas/{r}/respuesta` | Reseñas del negocio y sus productos, con el resumen por estrellas; responder |
+
+Fechas de los filtros: `AAAA-MM-DD` en hora de Bolivia.
+
+---
+
+## Parte 3 — Lo que falta (repartidor y rastreo) ⏳
+
+> Rutas **propuestas**: los campos salen de la base real. Sirven para maquetar
+> con datos falsos; se confirman al construir cada módulo.
 
 ### Rastreo en el mapa (módulo 9)
 `GET /pedidos/{id}/seguimiento` — la app del cliente lo consulta cada 5–10 s:
@@ -324,23 +404,9 @@ Precios: hasta 3 km 3 Bs · 6 km 5 Bs · 10 km 8 Bs · 15 km 12 Bs · 20 km 15 B
 El repartidor envía su posición con `POST /repartidor/ubicacion`
 `{ "pedido_id": 100, "latitud": -17.78012, "longitud": -63.19021 }`.
 
-### Reseñas (módulo 10)
-`PUT /resenas` (crea o edita la del usuario):
-```json
-{ "tipo": "repartidor", "repartidor_id": 5, "estrellas": 4, "comentario": "Muy amable" }
-```
-`tipo`: `producto` (con `producto_id`), `negocio` (`negocio_id`) o `repartidor` (`repartidor_id`).
-Mostrar el promedio como "⭐ 4.0 (17 reseñas)" con `rating_promedio` y `total_resenas`.
-
-### Ganancias del comerciante (módulo 11)
-`GET /mi-negocio/reporte?desde=2026-10-01&hasta=2026-10-31&agrupar=dia` — una fila
-por periodo (sale de `sp_reporte_negocio`):
-```json
-{ "periodo": "2026-10-03", "ventas": "384.50", "costo_de_lo_vendido": "240.00",
-  "ganancia_bruta": "144.50", "compras": "1200.00", "gastos": "50.00",
-  "comisiones": "0.00", "ganancia_neta": "94.50", "flujo_caja": "-865.50",
-  "unidades_vendidas": 3 }
-```
+### Reseñas del repartidor (módulo 10)
+`PUT /resenas` con `{ "tipo": "repartidor", "repartidor_id": 5, "estrellas": 4 }`
+(la base ya lo acepta; falta habilitarlo en la API cuando exista el repartidor).
 
 ---
 

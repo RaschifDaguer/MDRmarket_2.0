@@ -2,6 +2,9 @@
 
 namespace App\Models;
 
+use Filament\Models\Contracts\FilamentUser;
+use Filament\Models\Contracts\HasName;
+use Filament\Panel;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -12,8 +15,9 @@ use Laravel\Sanctum\HasApiTokens;
 /**
  * Persona registrada. Todo usuario puede comprar (vista cliente); los roles
  * repartidor y comerciante son perfiles aparte (tablas repartidor y negocio).
+ * Los que tienen es_admin = 1 entran al panel web (/admin).
  */
-class Usuario extends Authenticatable
+class Usuario extends Authenticatable implements FilamentUser, HasName
 {
     use HasApiTokens, Notifiable, SoftDeletes;
 
@@ -52,6 +56,37 @@ class Usuario extends Authenticatable
     public function negocios(): HasMany
     {
         return $this->hasMany(Negocio::class);
+    }
+
+    public function documentos(): HasMany
+    {
+        return $this->hasMany(Documento::class);
+    }
+
+    public function direcciones(): HasMany
+    {
+        return $this->hasMany(Direccion::class);
+    }
+
+    public function pedidos(): HasMany
+    {
+        return $this->hasMany(Pedido::class, 'comprador_id');
+    }
+
+    public function getNombreCompletoAttribute(): string
+    {
+        return trim($this->nombre.' '.$this->apellido);
+    }
+
+    /** Panel de administración: solo administradores con la cuenta activa. */
+    public function canAccessPanel(Panel $panel): bool
+    {
+        return $this->es_admin && $this->activo;
+    }
+
+    public function getFilamentName(): string
+    {
+        return $this->nombre_completo;
     }
 
     /** ¿Tiene una suspensión o bloqueo vigente para ese rol? ('todos' = cuenta entera). */

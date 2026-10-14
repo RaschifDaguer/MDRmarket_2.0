@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../archivos/archivo_elegido.dart';
 import '../theme/app_espacios.dart';
 import '../theme/app_movimiento.dart';
+import 'imagen_red.dart';
 
 /// Recuadro para elegir una foto. Vacío muestra un ícono y [texto]; con foto
 /// muestra la vista previa y un botón para cambiarla. [error] se ve en rojo debajo.
@@ -15,9 +16,13 @@ class SelectorFoto extends StatelessWidget {
     this.icono = Icons.add_a_photo_outlined,
     this.error,
     this.alto = 168,
+    this.urlActual,
   });
 
   final ArchivoElegido? valor;
+
+  /// Foto que ya tiene (al editar): se muestra hasta que elija otra.
+  final String? urlActual;
   final ValueChanged<ArchivoElegido> alElegir;
   final String texto;
   final IconData icono;
@@ -54,7 +59,7 @@ class SelectorFoto extends StatelessWidget {
                   border: Border.all(color: colorBorde, width: 1.5),
                   borderRadius: BorderRadius.circular(AppRadios.campo),
                 ),
-                child: valor == null
+                child: valor == null && urlActual == null
                     ? Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
@@ -75,7 +80,10 @@ class SelectorFoto extends StatelessWidget {
                     : Stack(
                         fit: StackFit.expand,
                         children: [
-                          Image.memory(valor!.bytes, fit: BoxFit.cover),
+                          if (valor != null)
+                            Image.memory(valor!.bytes, fit: BoxFit.cover)
+                          else
+                            ImagenRed(urlActual, radio: 0),
                           Positioned(
                             right: AppEspacios.s,
                             bottom: AppEspacios.s,
