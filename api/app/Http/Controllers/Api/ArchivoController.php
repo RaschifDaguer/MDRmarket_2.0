@@ -15,6 +15,10 @@ class ArchivoController extends Controller
      */
     public function ver(string $ruta): StreamedResponse
     {
+        // Solo fotos, y sin salir de la carpeta (nada de "../../.env").
+        abort_if(str_contains($ruta, '..') || str_contains($ruta, '\\'), 404);
+        abort_unless(preg_match('/\.(jpe?g|png|webp|gif)$/i', $ruta), 404);
+
         $disco = Storage::disk('public');
         abort_unless($disco->exists($ruta), 404);
 

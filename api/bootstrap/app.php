@@ -5,6 +5,7 @@ use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Exceptions\ThrottleRequestsException;
 use Illuminate\Http\Request;
 
 return Application::configure(basePath: dirname(__DIR__))
@@ -22,6 +23,12 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'dueno.negocio' => \App\Http\Middleware\DuenoDelNegocio::class,
         ]);
+
+        // Cabeceras de seguridad en todas las respuestas.
+        $middleware->append(\App\Http\Middleware\CabecerasSeguridad::class);
+
+        // Límite general de solicitudes por minuto en toda la API (ver AppServiceProvider).
+        $middleware->throttleApi('api');
     })
     ->withExceptions(function (Exceptions $exceptions) {
         // La app siempre recibe JSON, aunque olvide mandar "Accept: application/json".
@@ -30,6 +37,17 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->render(function (AuthenticationException $e, Request $request) {
             if ($request->is('api/*')) {
                 return response()->json(['message' => 'Tu sesión expiró o no iniciaste sesión.'], 401);
+            }
+        });
+
+        // Se pasó del límite de solicitudes: mensaje claro y cuántos segundos esperar.
+        $exceptions->render(function (ThrottleRequestsException $e, Request $request) {
+            if ($request->is('api/*')) {
+                return response()->json(
+                    ['message' => 'Demasiadas solicitudes seguidas. Espera un momento y vuelve a intentar.'],
+                    429,
+                    $e->getHeaders(),
+                );
             }
         });
 

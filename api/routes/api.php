@@ -12,10 +12,14 @@ use App\Http\Controllers\Api\PerfilController;
 use App\Http\Controllers\Api\ResenaController;
 use Illuminate\Support\Facades\Route;
 
+// Límites de solicitudes por minuto (ver AppServiceProvider::limitesDeSolicitudes):
+// toda la API tiene el general ("api"); además, login, registro, pedidos,
+// cambios de datos ("escritura") y subida de fotos ("subidas") tienen el suyo.
+
 // ---------- Cuenta ----------
 Route::prefix('auth')->group(function () {
-    Route::post('registro', [AuthController::class, 'registro'])->middleware('throttle:10,1');
-    Route::post('login', [AuthController::class, 'login'])->middleware('throttle:10,1');
+    Route::post('registro', [AuthController::class, 'registro'])->middleware('throttle:registro');
+    Route::post('login', [AuthController::class, 'login'])->middleware('throttle:login');
     Route::post('logout', [AuthController::class, 'logout'])->middleware('auth:sanctum');
 });
 
@@ -30,53 +34,61 @@ Route::get('archivos/{ruta}', [ArchivoController::class, 'ver'])->where('ruta', 
 // ---------- Rutas que requieren sesión ----------
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('me', [AuthController::class, 'me']);
-    Route::put('me', [PerfilController::class, 'actualizar']);
-    Route::put('me/vista', [AuthController::class, 'cambiarVista']);
     Route::get('me/faltantes/{rol}', [PerfilController::class, 'faltantes']);
-
-    // Documentos (carnet, licencia, RUAT, NIT…)
     Route::get('documentos', [DocumentoController::class, 'index']);
-    Route::post('documentos', [DocumentoController::class, 'store']);
-
-    // ----- Cliente -----
-    Route::apiResource('direcciones', DireccionController::class)
-        ->parameters(['direcciones' => 'direccion'])->except('show');
-    Route::post('envio/cotizar', [PedidoController::class, 'cotizar']);
+    Route::get('direcciones', [DireccionController::class, 'index']);
     Route::get('pedidos', [PedidoController::class, 'index']);
-    Route::post('pedidos', [PedidoController::class, 'store'])->middleware('throttle:20,1');
     Route::get('pedidos/{pedido}', [PedidoController::class, 'show']);
-    Route::post('pedidos/{pedido}/cancelar', [PedidoController::class, 'cancelar']);
-    Route::put('resenas', [ResenaController::class, 'guardar']);
-
-    // ----- Comerciante -----
     Route::get('negocios', [NegocioController::class, 'index']);
-    Route::post('negocios', [NegocioController::class, 'store']);
 
-    // Todo lo de un negocio: solo su dueño (si no, 404).
+    // Hacer un pedido: límite propio (evita pedidos falsos en masa).
+    Route::post('pedidos', [PedidoController::class, 'store'])->middleware('throttle:pedidos');
+
+    // Subir fotos.
+    Route::middleware('throttle:subidas')->group(function () {
+        Route::post('documentos', [DocumentoController::class, 'store']);
+        Route::post('negocios', [NegocioController::class, 'store']);
+    });
+
+    // Guardar o cambiar datos.
+    Route::middleware('throttle:escritura')->group(function () {
+        Route::put('me', [PerfilController::class, 'actualizar']);
+        Route::put('me/vista', [AuthController::class, 'cambiarVista']);
+        Route::post('direcciones', [DireccionController::class, 'store']);
+        Route::match(['put', 'patch'], 'direcciones/{direccion}', [DireccionController::class, 'update']);
+        Route::delete('direcciones/{direccion}', [DireccionController::class, 'destroy']);
+        Route::post('envio/cotizar', [PedidoController::class, 'cotizar']);
+        Route::post('pedidos/{pedido}/cancelar', [PedidoController::class, 'cancelar']);
+        Route::put('resenas', [ResenaController::class, 'guardar']);
+    });
+
+    // ----- Todo lo de un negocio: solo su dueño (si no, 404) -----
     Route::prefix('negocios/{negocio}')->middleware('dueno.negocio')->scopeBindings()->group(function () {
-        Route::post('/', [NegocioController::class, 'update']);
-        Route::patch('abierto', [NegocioController::class, 'abierto']);
-        Route::put('horario', [NegocioController::class, 'horario']);
         Route::get('resumen', [Comerciante\ReporteController::class, 'resumen']);
         Route::get('reporte', [Comerciante\ReporteController::class, 'reporte']);
         Route::get('reporte-productos', [Comerciante\ReporteController::class, 'productos']);
-
         Route::get('productos', [Comerciante\ProductoController::class, 'index']);
-        Route::post('productos', [Comerciante\ProductoController::class, 'store']);
-        // POST para editar: lleva la foto (multipart).
-        Route::post('productos/{producto}', [Comerciante\ProductoController::class, 'update']);
-        Route::patch('productos/{producto}/disponible', [Comerciante\ProductoController::class, 'disponible']);
-        Route::delete('productos/{producto}', [Comerciante\ProductoController::class, 'destroy']);
-
         Route::get('pedidos', [Comerciante\PedidoController::class, 'index']);
         Route::get('pedidos/{pedido}', [Comerciante\PedidoController::class, 'show']);
-        Route::put('pedidos/{pedido}/estado', [Comerciante\PedidoController::class, 'estado']);
-
         Route::get('registros', [Comerciante\RegistroController::class, 'index']);
-        Route::post('registros', [Comerciante\RegistroController::class, 'store']);
-        Route::delete('registros/{registro}', [Comerciante\RegistroController::class, 'destroy']);
-
         Route::get('resenas', [Comerciante\ResenaController::class, 'index']);
-        Route::put('resenas/{resena}/respuesta', [Comerciante\ResenaController::class, 'responder'])->withoutScopedBindings();
+
+        // Con foto (multipart). POST también para editar.
+        Route::middleware('throttle:subidas')->group(function () {
+            Route::post('/', [NegocioController::class, 'update']);
+            Route::post('productos', [Comerciante\ProductoController::class, 'store']);
+            Route::post('productos/{producto}', [Comerciante\ProductoController::class, 'update']);
+        });
+
+        Route::middleware('throttle:escritura')->group(function () {
+            Route::patch('abierto', [NegocioController::class, 'abierto']);
+            Route::put('horario', [NegocioController::class, 'horario']);
+            Route::patch('productos/{producto}/disponible', [Comerciante\ProductoController::class, 'disponible']);
+            Route::delete('productos/{producto}', [Comerciante\ProductoController::class, 'destroy']);
+            Route::put('pedidos/{pedido}/estado', [Comerciante\PedidoController::class, 'estado']);
+            Route::post('registros', [Comerciante\RegistroController::class, 'store']);
+            Route::delete('registros/{registro}', [Comerciante\RegistroController::class, 'destroy']);
+            Route::put('resenas/{resena}/respuesta', [Comerciante\ResenaController::class, 'responder'])->withoutScopedBindings();
+        });
     });
 });

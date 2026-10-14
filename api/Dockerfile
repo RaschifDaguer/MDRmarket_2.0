@@ -10,6 +10,15 @@ RUN apt-get update \
 # Fotos de celular: el límite por defecto de PHP (2 MB) es muy chico.
 RUN printf 'upload_max_filesize=10M\npost_max_size=12M\n' > /usr/local/etc/php/conf.d/subidas.ini
 
+# No revelar versiones de PHP ni de Apache (ayudan a buscar fallas conocidas).
+RUN printf 'expose_php=Off\n' > /usr/local/etc/php/conf.d/seguridad.ini \
+    && sed -ri -e 's/^ServerTokens .*/ServerTokens Prod/' -e 's/^ServerSignature .*/ServerSignature Off/' \
+       /etc/apache2/conf-available/security.conf
+
+# Los límites de solicitudes se cuentan en archivos del contenedor y no en la
+# base (ver config/cache.php): más rápido y no la satura si hay una avalancha.
+ENV CACHE_LIMITER=file
+
 # Apache solo puede tener UN modo de procesos (MPM). PHP necesita "prefork";
 # si queda también "event" o "worker" activo, Apache no arranca
 # (error AH00534: More than one MPM loaded).

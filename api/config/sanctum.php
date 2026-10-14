@@ -50,7 +50,9 @@ return [
     |
     */
 
-    'expiration' => null,
+    // La sesión de la app vence a los 60 días: un token robado o de un
+    // teléfono perdido deja de servir solo. (Minutos; null = nunca vence.)
+    'expiration' => (int) env('SANCTUM_EXPIRATION', 60 * 24 * 60),
 
     /*
     |--------------------------------------------------------------------------
