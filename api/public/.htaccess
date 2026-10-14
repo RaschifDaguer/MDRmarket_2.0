@@ -13,10 +13,12 @@
     RewriteCond %{HTTP:x-xsrf-token} .
     RewriteRule .* - [E=HTTP_X_XSRF_TOKEN:%{HTTP:X-XSRF-Token}]
 
-    # Redirect Trailing Slashes If Not A Folder...
-    RewriteCond %{REQUEST_FILENAME} !-d
-    RewriteCond %{REQUEST_URI} (.+)/$
-    RewriteRule ^ %1 [L,R=301]
+    # Sin redirecciones de Apache por la "/" final: detrás del proxy de Railway
+    # armaba direcciones http://…:8080 (puerto interno, que no funciona).
+    # Laravel ya acepta las rutas con o sin "/" al final.
+    <IfModule mod_dir.c>
+        DirectorySlash Off
+    </IfModule>
 
     # Send Requests To Front Controller...
     RewriteCond %{REQUEST_FILENAME} !-d
