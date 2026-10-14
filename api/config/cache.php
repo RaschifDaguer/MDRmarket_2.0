@@ -17,6 +17,12 @@ return [
 
     'default' => env('CACHE_STORE', 'database'),
 
+    // Dónde se cuentan los límites de solicitudes (ver AppServiceProvider).
+    // En el servidor, en archivos del propio contenedor (CACHE_LIMITER=file en
+    // el Dockerfile): así una avalancha de solicitudes no llena de consultas
+    // la base de datos. Vacío = el mismo que "default".
+    'limiter' => env('CACHE_LIMITER'),
+
     /*
     |--------------------------------------------------------------------------
     | Cache Stores

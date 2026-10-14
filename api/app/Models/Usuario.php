@@ -2,6 +2,10 @@
 
 namespace App\Models;
 
+use Filament\Auth\MultiFactor\App\Concerns\InteractsWithAppAuthentication;
+use Filament\Auth\MultiFactor\App\Concerns\InteractsWithAppAuthenticationRecovery;
+use Filament\Auth\MultiFactor\App\Contracts\HasAppAuthentication;
+use Filament\Auth\MultiFactor\App\Contracts\HasAppAuthenticationRecovery;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Models\Contracts\HasName;
 use Filament\Panel;
@@ -15,11 +19,12 @@ use Laravel\Sanctum\HasApiTokens;
 /**
  * Persona registrada. Todo usuario puede comprar (vista cliente); los roles
  * repartidor y comerciante son perfiles aparte (tablas repartidor y negocio).
- * Los que tienen es_admin = 1 entran al panel web (/admin).
+ * Los que tienen es_admin = 1 entran al panel web (/admin), con verificación
+ * en dos pasos (la clave del autenticador se guarda cifrada con APP_KEY).
  */
-class Usuario extends Authenticatable implements FilamentUser, HasName
+class Usuario extends Authenticatable implements FilamentUser, HasAppAuthentication, HasAppAuthenticationRecovery, HasName
 {
-    use HasApiTokens, Notifiable, SoftDeletes;
+    use HasApiTokens, InteractsWithAppAuthentication, InteractsWithAppAuthenticationRecovery, Notifiable, SoftDeletes;
 
     protected $table = 'usuario';
 

@@ -3,6 +3,7 @@
 namespace App\Providers\Filament;
 
 use App\Filament\Widgets\Resumen;
+use Filament\Auth\MultiFactor\App\AppAuthentication;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -32,6 +33,13 @@ class AdminPanelProvider extends PanelProvider
             ->id('admin')
             ->path('admin')
             ->login()
+            // Verificación en dos pasos OBLIGATORIA: al entrar la primera vez se
+            // configura con Google Authenticator (o similar) y desde entonces se
+            // pide el código de 6 números. Con códigos de recuperación por si se
+            // pierde el celular.
+            ->multiFactorAuthentication([
+                AppAuthentication::make()->recoverable(),
+            ], isRequired: true)
             ->brandName('MDR Market · Admin')
             ->colors([
                 // Mismo verde azulado de la app (AppColores.primario).

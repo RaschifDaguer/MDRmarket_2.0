@@ -6,6 +6,7 @@ use App\Models\Negocio;
 use App\Models\Pedido;
 use App\Models\Producto;
 use App\Models\Usuario;
+use Filament\Auth\MultiFactor\App\AppAuthentication;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 use Illuminate\Support\Str;
 
@@ -27,7 +28,11 @@ abstract class TestCase extends BaseTestCase
             ...$datos,
         ]);
         if ($admin) {
-            $usuario->forceFill(['es_admin' => true])->save();
+            // Admin que ya configuró la verificación en dos pasos (obligatoria en /admin).
+            $usuario->forceFill([
+                'es_admin' => true,
+                'app_authentication_secret' => app(AppAuthentication::class)->generateSecret(),
+            ])->save();
         }
 
         return $usuario->refresh();

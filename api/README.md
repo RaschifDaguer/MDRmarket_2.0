@@ -45,6 +45,57 @@ php artisan mdr:admin tu@correo.com            # --quitar para sacarle el permis
 Las fotos de documentos (carnet, licencia) son privadas: el panel las muestra
 desde `/panel/documentos/{id}/archivo`, que solo responde a administradores.
 
+**Verificación en dos pasos (obligatoria).** La primera vez que un admin entra,
+el panel muestra un código QR: se escanea con Google Authenticator (o Microsoft
+Authenticator, Authy) y desde entonces, además de la contraseña, pide el código
+de 6 dígitos del celular. En ese momento también da **códigos de recuperación**:
+guárdalos fuera del celular; cada uno sirve una vez si pierdes el teléfono.
+
+Si un admin pierde el celular y los códigos, otro admin (o quien tenga acceso a
+la base) la reinicia y el panel vuelve a mostrar el QR:
+
+```sql
+UPDATE usuario SET app_authentication_secret = NULL, app_authentication_recovery_codes = NULL
+WHERE email = 'correo@del.admin';
+```
+
+> La clave del autenticador se guarda cifrada con `APP_KEY`. Si alguna vez se
+> cambia `APP_KEY`, todos los admins deben reiniciarla así.
+
+## Seguridad
+
+- **Sesión de la app:** el token vence a los 60 días (`SANCTUM_EXPIRATION`, en
+  minutos). Los datos de cada usuario y negocio solo los ve su dueño: con un
+  número ajeno en la URL la API responde 404.
+- **Límites de solicitudes** (al pasarse: 429 "Demasiadas solicitudes…" y la
+  cabecera `Retry-After`). Se cuentan por usuario, o por IP si no hay sesión.
+  Ver `AppServiceProvider::limitesDeSolicitudes`.
+
+  | Qué | Límite |
+  |---|---|
+  | Toda la API | 120 por minuto |
+  | Iniciar sesión | 10 por minuto por IP y 5 por minuto por correo |
+  | Crear cuenta | 5 por minuto y 30 por día por IP |
+  | Hacer pedidos | 5 por minuto y 50 por día |
+  | Guardar o cambiar datos | 40 por minuto |
+  | Subir fotos | 15 por minuto y 200 por día |
+
+  Además, un cliente puede tener como máximo **5 pedidos esperando respuesta**
+  (`PedidoController::MAXIMO_PENDIENTES`); los aceptados no cuentan.
+- **Cabeceras de seguridad** en todas las respuestas (`CabecerasSeguridad`):
+  no se puede meter el panel dentro de otra página, el navegador no adivina
+  tipos de archivo, HTTPS obligatorio (HSTS) y no se muestran las versiones de
+  PHP ni de Apache.
+- **Documentación `/docs/api`:** en el servidor solo la ven administradores con
+  sesión abierta en `/admin`.
+- **Ataques de saturación (DDoS):** los límites frenan a una persona o un bot,
+  pero un ataque grande desde miles de IP hay que pararlo antes de que llegue al
+  servidor. Para eso hace falta un dominio propio con el proxy de Cloudflare
+  (plan gratis) delante de Railway.
+- `tests/Feature/SeguridadTest.php` prueba todo esto como lo intentaría un
+  atacante (sin sesión, con la sesión de otro, inyección SQL, archivos
+  disfrazados, solicitudes en masa).
+
 ## Pruebas
 
 `php artisan test` usa una **base aparte, `mdrmarket_prueba`**, creada con el

@@ -45,7 +45,9 @@ return [
         'local' => [
             'driver' => 'local',
             'root' => storage_path('app/private'),
-            'serve' => true,
+            // Sin ruta automática /storage/…: los documentos privados (carnet,
+            // licencia) solo se ven desde el panel de administración.
+            'serve' => false,
             'throw' => false,
             'report' => false,
         ],

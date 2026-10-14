@@ -22,6 +22,9 @@ use Illuminate\Validation\ValidationException;
 /** Pedidos del cliente: cotizar el envío, pedir, ver y cancelar. */
 class PedidoController extends Controller
 {
+    /** Pedidos "pendientes" (sin respuesta del negocio) que puede tener un cliente a la vez. */
+    public const MAXIMO_PENDIENTES = 5;
+
     /**
      * POST /api/envio/cotizar — cuánto cuesta el envío desde el negocio hasta
      * la dirección. 422 en "latitud" si está fuera de cobertura.
@@ -72,6 +75,13 @@ class PedidoController extends Controller
         $negocio = $this->negocioDisponible((int) $datos['negocio_id']);
         if ((int) $negocio->usuario_id === (int) $usuario->id) {
             throw ValidationException::withMessages(['negocio_id' => 'No puedes hacer pedidos a tu propio negocio.']);
+        }
+
+        // Contra pedidos falsos en masa: pocos pedidos esperando respuesta a la vez.
+        if ($usuario->pedidos()->where('estado', 'pendiente')->count() >= self::MAXIMO_PENDIENTES) {
+            throw ValidationException::withMessages([
+                'pedido' => 'Tienes '.self::MAXIMO_PENDIENTES.' pedidos esperando respuesta. Espera a que los acepten o cancela alguno.',
+            ]);
         }
 
         // Dirección: una guardada o la que mandó la app.
