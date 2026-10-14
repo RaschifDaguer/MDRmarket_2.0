@@ -56,8 +56,11 @@ Identificador de la app: `bo.mdrmarket.app`. Colores de marca:
 ## Pruebas
 
 ```
-flutter test                                                      # pantallas, registro y comerciante (datos falsos)
+flutter test                                                      # todas las pantallas con datos falsos
 flutter test --dart-define=API_URL=http://127.0.0.1:8001/api      # + recorridos reales contra la API local
+flutter test test/responsivo_test.dart --dart-define=CAPTURAS=true  # imágenes de cada pantalla en build/capturas/
 ```
-Las pruebas con `API_URL` crean usuarios y negocios de prueba: úsalas solo con
-la base local.
+- `test/falsos.dart` tiene los datos y repositorios falsos (sin internet).
+  Úsalo para probar pantallas nuevas.
+- Las pruebas con `API_URL` crean usuarios, negocios y pedidos de prueba:
+  úsalas solo con la base local.
