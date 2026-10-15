@@ -117,12 +117,79 @@ class PanelAdminTest extends TestCase
         $this->actingAs($this->crearUsuario(admin: true))->get($url)->assertOk();
     }
 
-    private function crearDocumento(int $usuarioId): Documento
+    public function test_los_dos_lados_del_carnet_son_una_sola_solicitud(): void
+    {
+        $this->actingAs($this->crearUsuario(admin: true));
+        $persona = $this->crearUsuario()->id;
+        $anverso = $this->crearDocumento($persona);
+        $reverso = $this->crearDocumento($persona, tipo: 2);
+        $licencia = $this->crearDocumento($persona, tipo: 4);
+
+        Livewire::test(ListDocumentos::class)
+            ->assertCanSeeTableRecords([$anverso, $licencia])
+            ->assertCanNotSeeTableRecords([$reverso])
+            ->assertSee('Carnet de identidad (ambos lados)');
+
+        $this->get("/admin/documentos/{$anverso->id}")
+            ->assertOk()
+            ->assertSee('Carnet de identidad (anverso)')
+            ->assertSee('Carnet de identidad (reverso)');
+
+        Livewire::test(ListDocumentos::class)
+            ->callAction(TestAction::make('aprobar')->table($anverso))
+            ->assertNotified();
+
+        $this->assertSame('aprobado', $anverso->refresh()->estado);
+        $this->assertSame('aprobado', $reverso->refresh()->estado);
+        $this->assertSame('pendiente', $licencia->refresh()->estado);
+    }
+
+    public function test_rechazar_solo_un_lado_del_carnet(): void
+    {
+        $this->actingAs($this->crearUsuario(admin: true));
+        $persona = $this->crearUsuario()->id;
+        $anverso = $this->crearDocumento($persona);
+        $reverso = $this->crearDocumento($persona, tipo: 2);
+
+        // Solo el reverso está mal: ese se rechaza y el anverso queda aprobado.
+        Livewire::test(ListDocumentos::class)
+            ->callAction(TestAction::make('rechazar')->table($anverso), data: ['lados' => ['reverso'], 'motivo' => 'No se lee el número'])
+            ->assertNotified();
+
+        $this->assertSame('aprobado', $anverso->refresh()->estado);
+        $this->assertSame('rechazado', $reverso->refresh()->estado);
+        $this->assertSame('No se lee el número', $reverso->observacion);
+        $this->assertSame(
+            ['Vuelve a subir: Carnet de identidad (reverso)'],
+            Notificacion::where('usuario_id', $persona)->where('tipo', 'documento_rechazado')->pluck('titulo')->all()
+        );
+    }
+
+    public function test_rechazar_los_dos_lados_deja_un_solo_aviso(): void
+    {
+        $this->actingAs($this->crearUsuario(admin: true));
+        $persona = $this->crearUsuario()->id;
+        $anverso = $this->crearDocumento($persona);
+        $reverso = $this->crearDocumento($persona, tipo: 2);
+
+        Livewire::test(ListDocumentos::class)
+            ->callAction(TestAction::make('rechazar')->table($anverso), data: ['lados' => ['anverso', 'reverso'], 'motivo' => 'Foto borrosa'])
+            ->assertNotified();
+
+        $this->assertSame('rechazado', $anverso->refresh()->estado);
+        $this->assertSame('rechazado', $reverso->refresh()->estado);
+        $this->assertSame(
+            ['Vuelve a subir: Carnet de identidad (ambos lados)'],
+            Notificacion::where('usuario_id', $persona)->where('tipo', 'documento_rechazado')->pluck('titulo')->all()
+        );
+    }
+
+    private function crearDocumento(int $usuarioId, int $tipo = 1): Documento
     {
         return Documento::create([
             'usuario_id' => $usuarioId,
-            'tipo_documento_id' => 1,
-            'archivo_url' => "documentos/{$usuarioId}/ci.png",
+            'tipo_documento_id' => $tipo,
+            'archivo_url' => "documentos/{$usuarioId}/{$tipo}.png",
         ])->refresh();
     }
 }

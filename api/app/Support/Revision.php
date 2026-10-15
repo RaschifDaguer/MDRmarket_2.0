@@ -44,15 +44,24 @@ class Revision
         ])->save();
     }
 
-    public static function rechazarDocumento(Documento $documento, Usuario $admin, string $motivo): void
+    /**
+     * Rechaza uno o varios documentos de la misma persona (ej. los dos lados
+     * del carnet) y le deja un solo aviso con lo que debe volver a subir.
+     *
+     * @param  iterable<Documento>  $documentos
+     */
+    public static function rechazarDocumentos(iterable $documentos, Usuario $admin, string $motivo): void
     {
-        $documento->forceFill([
-            'estado' => 'rechazado',
-            'observacion' => $motivo,
-            'revisado_por' => $admin->id,
-            'revisado_en' => now(),
-        ])->save();
-        Notificacion::avisar($documento->usuario_id, 'documento_rechazado',
-            'Vuelve a subir: '.$documento->tipo->nombre, $motivo);
+        $documentos = collect($documentos);
+        foreach ($documentos as $documento) {
+            $documento->forceFill([
+                'estado' => 'rechazado',
+                'observacion' => $motivo,
+                'revisado_por' => $admin->id,
+                'revisado_en' => now(),
+            ])->save();
+        }
+        Notificacion::avisar($documentos->first()->usuario_id, 'documento_rechazado',
+            'Vuelve a subir: '.Documento::nombreDe($documentos), $motivo);
     }
 }

@@ -39,7 +39,7 @@ class DocumentoResource extends Resource
 
     public static function getNavigationBadge(): ?string
     {
-        $pendientes = Documento::where('estado', 'pendiente')->count();
+        $pendientes = Documento::solicitudes()->where('estado', 'pendiente')->count();
 
         return $pendientes > 0 ? (string) $pendientes : null;
     }
@@ -57,7 +57,8 @@ class DocumentoResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn ($query) => $query->with(['usuario', 'tipo', 'negocio']))
+            // Una fila por solicitud (los dos lados del carnet van juntos).
+            ->modifyQueryUsing(fn ($query) => $query->solicitudes()->with(['usuario', 'tipo', 'negocio']))
             ->defaultSort('created_at', 'desc')
             ->columns([
                 TextColumn::make('usuario.nombre')
@@ -65,7 +66,9 @@ class DocumentoResource extends Resource
                     ->formatStateUsing(fn (Documento $record) => $record->usuario?->nombre_completo)
                     ->description(fn (Documento $record) => $record->usuario?->email)
                     ->searchable(['nombre', 'apellido', 'email']),
-                TextColumn::make('tipo.nombre')->label('Documento'),
+                TextColumn::make('tipo.nombre')
+                    ->label('Documento')
+                    ->formatStateUsing(fn (Documento $record) => $record->nombreSolicitud()),
                 TextColumn::make('negocio.nombre')->label('Negocio')->placeholder('—'),
                 TextColumn::make('estado')
                     ->badge()
@@ -90,22 +93,21 @@ class DocumentoResource extends Resource
     public static function infolist(Schema $schema): Schema
     {
         return $schema->components([
-            Section::make('Foto')
+            // El carnet muestra los dos lados juntos; otros documentos, su única foto.
+            Section::make('Fotos')
                 ->columnSpan(['lg' => 2])
+                ->columns(['default' => 1, 'md' => 2])
                 ->schema([
-                    ImageEntry::make('archivo_url')
-                        ->hiddenLabel()
-                        ->state(fn (Documento $record) => $record->esImagen()
-                            ? route('panel.documento.archivo', $record) : null)
-                        ->url(fn (Documento $record) => route('panel.documento.archivo', $record))
-                        ->openUrlInNewTab()
-                        ->imageHeight(420)
-                        ->placeholder('Es un PDF: haz clic para abrirlo.'),
+                    static::foto('foto_1', 0),
+                    static::foto('foto_2', 1),
                 ]),
             Section::make('Datos')
                 ->columnSpan(1)
                 ->schema([
-                    TextEntry::make('tipo.nombre')->label('Documento')->weight('bold'),
+                    TextEntry::make('tipo.nombre')
+                        ->label('Documento')
+                        ->weight('bold')
+                        ->formatStateUsing(fn (Documento $record) => $record->nombreSolicitud()),
                     TextEntry::make('estado')
                         ->badge()
                         ->formatStateUsing(fn (string $state) => Estados::DOCUMENTO[$state] ?? $state)
@@ -126,6 +128,22 @@ class DocumentoResource extends Resource
                     TextEntry::make('revisor.nombre_completo')->label('Revisado por')->placeholder('—'),
                 ]),
         ])->columns(['default' => 1, 'lg' => 3]);
+    }
+
+    /** Foto de la solicitud en la posición dada (0 = anverso o única, 1 = reverso). */
+    private static function foto(string $nombre, int $posicion): ImageEntry
+    {
+        $documento = fn (Documento $record): ?Documento => $record->documentosDeLaSolicitud()->get($posicion);
+
+        return ImageEntry::make($nombre)
+            ->label(fn (Documento $record) => $documento($record)?->tipo->nombre)
+            ->state(fn (Documento $record) => ($d = $documento($record)) && $d->esImagen()
+                ? route('panel.documento.archivo', $d) : null)
+            ->url(fn (Documento $record) => ($d = $documento($record)) ? route('panel.documento.archivo', $d) : null)
+            ->openUrlInNewTab()
+            ->imageHeight(320)
+            ->visible(fn (Documento $record) => $documento($record) !== null)
+            ->placeholder('Es un PDF: haz clic para abrirlo.');
     }
 
     public static function getPages(): array

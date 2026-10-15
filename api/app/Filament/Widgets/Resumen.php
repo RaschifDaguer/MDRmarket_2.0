@@ -24,7 +24,7 @@ class Resumen extends StatsOverviewWidget
         $hoy = CarbonImmutable::now('America/La_Paz')->startOfDay()->utc();
 
         $negocios = Negocio::where('estado_verificacion', 'pendiente')->count();
-        $documentos = Documento::where('estado', 'pendiente')->count();
+        $documentos = Documento::solicitudes()->where('estado', 'pendiente')->count();
         $pedidosHoy = Pedido::where('created_at', '>=', $hoy)->count();
         $ventasHoy = Pedido::where('estado', 'entregado')->where('entregado_en', '>=', $hoy)->sum('total');
 

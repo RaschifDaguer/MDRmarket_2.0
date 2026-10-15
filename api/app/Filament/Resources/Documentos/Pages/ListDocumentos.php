@@ -18,7 +18,7 @@ class ListDocumentos extends ListRecords
         $tabs = [];
         foreach (Estados::DOCUMENTO as $estado => $texto) {
             $tabs[$estado] = Tab::make($texto)
-                ->badge(Documento::where('estado', $estado)->count() ?: null)
+                ->badge(Documento::solicitudes()->where('estado', $estado)->count() ?: null)
                 ->modifyQueryUsing(fn (Builder $query) => $query->where('estado', $estado));
         }
         $tabs['todos'] = Tab::make('Todos');
