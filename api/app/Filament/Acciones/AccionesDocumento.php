@@ -11,11 +11,14 @@ use Filament\Notifications\Notification;
 use Filament\Support\Icons\Heroicon;
 
 /**
- * Botones para aprobar o rechazar un documento (carnet, licencia…). Los dos
- * lados del carnet son una sola solicitud: se aprueban o rechazan juntos.
+ * Botones para aprobar o rechazar un documento (carnet, licencia…). El carnet
+ * (los dos lados) y la selfie son una sola solicitud: se aprueban o rechazan juntos.
  */
 class AccionesDocumento
 {
+    /** Cómo se llama cada parte de la identidad al elegir qué rechazar. */
+    private const PARTES = ['anverso' => 'Carnet: frente', 'reverso' => 'Carnet: reverso', 'rostro' => 'Foto del rostro (selfie)'];
+
     /** @return array<Action> */
     public static function todas(): array
     {
@@ -51,17 +54,21 @@ class AccionesDocumento
             ->modalHeading(fn (Documento $record) => 'Rechazar '.mb_strtolower($record->nombreSolicitud()))
             ->modalDescription('La persona verá el motivo y tendrá que subirlo de nuevo.')
             ->schema([
-                // Solo en el carnet con los dos lados: cuál está mal.
+                // Solo si la solicitud tiene varias fotos (carnet y selfie): cuál está mal.
                 CheckboxList::make('lados')
-                    ->label('¿Qué lado tiene que volver a subir?')
-                    ->options(['anverso' => 'Anverso (frente)', 'reverso' => 'Reverso'])
-                    ->default(['anverso', 'reverso'])
-                    ->helperText('El lado que no marques queda aprobado.')
+                    ->label('¿Qué tiene que volver a subir?')
+                    ->options(fn (?Documento $record) => $record?->documentosDeLaSolicitud()
+                        ->mapWithKeys(fn (Documento $d) => [$d->lado() => self::PARTES[$d->lado()]])
+                        ->all() ?? [])
+                    ->default(fn (?Documento $record) => $record?->documentosDeLaSolicitud()
+                        ->map(fn (Documento $d) => $d->lado())
+                        ->all() ?? [])
+                    ->helperText('Lo que no marques queda aprobado.')
                     ->required()
-                    ->visible(fn (?Documento $record) => (bool) $record?->pareja()),
+                    ->visible(fn (?Documento $record) => $record?->documentosDeLaSolicitud()->count() > 1),
                 Textarea::make('motivo')
                     ->label('Motivo')
-                    ->placeholder('Ej.: la foto está borrosa, no se lee el número…')
+                    ->placeholder('Ej.: la foto está borrosa, no se lee el número, la cara no coincide con el carnet…')
                     ->required()
                     ->maxLength(255),
             ])

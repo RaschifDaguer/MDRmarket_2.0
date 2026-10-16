@@ -7,6 +7,8 @@ import 'imagen_red.dart';
 
 /// Recuadro para elegir una foto. Vacío muestra un ícono y [texto]; con foto
 /// muestra la vista previa y un botón para cambiarla. [error] se ve en rojo debajo.
+/// Con [selfie] abre la cámara delantera en vez de la galería (así la foto de
+/// la cara se toma en el momento y no se elige una guardada).
 class SelectorFoto extends StatelessWidget {
   const SelectorFoto({
     super.key,
@@ -17,6 +19,7 @@ class SelectorFoto extends StatelessWidget {
     this.error,
     this.alto = 168,
     this.urlActual,
+    this.selfie = false,
   });
 
   final ArchivoElegido? valor;
@@ -28,9 +31,10 @@ class SelectorFoto extends StatelessWidget {
   final IconData icono;
   final String? error;
   final double alto;
+  final bool selfie;
 
   Future<void> _elegir() async {
-    final foto = await elegirFoto();
+    final foto = await elegirFoto(camara: selfie, frontal: selfie);
     if (foto != null) alElegir(foto);
   }
 
@@ -71,7 +75,7 @@ class SelectorFoto extends StatelessWidget {
                           ),
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: AppEspacios.s),
-                            child: Text('Toca para elegir una foto',
+                            child: Text(selfie ? 'Toca para tomarte la foto' : 'Toca para elegir una foto',
                                 textAlign: TextAlign.center,
                                 style: textos.bodySmall?.copyWith(color: c.onSurfaceVariant)),
                           ),

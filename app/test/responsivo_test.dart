@@ -62,7 +62,7 @@ void main() {
       overrides: overridesFalsos(
         usuario: comoComerciante ? comerciante : cliente,
         negocios: comoComerciante ? const [negocioAprobado] : const [],
-        faltantes: comoComerciante ? const [] : faltaCarnet,
+        faltantes: comoComerciante ? const [] : faltaIdentidad,
         pedidos: pedidos,
         miNegocio: miNegocio,
       ).cast(),

@@ -35,6 +35,22 @@ class ComercianteApiTest extends TestCase
         $this->getJson("/api/negocios/{$this->negocio->id}/resumen")->assertNotFound();
     }
 
+    public function test_se_pide_una_selfie_para_compararla_con_el_carnet(): void
+    {
+        $selfie = ['codigo' => 'documento.foto_rostro', 'documento' => 'foto_rostro', 'texto' => 'Foto del rostro (selfie)'];
+        $this->getJson('/api/me/faltantes/comerciante')->assertOk()->assertJsonFragment($selfie);
+        $this->getJson('/api/me/faltantes/repartidor')->assertOk()->assertJsonFragment($selfie);
+        $this->getJson('/api/me/faltantes/cliente')->assertOk()->assertJsonMissing(['documento' => 'foto_rostro']);
+
+        Storage::fake('local');
+        $this->post('/api/documentos', ['tipo' => 'foto_rostro', 'archivo' => UploadedFile::fake()->image('selfie.jpg')], ['Accept' => 'application/json'])
+            ->assertCreated()
+            ->assertJsonPath('estado', 'pendiente');
+
+        // Subida (aunque esté en revisión) ya no figura como faltante.
+        $this->getJson('/api/me/faltantes/comerciante')->assertJsonMissing(['documento' => 'foto_rostro']);
+    }
+
     public function test_crear_editar_y_ocultar_un_producto(): void
     {
         $url = "/api/negocios/{$this->negocio->id}/productos";

@@ -36,7 +36,7 @@ class _SubirDocumentoState extends ConsumerState<_SubirDocumento> {
 
   Future<void> _subir() async {
     if (_archivo == null) {
-      setState(() => _error = 'Elige la foto primero.');
+      setState(() => _error = widget.faltante.documento == 'foto_rostro' ? 'Tómate la foto primero.' : 'Elige la foto primero.');
       return;
     }
     setState(() {
@@ -61,6 +61,8 @@ class _SubirDocumentoState extends ConsumerState<_SubirDocumento> {
   @override
   Widget build(BuildContext context) {
     final titulo = widget.faltante.texto.replaceFirst('Foto: ', '');
+    // La selfie se toma en el momento con la cámara delantera.
+    final selfie = widget.faltante.documento == 'foto_rostro';
     return Padding(
       padding: EdgeInsets.fromLTRB(
         AppEspacios.l,
@@ -75,7 +77,10 @@ class _SubirDocumentoState extends ConsumerState<_SubirDocumento> {
           Text(titulo, style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: AppEspacios.xs),
           Text(
-            'Que se lea bien y sin reflejos. Solo lo ve el equipo de MDR Market.',
+            selfie
+                ? 'Tómate una foto de frente, con buena luz y sin lentes ni gorra. La compararemos con la foto '
+                    'de tu carnet. Solo la ve el equipo de MDR Market.'
+                : 'Que se lea bien y sin reflejos. Solo lo ve el equipo de MDR Market.',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
@@ -84,7 +89,8 @@ class _SubirDocumentoState extends ConsumerState<_SubirDocumento> {
           SelectorFoto(
             valor: _archivo,
             texto: titulo,
-            icono: Icons.badge_outlined,
+            icono: selfie ? Icons.face_outlined : Icons.badge_outlined,
+            selfie: selfie,
             error: _error,
             alElegir: (a) => setState(() {
               _archivo = a;

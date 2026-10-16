@@ -106,9 +106,11 @@ const negocioEnRevision = Negocio(
   direccion: 'Av. Busch 1234, entre 2do y 3er anillo',
 );
 
-const faltaCarnet = [
+/// Las fotos del carnet y la selfie, como las pide la API a un comerciante nuevo.
+const faltaIdentidad = [
   Faltante(codigo: 'documento.ci_anverso', texto: 'Foto: Carnet de identidad (anverso)', documento: 'ci_anverso'),
   Faltante(codigo: 'documento.ci_reverso', texto: 'Foto: Carnet de identidad (reverso)', documento: 'ci_reverso'),
+  Faltante(codigo: 'documento.foto_rostro', texto: 'Foto del rostro (selfie)', documento: 'foto_rostro'),
 ];
 
 const casa = Direccion(

@@ -56,68 +56,74 @@ class Documento extends Model
         return in_array(strtolower(pathinfo($this->archivo_url, PATHINFO_EXTENSION)), ['jpg', 'jpeg', 'png', 'webp'], true);
     }
 
-    // ---------- Carnet: anverso y reverso se revisan juntos ----------
-    // En la base son dos documentos, pero en el panel son UNA solicitud: una
-    // fila, las dos fotos lado a lado, y se aprueban o rechazan a la vez.
+    // ---------- Identidad: carnet (los dos lados) y selfie se revisan juntos ----------
+    // En la base son documentos separados, pero en el panel son UNA solicitud:
+    // una fila, las fotos lado a lado (para comparar la cara de la selfie con
+    // la del carnet) y se aprueban o rechazan a la vez.
 
     public const CI_ANVERSO = 'ci_anverso';
 
     public const CI_REVERSO = 'ci_reverso';
 
-    private Documento|false|null $parejaEncontrada = null;
+    public const ROSTRO = 'foto_rostro';
 
-    /** Una fila por solicitud: el reverso del carnet va junto a su anverso (misma persona y estado). */
+    /** Partes de la identidad, en el orden en que se muestran. */
+    public const IDENTIDAD = [self::CI_ANVERSO => 'anverso', self::CI_REVERSO => 'reverso', self::ROSTRO => 'rostro'];
+
+    private ?Collection $solicitud = null;
+
+    /**
+     * Una fila por solicitud: cada parte de la identidad se oculta si la misma
+     * persona tiene, en el mismo estado, una parte que va antes (la fila es la
+     * del anverso; si no lo subió, la del reverso; si tampoco, la selfie).
+     */
     public function scopeSolicitudes(Builder $query): void
     {
-        $query->whereNot(fn (Builder $q) => $q
-            ->whereHas('tipo', fn (Builder $tipo) => $tipo->where('codigo', self::CI_REVERSO))
-            ->whereExists(fn ($anverso) => $anverso->selectRaw('1')
-                ->from('documento as anverso')
-                ->join('tipo_documento as tipo_anverso', 'tipo_anverso.id', '=', 'anverso.tipo_documento_id')
-                ->where('tipo_anverso.codigo', self::CI_ANVERSO)
-                ->whereColumn('anverso.usuario_id', 'documento.usuario_id')
-                ->whereColumn('anverso.estado', 'documento.estado')));
+        $anteriores = [];
+        foreach (array_keys(self::IDENTIDAD) as $codigo) {
+            if ($anteriores !== []) {
+                $previos = $anteriores;
+                $query->whereNot(fn (Builder $q) => $q
+                    ->whereHas('tipo', fn (Builder $tipo) => $tipo->where('codigo', $codigo))
+                    ->whereExists(fn ($otro) => $otro->selectRaw('1')
+                        ->from('documento as otro')
+                        ->join('tipo_documento as tipo_otro', 'tipo_otro.id', '=', 'otro.tipo_documento_id')
+                        ->whereIn('tipo_otro.codigo', $previos)
+                        ->whereColumn('otro.usuario_id', 'documento.usuario_id')
+                        ->whereColumn('otro.estado', 'documento.estado')));
+            }
+            $anteriores[] = $codigo;
+        }
     }
 
-    /** "anverso" o "reverso" si es un lado del carnet; null si es otro documento. */
+    /** "anverso", "reverso" o "rostro" si es parte de la identidad; null si es otro documento. */
     public function lado(): ?string
     {
-        return match ($this->tipo?->codigo) {
-            self::CI_ANVERSO => 'anverso',
-            self::CI_REVERSO => 'reverso',
-            default => null,
-        };
+        return self::IDENTIDAD[$this->tipo?->codigo] ?? null;
     }
 
-    /** El otro lado del carnet de la misma persona y en el mismo estado (si lo subió). */
-    public function pareja(): ?Documento
-    {
-        $otro = match ($this->lado()) {
-            'anverso' => self::CI_REVERSO,
-            'reverso' => self::CI_ANVERSO,
-            default => null,
-        };
-        if ($otro === null) {
-            return null;
-        }
-
-        $this->parejaEncontrada ??= static::with('tipo')
-            ->where('usuario_id', $this->usuario_id)
-            ->where('estado', $this->estado)
-            ->whereHas('tipo', fn (Builder $tipo) => $tipo->where('codigo', $otro))
-            ->latest('id')
-            ->first() ?? false;
-
-        return $this->parejaEncontrada ?: null;
-    }
-
-    /** Este documento y su pareja (el anverso primero). */
+    /**
+     * Este documento y las demás partes de la identidad de la misma persona en
+     * el mismo estado (la más reciente de cada una), en orden: anverso, reverso, selfie.
+     */
     public function documentosDeLaSolicitud(): Collection
     {
-        return collect([$this, $this->pareja()])
-            ->filter()
-            ->sortBy(fn (Documento $d) => $d->lado() === 'reverso' ? 1 : 0)
-            ->values();
+        if ($this->lado() === null) {
+            return collect([$this]);
+        }
+
+        return $this->solicitud ??= static::with('tipo')
+            ->where('usuario_id', $this->usuario_id)
+            ->where('estado', $this->estado)
+            ->where('id', '<>', $this->id)
+            ->whereHas('tipo', fn (Builder $tipo) => $tipo->whereIn('codigo', array_keys(self::IDENTIDAD)))
+            ->latest('id')
+            ->get()
+            ->prepend($this)
+            ->unique(fn (Documento $d) => $d->lado())
+            ->sortBy(fn (Documento $d) => array_search($d->lado(), array_values(self::IDENTIDAD), true))
+            ->values()
+            ->toBase();
     }
 
     public function nombreSolicitud(): string
@@ -125,12 +131,16 @@ class Documento extends Model
         return static::nombreDe($this->documentosDeLaSolicitud());
     }
 
-    /** "Carnet de identidad (ambos lados)" si van los dos lados; si no, sus nombres. */
+    /**
+     * Nombre para mostrar: "Carnet de identidad (ambos lados)", con " y foto
+     * del rostro" si va la selfie; si no están los dos lados, sus nombres.
+     */
     public static function nombreDe(iterable $documentos): string
     {
         $documentos = collect($documentos);
-        if ($documentos->count() === 2 && $documentos->every(fn (Documento $d) => $d->lado() !== null)) {
-            return 'Carnet de identidad (ambos lados)';
+        $lados = $documentos->map(fn (Documento $d) => $d->lado());
+        if ($lados->contains('anverso') && $lados->contains('reverso')) {
+            return 'Carnet de identidad (ambos lados)'.($lados->contains('rostro') ? ' y foto del rostro' : '');
         }
 
         return $documentos->map(fn (Documento $d) => $d->tipo->nombre)->join(', ', ' y ');

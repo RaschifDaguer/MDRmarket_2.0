@@ -37,7 +37,7 @@ void main() {
   group('Registrar mi negocio', () {
     testWidgets('sin datos, avisa todo lo que falta y no envía', (tester) async {
       await abrirConFalsos(tester, const RegistrarNegocioScreen(),
-          overrides: overridesFalsos(usuario: cliente, faltantes: faltaCarnet));
+          overrides: overridesFalsos(usuario: cliente, faltantes: faltaIdentidad));
 
       final boton = find.widgetWithText(FilledButton, 'Registrar negocio');
       await tester.ensureVisible(boton);
@@ -51,18 +51,20 @@ void main() {
       expect(find.text('Agrega una foto del negocio.'), findsOneWidget);
       expect(find.text('Agrega la foto del frente de tu carnet.'), findsOneWidget);
       expect(find.text('Agrega la foto del reverso de tu carnet.'), findsOneWidget);
+      expect(find.text('Tómate una foto de tu cara.'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('pide el carnet si falta', (tester) async {
+    testWidgets('pide el carnet y la selfie (con la cámara) si faltan', (tester) async {
       await abrirConFalsos(tester, const RegistrarNegocioScreen(),
-          overrides: overridesFalsos(usuario: cliente, faltantes: faltaCarnet));
-      expect(find.text('Tu carnet de identidad'), findsOneWidget);
+          overrides: overridesFalsos(usuario: cliente, faltantes: faltaIdentidad));
+      expect(find.text('Verifica tu identidad'), findsOneWidget);
+      expect(find.text('Toca para tomarte la foto'), findsOneWidget);
     });
 
     testWidgets('no pide el carnet si ya lo subió', (tester) async {
       await abrirConFalsos(tester, const RegistrarNegocioScreen(), overrides: overridesFalsos(usuario: cliente));
-      expect(find.text('Tu carnet de identidad'), findsNothing);
+      expect(find.text('Verifica tu identidad'), findsNothing);
       // NIT y nombre para facturas (razón social) son opcionales.
       expect(find.text('Datos para facturas'), findsOneWidget);
       expect(find.text('Nombre para facturas'), findsOneWidget);
@@ -100,13 +102,13 @@ void main() {
         await abrirConFalsos(
           tester,
           const InicioComerciante(usuario: comerciante),
-          overrides: overridesFalsos(usuario: comerciante, negocios: const [negocioEnRevision], faltantes: faltaCarnet),
+          overrides: overridesFalsos(usuario: comerciante, negocios: const [negocioEnRevision], faltantes: faltaIdentidad),
           tema: tema,
         );
         expect(find.text('Negocio en revisión'), findsOneWidget);
         expect(find.text('Tienda Marta'), findsOneWidget);
         expect(find.text('Para activar tu negocio te falta'), findsOneWidget);
-        expect(find.text('Subir'), findsNWidgets(2));
+        expect(find.text('Subir'), findsNWidgets(3)); // carnet (2 lados) y selfie
         expect(find.text('Productos'), findsOneWidget); // pestañas de abajo
         expect(tester.takeException(), isNull);
       });

@@ -12,9 +12,11 @@ class ArchivoElegido {
 
 /// Abre la galería (o la cámara) y devuelve la foto achicada a 1600 px y
 /// comprimida, para que suba rápido. Devuelve null si el usuario cancela.
-Future<ArchivoElegido?> elegirFoto({bool camara = false}) async {
+/// [frontal]: abre la cámara delantera (para una selfie).
+Future<ArchivoElegido?> elegirFoto({bool camara = false, bool frontal = false}) async {
   final foto = await ImagePicker().pickImage(
     source: camara ? ImageSource.camera : ImageSource.gallery,
+    preferredCameraDevice: frontal ? CameraDevice.front : CameraDevice.rear,
     maxWidth: 1600,
     maxHeight: 1600,
     imageQuality: 80,

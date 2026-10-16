@@ -107,7 +107,7 @@ erDiagram
     }
     tipo_documento {
         smallint id PK
-        varchar codigo "ci_anverso, ci_reverso, licencia_conducir, foto_vehiculo, foto_placa, ruat, nit"
+        varchar codigo "ci_anverso, ci_reverso, foto_rostro, licencia_conducir, foto_vehiculo, foto_placa, ruat, nit"
         enum ambito "persona, vehiculo, negocio"
     }
 ```

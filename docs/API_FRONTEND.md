@@ -204,7 +204,7 @@ Respuesta **201** (el mismo formato que `GET /negocios`):
 Lista de mis negocios (más reciente primero), con el formato de arriba.
 
 ### `POST /documentos` 🔒
-**`multipart/form-data`**: `tipo` (ej. `ci_anverso`, `ci_reverso`, `licencia_conducir`),
+**`multipart/form-data`**: `tipo` (ej. `ci_anverso`, `ci_reverso`, `foto_rostro`, `licencia_conducir`),
 `archivo` (jpg, png, webp o pdf, hasta 5 MB) y, si corresponde, `negocio_id` o `vehiculo_id`.
 Si ya había uno **pendiente** del mismo tipo, lo reemplaza. Respuesta **201**:
 ```json
@@ -213,6 +213,11 @@ Si ya había uno **pendiente** del mismo tipo, lo reemplaza. Respuesta **201**:
   "created_at": "2026-10-09T15:36:01.000000Z" }
 ```
 Los documentos son **privados**: no tienen URL pública.
+
+`foto_rostro` es una **selfie** que se pide a repartidores y comerciantes: el
+administrador la compara con la foto del carnet. La app la toma con la cámara
+delantera (`SelectorFoto(selfie: true)`), no desde la galería. En el panel, el
+carnet (los dos lados) y la selfie de una persona se revisan como una sola solicitud.
 
 ### `GET /documentos` 🔒
 Mis documentos con su `estado` (`pendiente`, `aprobado`, `rechazado`) y `observacion`.

@@ -93,13 +93,17 @@ class DocumentoResource extends Resource
     public static function infolist(Schema $schema): Schema
     {
         return $schema->components([
-            // El carnet muestra los dos lados juntos; otros documentos, su única foto.
+            // La identidad muestra el carnet (los dos lados) y la selfie juntos;
+            // otros documentos, su única foto.
             Section::make('Fotos')
+                ->description(fn (Documento $record) => $record->documentosDeLaSolicitud()->contains(fn (Documento $d) => $d->lado() === 'rostro')
+                    ? 'Revisa que la cara de la selfie sea la misma persona de la foto del carnet.' : null)
                 ->columnSpan(['lg' => 2])
-                ->columns(['default' => 1, 'md' => 2])
+                ->columns(['default' => 1, 'md' => 2, 'xl' => 3])
                 ->schema([
                     static::foto('foto_1', 0),
                     static::foto('foto_2', 1),
+                    static::foto('foto_3', 2),
                 ]),
             Section::make('Datos')
                 ->columnSpan(1)
@@ -130,7 +134,7 @@ class DocumentoResource extends Resource
         ])->columns(['default' => 1, 'lg' => 3]);
     }
 
-    /** Foto de la solicitud en la posición dada (0 = anverso o única, 1 = reverso). */
+    /** Foto de la solicitud en la posición dada (anverso, reverso, selfie; o la única). */
     private static function foto(string $nombre, int $posicion): ImageEntry
     {
         $documento = fn (Documento $record): ?Documento => $record->documentosDeLaSolicitud()->get($posicion);
@@ -141,7 +145,7 @@ class DocumentoResource extends Resource
                 ? route('panel.documento.archivo', $d) : null)
             ->url(fn (Documento $record) => ($d = $documento($record)) ? route('panel.documento.archivo', $d) : null)
             ->openUrlInNewTab()
-            ->imageHeight(320)
+            ->imageHeight(280)
             ->visible(fn (Documento $record) => $documento($record) !== null)
             ->placeholder('Es un PDF: haz clic para abrirlo.');
     }

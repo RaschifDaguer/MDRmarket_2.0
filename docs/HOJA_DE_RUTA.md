@@ -46,7 +46,8 @@ la app con datos falsos, más recorridos en vivo contra la API local.
 - **Cómo probarlo:** un cliente se registra como repartidor en moto → la lista de
   faltantes muestra placa, RUAT y fotos → al subirlas la lista queda vacía y
   aparece el botón "cambiar vista" con estado "en revisión". Con bicicleta solo
-  pide CI y foto del vehículo.
+  pide CI, selfie y foto del vehículo. La selfie (`foto_rostro`) ya la pide la
+  base a todo repartidor; la hoja de subir documentos ya abre la cámara delantera.
 
 ### Módulo 8 — Vista repartidor ⏳
 - **Pantallas:** "en línea / desconectado", pedidos "listos" cerca (filtrados

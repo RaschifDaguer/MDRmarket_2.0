@@ -43,6 +43,7 @@ class _RegistrarNegocioScreenState extends ConsumerState<RegistrarNegocioScreen>
   ArchivoElegido? _foto;
   ArchivoElegido? _ciFrente;
   ArchivoElegido? _ciReverso;
+  ArchivoElegido? _rostro;
 
   bool _enviando = false;
   int _temblores = 0;
@@ -63,8 +64,8 @@ class _RegistrarNegocioScreenState extends ConsumerState<RegistrarNegocioScreen>
     super.dispose();
   }
 
-  /// Qué datos personales y fotos del carnet faltan (según la API).
-  ({bool apellido, bool ci, bool frente, bool reverso}) _pendientes(Usuario usuario) {
+  /// Qué datos personales, fotos del carnet y selfie faltan (según la API).
+  ({bool apellido, bool ci, bool frente, bool reverso, bool rostro}) _pendientes(Usuario usuario) {
     final faltantes = ref.read(faltantesProvider('comerciante')).value ?? const [];
     bool falta(String doc) => faltantes.any((f) => f.documento == doc);
     return (
@@ -72,6 +73,7 @@ class _RegistrarNegocioScreenState extends ConsumerState<RegistrarNegocioScreen>
       ci: (usuario.ciNumero ?? '').trim().isEmpty,
       frente: falta('ci_anverso'),
       reverso: falta('ci_reverso'),
+      rostro: falta('foto_rostro'),
     );
   }
 
@@ -82,6 +84,7 @@ class _RegistrarNegocioScreenState extends ConsumerState<RegistrarNegocioScreen>
       if (_foto == null) 'foto': 'Agrega una foto del negocio.',
       if (p.frente && _ciFrente == null) 'ci_frente': 'Agrega la foto del frente de tu carnet.',
       if (p.reverso && _ciReverso == null) 'ci_reverso': 'Agrega la foto del reverso de tu carnet.',
+      if (p.rostro && _rostro == null) 'rostro': 'Tómate una foto de tu cara.',
     };
     final formularioOk = _form.currentState!.validate();
     setState(() => _errores = errores);
@@ -142,15 +145,16 @@ class _RegistrarNegocioScreenState extends ConsumerState<RegistrarNegocioScreen>
       return;
     }
 
-    // 3. Fotos del carnet. El negocio ya quedó creado: si esto falla, se puede
-    //    subir después desde la vista comerciante.
+    // 3. Fotos del carnet y selfie. El negocio ya quedó creado: si esto falla,
+    //    se pueden subir después desde la vista comerciante.
     String? avisoCarnet;
     try {
       if (_ciFrente != null) await perfil.subirDocumento('ci_anverso', _ciFrente!);
       if (_ciReverso != null) await perfil.subirDocumento('ci_reverso', _ciReverso!);
+      if (_rostro != null) await perfil.subirDocumento('foto_rostro', _rostro!);
     } on ApiException catch (e) {
-      avisoCarnet = 'Tu negocio se registró, pero no se pudo subir el carnet (${e.mensaje}). '
-          'Súbelo desde tu vista de comerciante.';
+      avisoCarnet = 'Tu negocio se registró, pero no se pudieron subir tus fotos (${e.mensaje}). '
+          'Súbelas desde tu vista de comerciante.';
     }
 
     // 4. Ya es comerciante: se refresca la sesión y se abre esa vista.
@@ -469,7 +473,7 @@ class _RegistrarNegocioScreenState extends ConsumerState<RegistrarNegocioScreen>
   /// Solo aparece si falta algo del carnet (cuentas nuevas: las fotos).
   List<Widget> _seccionCarnet(Usuario usuario) {
     final p = _pendientes(usuario);
-    if (!p.apellido && !p.ci && !p.frente && !p.reverso) return const [];
+    if (!p.apellido && !p.ci && !p.frente && !p.reverso && !p.rostro) return const [];
     const espacio = SizedBox(height: 14);
 
     return [
@@ -479,9 +483,10 @@ class _RegistrarNegocioScreenState extends ConsumerState<RegistrarNegocioScreen>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const TituloSeccion('Tu carnet de identidad', Icons.credit_card),
+            const TituloSeccion('Verifica tu identidad', Icons.credit_card),
             Text(
-              'Lo pedimos una sola vez para verificar que el negocio es tuyo. Solo lo ve el equipo de MDR Market.',
+              'Lo pedimos una sola vez para verificar que el negocio es tuyo: tu carnet y una foto de tu cara '
+              'para compararla. Solo lo ve el equipo de MDR Market.',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
@@ -545,6 +550,28 @@ class _RegistrarNegocioScreenState extends ConsumerState<RegistrarNegocioScreen>
                     ),
                 ],
               ),
+            if (p.rostro) ...[
+              if (p.frente || p.reverso) espacio,
+              SelectorFoto(
+                valor: _rostro,
+                texto: 'Foto de tu cara',
+                icono: Icons.face_outlined,
+                alto: 150,
+                selfie: true,
+                error: _errores['rostro'],
+                alElegir: (f) => setState(() {
+                  _rostro = f;
+                  _errores = {..._errores}..remove('rostro');
+                }),
+              ),
+              const SizedBox(height: AppEspacios.xs),
+              Text(
+                'De frente, con buena luz y sin lentes ni gorra.',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+              ),
+            ],
           ],
         ),
       ),

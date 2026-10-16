@@ -70,12 +70,14 @@ class PerfilController extends Controller
     {
         if (str_starts_with($codigo, 'documento.')) {
             [$tipo, $de] = array_pad(explode(':', substr($codigo, strlen('documento.')), 2), 2, null);
+            $nombre = $nombresDocumento[$tipo] ?? $tipo;
 
             return [
                 'codigo' => $codigo,
                 'tipo' => 'documento',
                 'documento' => $tipo,
-                'texto' => 'Foto: '.($nombresDocumento[$tipo] ?? $tipo),
+                // "Foto: Carnet de identidad (anverso)"; sin repetir si ya dice "Foto…".
+                'texto' => str_starts_with($nombre, 'Foto') ? $nombre : 'Foto: '.$nombre,
                 'vehiculo_id' => $de && str_starts_with($de, 'vehiculo') ? (int) substr($de, 8) : null,
                 'negocio_id' => $de && str_starts_with($de, 'negocio') ? (int) substr($de, 7) : null,
             ];

@@ -58,9 +58,10 @@ void main() {
     final rubros = await container.read(catalogoRepositoryProvider).categorias();
     expect(rubros, isNotEmpty);
 
-    // 2. Cuenta nueva: le falta el negocio y las fotos del carnet.
+    // 2. Cuenta nueva: le falta el negocio, las fotos del carnet y la selfie.
     final antes = await perfil.faltantes('comerciante');
-    expect(antes.map((f) => f.codigo), containsAll(['negocio', 'documento.ci_anverso', 'documento.ci_reverso']));
+    expect(antes.map((f) => f.codigo),
+        containsAll(['negocio', 'documento.ci_anverso', 'documento.ci_reverso', 'documento.foto_rostro']));
 
     final datos = DatosNegocio(
       nombre: 'Tienda Marta',
@@ -94,9 +95,10 @@ void main() {
     expect(usuario!.vistas, contains(Vista.comerciante));
     expect(usuario.puedeCambiarVista, isTrue);
 
-    // 6. Sube el carnet y ya no le falta nada.
+    // 6. Sube el carnet y la selfie, y ya no le falta nada.
     await perfil.subirDocumento('ci_anverso', _foto);
     await perfil.subirDocumento('ci_reverso', _foto);
+    await perfil.subirDocumento('foto_rostro', _foto);
     expect(await perfil.faltantes('comerciante'), isEmpty);
   }, skip: _apiUrl.isEmpty ? 'Falta --dart-define=API_URL=…' : null);
 }

@@ -184,6 +184,44 @@ class PanelAdminTest extends TestCase
         );
     }
 
+    public function test_la_selfie_se_revisa_junto_al_carnet(): void
+    {
+        $this->actingAs($this->crearUsuario(admin: true));
+        $persona = $this->crearUsuario()->id;
+        $anverso = $this->crearDocumento($persona);
+        $reverso = $this->crearDocumento($persona, tipo: 2);
+        $rostro = $this->crearDocumento($persona, tipo: 8);
+
+        Livewire::test(ListDocumentos::class)
+            ->assertCanSeeTableRecords([$anverso])
+            ->assertCanNotSeeTableRecords([$reverso, $rostro])
+            ->assertSee('Carnet de identidad (ambos lados) y foto del rostro');
+
+        $this->get("/admin/documentos/{$anverso->id}")
+            ->assertOk()
+            ->assertSee('Foto del rostro (selfie)')
+            ->assertSee('Revisa que la cara de la selfie sea la misma persona');
+
+        // La cara no coincide: se rechaza solo la selfie y el carnet queda aprobado.
+        Livewire::test(ListDocumentos::class)
+            ->callAction(TestAction::make('rechazar')->table($anverso), data: ['lados' => ['rostro'], 'motivo' => 'La cara no coincide con el carnet'])
+            ->assertNotified();
+
+        $this->assertSame('aprobado', $anverso->refresh()->estado);
+        $this->assertSame('aprobado', $reverso->refresh()->estado);
+        $this->assertSame('rechazado', $rostro->refresh()->estado);
+        $this->assertSame(
+            ['Vuelve a subir: Foto del rostro (selfie)'],
+            Notificacion::where('usuario_id', $persona)->where('tipo', 'documento_rechazado')->pluck('titulo')->all()
+        );
+
+        // La nueva selfie (con el carnet ya aprobado) es una solicitud aparte.
+        $nueva = $this->crearDocumento($persona, tipo: 8);
+        Livewire::test(ListDocumentos::class)
+            ->assertCanSeeTableRecords([$nueva])
+            ->assertSee('Foto del rostro (selfie)');
+    }
+
     private function crearDocumento(int $usuarioId, int $tipo = 1): Documento
     {
         return Documento::create([
