@@ -40,7 +40,7 @@ class ResumenTab extends ConsumerWidget {
         tarjeta: _tarjetaEstado(negocio.estado),
         extra: [
           _TarjetaNegocio(negocio),
-          if (faltantes.isNotEmpty) _TarjetaFaltantes(faltantes),
+          if (faltantes.isNotEmpty) _TarjetaFaltantes(faltantes, activo: negocio.estado == EstadoNegocio.aprobado),
           if (resumen != null)
             _Numeros(
               celdas: [
@@ -174,10 +174,13 @@ class _TarjetaNegocioState extends ConsumerState<_TarjetaNegocio> {
 }
 
 /// Lista de lo que falta para activar el negocio, con un botón para resolverlo.
+/// Si ya está [activo] (ej. se pidió un documento nuevo, como la selfie), solo
+/// avisa qué falta subir.
 class _TarjetaFaltantes extends ConsumerWidget {
-  const _TarjetaFaltantes(this.faltantes);
+  const _TarjetaFaltantes(this.faltantes, {this.activo = false});
 
   final List<Faltante> faltantes;
+  final bool activo;
 
   /// El tema da a los botones ancho completo; aquí van al lado del texto.
   static final _compacto = FilledButton.styleFrom(minimumSize: const Size(0, 40));
@@ -192,7 +195,7 @@ class _TarjetaFaltantes extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const TituloSeccion('Para activar tu negocio te falta', Icons.checklist_rtl),
+          TituloSeccion(activo ? 'Te falta subir' : 'Para activar tu negocio te falta', Icons.checklist_rtl),
           for (final f in faltantes)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: AppEspacios.xs),

@@ -113,6 +113,19 @@ void main() {
         expect(tester.takeException(), isNull);
       });
 
+      testWidgets('negocio activo al que le falta la selfie', (tester) async {
+        await abrirConFalsos(
+          tester,
+          const InicioComerciante(usuario: comerciante),
+          overrides: overridesFalsos(usuario: comerciante, negocios: const [negocioAprobado], faltantes: [faltaIdentidad.last]),
+          tema: tema,
+        );
+        expect(find.text('Te falta subir'), findsOneWidget);
+        expect(find.text('Para activar tu negocio te falta'), findsNothing);
+        expect(find.text('Foto del rostro (selfie)'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      });
+
       testWidgets('negocio activo: números del día y sin faltantes', (tester) async {
         await abrirConFalsos(
           tester,
