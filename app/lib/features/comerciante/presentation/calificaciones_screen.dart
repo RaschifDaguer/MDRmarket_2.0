@@ -86,7 +86,8 @@ class _Calificaciones extends ConsumerWidget {
                         children: [
                           Text(d.resumen.rating?.toStringAsFixed(1) ?? '—', style: textos.displaySmall),
                           EstrellasFijas((d.resumen.rating ?? 0).round()),
-                          Text('${d.resumen.total} reseñas', style: textos.bodySmall),
+                          Text('${d.resumen.total} ${d.resumen.total == 1 ? 'reseña' : 'reseñas'}',
+                              style: textos.bodySmall),
                         ],
                       ),
                       const SizedBox(width: AppEspacios.l),

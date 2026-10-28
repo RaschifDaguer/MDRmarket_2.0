@@ -42,7 +42,13 @@ const _flotantes = [
 /// [child] va centrado encima (logo, título...). Sin [altura] ocupa todo el
 /// espacio disponible (como en la pantalla de arranque).
 class CabeceraFlotante extends StatefulWidget {
-  const CabeceraFlotante({super.key, required this.child, this.altura, this.redondeada = true});
+  const CabeceraFlotante({
+    super.key,
+    required this.child,
+    this.altura,
+    this.redondeada = true,
+    this.discreta = false,
+  });
 
   final Widget child;
 
@@ -51,6 +57,10 @@ class CabeceraFlotante extends StatefulWidget {
 
   /// Esquinas inferiores redondeadas.
   final bool redondeada;
+
+  /// Íconos más tenues, para cuando encima hay texto y botones (ej. la
+  /// cabecera de inicio): así no compiten con el saludo ni con "cerrar sesión".
+  final bool discreta;
 
   @override
   State<CabeceraFlotante> createState() => _CabeceraFlotanteState();
@@ -179,6 +189,7 @@ class _CabeceraFlotanteState extends State<CabeceraFlotante> with SingleTickerPr
     final recorrido = 30 * p; // parallax: los cercanos se mueven más
     final flota = math.sin(t * 2 * math.pi + f.fase) * 7 * p;
     final giro = 0.35 * p;
+    final tenue = widget.discreta ? 0.35 : 1.0;
 
     return Align(
       alignment: f.posicion,
@@ -193,14 +204,14 @@ class _CabeceraFlotanteState extends State<CabeceraFlotante> with SingleTickerPr
           child: Container(
             padding: EdgeInsets.all(f.tamano * 0.42),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.06 + 0.10 * p),
+              color: Colors.white.withValues(alpha: (0.06 + 0.10 * p) * tenue),
               borderRadius: BorderRadius.circular(f.tamano * 0.6),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.08 + 0.12 * p)),
+              border: Border.all(color: Colors.white.withValues(alpha: (0.08 + 0.12 * p) * tenue)),
             ),
             child: Icon(
               f.icono,
               size: f.tamano * (0.75 + 0.35 * p),
-              color: Colors.white.withValues(alpha: 0.40 + 0.45 * p),
+              color: Colors.white.withValues(alpha: (0.40 + 0.45 * p) * tenue),
             ),
           ),
         ),

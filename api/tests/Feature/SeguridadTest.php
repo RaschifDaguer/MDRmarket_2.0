@@ -220,17 +220,21 @@ class SeguridadTest extends TestCase
         Sanctum::actingAs($this->crearUsuario());
 
         // Archivo real (no el falso de Laravel, que dice su tipo según el nombre):
-        // así se revisa el contenido, como en el servidor.
-        $ruta = tempnam(sys_get_temp_dir(), 'mdr');
-        file_put_contents($ruta, '<?php system($_GET["c"]); ?>');
+        // así se revisa el contenido, como en el servidor. Es un PHP inofensivo
+        // (solo dice "hola"): uno de ataque de verdad lo borra el antivirus.
+        $ruta = tempnam(sys_get_temp_dir(), 'mdr_prueba_');
+        file_put_contents($ruta, "<?php echo 'hola';\n");
         $falsa = new UploadedFile($ruta, 'carnet.jpg', null, null, true);
 
-        $this->post('/api/documentos', ['tipo' => 'ci_anverso', 'archivo' => $falsa], ['Accept' => 'application/json'])
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors('archivo');
+        try {
+            $this->post('/api/documentos', ['tipo' => 'ci_anverso', 'archivo' => $falsa], ['Accept' => 'application/json'])
+                ->assertUnprocessable()
+                ->assertJsonValidationErrors('archivo');
 
-        $this->assertEmpty(Storage::disk('local')->allFiles());
-        @unlink($ruta);
+            $this->assertEmpty(Storage::disk('local')->allFiles());
+        } finally {
+            @unlink($ruta);
+        }
     }
 
     public function test_cabeceras_de_seguridad(): void

@@ -1,12 +1,15 @@
 <?php
 
 use Illuminate\Auth\AuthenticationException;
+use Illuminate\Database\LostConnectionDetector;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Foundation\Exceptions\RegisterErrorViewPaths;
 use Illuminate\Http\Exceptions\ThrottleRequestsException;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -49,6 +52,23 @@ return Application::configure(basePath: dirname(__DIR__))
                     $e->getHeaders(),
                 );
             }
+        });
+
+        // La base de datos está apagada o no responde (ej. el plan gratis de
+        // Aiven se duerme): 503 "en mantenimiento" en vez de "Error del servidor".
+        $exceptions->render(function (Throwable $e, Request $request) {
+            $sinBase = ($e instanceof QueryException || $e instanceof PDOException)
+                && (app(LostConnectionDetector::class)->causedByLostConnection($e)
+                    || Str::contains($e->getMessage(), ['[2002]', '[2006]']));
+            if (! $sinBase) {
+                return null;
+            }
+            if ($request->is('api/*')) {
+                return response()->json(['message' => 'El servicio está en mantenimiento. Vuelve a intentar en unos minutos.'], 503);
+            }
+            (new RegisterErrorViewPaths)(); // la página usa la plantilla de errores de Laravel
+
+            return response()->view('errors.503', [], 503);
         });
 
         // Las reglas de negocio de la base (triggers con SIGNAL '45000', ej.

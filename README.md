@@ -11,6 +11,7 @@ Cualquier usuario puede comprar. Si además se registra como repartidor o
 comerciante, aparece el botón **"cambiar vista"**.
 
 > 👋 **¿Recién llegas al proyecto?** Lee en orden: [Estado](#estado-actual) →
+> [Crear tu cuenta y ser administrador](#-crear-tu-cuenta-y-hacerte-administrador) →
 > [Herramientas](#1-herramientas-que-tienes-que-instalar) →
 > [Accesos](#2-accesos-que-tienes-que-pedir) → [Ponerlo en marcha](#3-ponerlo-en-marcha-en-tu-pc) →
 > [Cómo trabajar](#5-cómo-trabajar-sin-romper-nada) → [Hoja de ruta](docs/HOJA_DE_RUTA.md).
@@ -19,7 +20,8 @@ comerciante, aparece el botón **"cambiar vista"**.
 
 | Qué | Enlace | Acceso |
 |---|---|---|
-| **API publicada** | https://api-mdrmarket-production.up.railway.app/api | Pública (prueba: [`/up`](https://api-mdrmarket-production.up.railway.app/up)) |
+| **API publicada** | https://api-mdrmarket-production.up.railway.app/api | Pública. Abrirla muestra si el servidor y la base están funcionando |
+| **Panel de administrador** | https://api-mdrmarket-production.up.railway.app/admin | Solo cuentas administradoras, con verificación en dos pasos ([cómo entrar](#-crear-tu-cuenta-y-hacerte-administrador)) |
 | **Railway** (servidor de la API: logs, variables, despliegues) | https://railway.com/project/2f0bb79b-64b4-4c55-9e58-2bd9222020f3 | Pedir que te agreguen al proyecto `confident-hope` |
 | **Aiven** (base de datos de producción) | https://console.aiven.io → proyecto **`mdrmarket`** → servicio **`mdrmarket-db`** | Pedir invitación a la organización |
 | **Repo de código** | https://github.com/RaschifDaguer/MDRmarket_2.0 | Público para leer; colaborador para subir cambios |
@@ -38,7 +40,9 @@ Lo mínimo para empezar, **sin Laragon ni base de datos local**:
    flutter pub get
    flutter run --dart-define=API_URL=https://api-mdrmarket-production.up.railway.app/api
    ```
-4. Crea tu propia cuenta desde la pantalla de registro y prueba.
+4. Crea tu propia cuenta desde la pantalla de registro y prueba. Si además vas a
+   revisar negocios y documentos, pide que te hagan administrador:
+   [cómo](#-crear-tu-cuenta-y-hacerte-administrador).
 5. **Para no trabajar a ciegas**, lee:
    - [docs/API_FRONTEND.md](docs/API_FRONTEND.md): qué manda y recibe cada
      pantalla (JSON de ejemplo), estados del pedido y cómo mostrar los errores.
@@ -55,6 +59,110 @@ datos de otros usuarios en tus pruebas. Si necesitas una base propia para
 romper cosas, importa la copia `mdrmarket_new_aiven_2026-10-03.sql` del
 [repo Docker](https://github.com/RaschifDaguer/MDRmarket_2.0_docker) en Laragon
 (sección 3).
+
+---
+
+## 👤 Crear tu cuenta y hacerte administrador
+
+En MDR Market **no hay cuentas aparte para administradores**: un administrador
+es una cuenta normal de la app con el permiso activado. Con la misma cuenta
+compras como cliente en la app y entras al panel web.
+
+### Paso 1 — Crea tu cuenta en la app
+
+1. Abre la app contra el servidor de internet (ver arriba,
+   [Si vienes a hacer frontend](#-si-vienes-a-hacer-frontend-y-pruebas)) y toca
+   **"Crear cuenta"**.
+2. Llena tus datos reales:
+   - **Nombre y apellido.**
+   - **Correo:** no puede estar usado por otra cuenta. Es tu usuario para la app y el panel.
+   - **Contraseña, escrita dos veces:** mínimo 8 caracteres, con al menos una
+     **mayúscula**, una **minúscula** y un **número**. Ejemplo válido: `Mdrmarket2026`.
+   - **Carnet:** número; complemento y lugar de expedición son opcionales.
+     El mismo carnet no puede repetirse en dos cuentas.
+   - **Teléfono:** opcional.
+3. Al terminar ya quedas con sesión abierta en la **vista cliente**.
+
+> Si no tienes Flutter instalado, también puedes crear la cuenta directo contra la
+> API (Git Bash o terminal de Mac/Linux):
+> ```bash
+> curl -X POST https://api-mdrmarket-production.up.railway.app/api/auth/registro \
+>   -H "Accept: application/json" -H "Content-Type: application/json" \
+>   -d '{"nombre":"Tu nombre","apellido":"Tu apellido","email":"tu@correo.com",
+>        "password":"Mdrmarket2026","password_confirmation":"Mdrmarket2026","ci_numero":"1234567"}'
+> ```
+> Si responde `201` con un `token`, la cuenta quedó creada.
+
+### Paso 2 — Pide el permiso de administrador
+
+Nadie puede darse el permiso a sí mismo desde la app: lo da **otro administrador**.
+Pásale tu **correo** a Raschif (o a cualquier admin) y él hace una de estas:
+
+| Quién lo da | Cómo |
+|---|---|
+| **Un admin, desde el panel** (lo normal) | `/admin` → **Operación → Usuarios** → busca tu correo → menú **⋮** → **"Hacer administrador"** |
+| Quien tenga acceso a Aiven | En un cliente MySQL conectado a producción: `UPDATE usuario SET es_admin = 1 WHERE email = 'tu@correo.com';` |
+| En una base local (Laragon) | Desde `api/`: `php artisan mdr:admin tu@correo.com` (con `--quitar` lo saca) |
+
+### Paso 3 — Primer ingreso al panel (verificación en dos pasos)
+
+El panel guarda datos personales (fotos de carnets), así que además de la
+contraseña pide un **código del celular**. Es obligatorio para todos los admins.
+
+1. Instala en tu celular **Google Authenticator** o **Microsoft Authenticator** (gratis).
+2. Entra a **https://api-mdrmarket-production.up.railway.app/admin** con tu correo y
+   tu contraseña de la app.
+3. La primera vez aparece **"Configurar la aplicación de autenticación"** con un
+   **código QR**. En la app del celular toca **+ → Escanear código QR** y apunta a la pantalla.
+4. Escribe el **código de 6 dígitos** que muestra el celular y tu **contraseña
+   actual**, y toca **Siguiente**.
+5. Te muestra **códigos de recuperación**. **Guárdalos fuera del celular**
+   (papel o gestor de contraseñas): cada uno sirve una vez si pierdes el teléfono.
+6. Desde ahora, cada ingreso pide **contraseña + código de 6 dígitos** (cambia cada 30 s).
+
+> 🔒 No mandes capturas de esa pantalla: el texto debajo del QR es la llave de tu
+> verificación. Si se compartió, cancela y vuelve a abrir: se genera otra.
+
+**¿Perdiste el celular y los códigos?** Pide a Raschif que reinicie tu
+verificación (en Aiven: `UPDATE usuario SET app_authentication_secret = NULL,
+app_authentication_recovery_codes = NULL WHERE email = 'tu@correo.com';`). Al
+entrar de nuevo aparece otra vez el QR.
+
+### Qué hace un administrador
+
+| Sección | Para qué |
+|---|---|
+| **Aprobaciones → Negocios** | Ver cada negocio nuevo (foto, ubicación, datos, documentos del dueño) y **aprobarlo** o rechazarlo con motivo. **Un negocio no aparece en el catálogo hasta que se aprueba.** |
+| **Aprobaciones → Documentos** | Revisar la identidad de comerciantes y repartidores: **el carnet (los dos lados) y la selfie van juntos en una sola solicitud**, con las fotos lado a lado. Comprueba que la cara de la selfie sea la del carnet. Al rechazar eliges qué parte debe volver a subir; la persona recibe el motivo. |
+| **Operación → Pedidos** | Ver todos los pedidos y cancelar uno si hace falta (devuelve el stock). |
+| **Operación → Usuarios** | Activar o desactivar cuentas y **dar o quitar el permiso de administrador**. |
+| **Configuración** | Tarifas de envío por distancia, tarifa de servicio y comisión. |
+
+Reglas: no compartas tu cuenta de admin; cada persona usa la suya. Las fotos de
+documentos son privadas y solo se ven dentro del panel.
+
+### Recorrido completo para probar (o para una demostración)
+
+1. **Antes de empezar:** abre https://api-mdrmarket-production.up.railway.app/api.
+   Debe decir `"base_de_datos": "conectada"`. Si dice *sin conexión* o la app
+   muestra **"En mantenimiento"**, la base de Aiven está dormida: hay que
+   encenderla (ver [Problemas conocidos](#10-problemas-conocidos)) y esperar
+   5–10 minutos. Conviene revisarlo **10 minutos antes** de una presentación.
+2. **Cliente:** en la app, pestaña **Inicio** (productos), **Tiendas** y
+   **Pedidos**. Los productos que ves son de los negocios **aprobados**.
+3. **Volverse comerciante:** en Inicio, **"¿Tienes un negocio? → Registrar"**:
+   nombre, rubro, ubicación, foto del negocio, y si faltan, carnet (frente y
+   reverso) y **una selfie** (abre la cámara delantera). El negocio queda **"en revisión"**.
+4. **Admin:** en el panel, aprueba el negocio y la solicitud de identidad.
+5. **Comerciante:** cambia a la vista comerciante (botón de arriba) →
+   **Productos → Agregar producto** (foto, precio, stock) → en **Resumen**, que
+   esté **Abierto**.
+6. **Cliente (otra cuenta):** ve el producto en Inicio o en la tienda → carrito →
+   dirección → **hacer pedido**. La app muestra un **PIN de 4 números**.
+7. **Comerciante:** **Pedidos → aceptar → preparando → listo → en camino →
+   entregado** (pide el PIN del cliente).
+8. **Cliente:** califica el negocio y los productos. El comerciante ve sus
+   **Ganancias** y puede responder la reseña.
 
 ---
 
@@ -84,7 +192,7 @@ romper cosas, importa la copia `mdrmarket_new_aiven_2026-10-03.sql` del
 | 2 | **API:** registro (contraseña segura escrita dos veces), inicio y cierre de sesión, perfil y cambio de vista | ✅ Hecho |
 | 3 | **App:** pantallas de arranque, inicio de sesión, registro e inicio por vista, con el botón "cambiar vista" | ✅ Hecho |
 | — | **Servidor en internet:** API en Railway + base en Aiven, con despliegue automático | ✅ Hecho |
-| 4a | Registro de comerciante (negocio, mapa/GPS, foto, carnet) | ✅ Hecho |
+| 4a | Registro de comerciante (negocio, mapa/GPS, foto, carnet y selfie) | ✅ Hecho |
 | 4b | Registro de repartidor (vehículo y documentos) | ⏳ Siguiente |
 | 5 | Catálogo con categorías, búsqueda, ofertas y páginas de tienda | ✅ Hecho |
 | 6 | Carrito, direcciones, costo del envío y pedido (con PIN de entrega) | ✅ Hecho |
@@ -93,7 +201,7 @@ romper cosas, importa la copia `mdrmarket_new_aiven_2026-10-03.sql` del
 | 9 | **Rastreo del pedido en el mapa** (GPS del repartidor en vivo) | ⏳ |
 | 10 | Reseñas (✅ producto y negocio, con respuesta del negocio); reportes y sanciones en la app ⏳ | Parcial |
 | 11 | Ganancias del comerciante (por período con gráfico y por producto) | ✅ Hecho |
-| 12 | Panel de administrador web (Filament) en `/admin`: aprobar negocios y documentos, pedidos, usuarios, tarifas | ✅ Hecho |
+| 12 | Panel de administrador web (Filament) en `/admin`: aprobar negocios e identidades (carnet + selfie), pedidos, usuarios, tarifas; verificación en dos pasos | ✅ Hecho |
 | 13 | Notificaciones, recuperar contraseña y publicación (APK / Play Store / iOS) | ⏳ |
 
 El detalle de cada módulo pendiente, con qué construir y cómo probarlo, está en
@@ -255,21 +363,12 @@ Usuarios de ejemplo: los `*@mdrmarket.local` del script. Lo más simple es
 
 Es una página web dentro de la misma API: **`/admin`**
 (`http://localhost:8001/admin` en tu PC, `https://api-mdrmarket-production.up.railway.app/admin`
-en internet). Se entra con el **correo y la contraseña de la app**, pero solo
-las cuentas marcadas como administrador.
+en internet). Cómo crear la cuenta, hacerte administrador y configurar la
+verificación en dos pasos: ver
+[Crear tu cuenta y hacerte administrador](#-crear-tu-cuenta-y-hacerte-administrador).
 
-1. Regístrate en la app con tu cuenta normal.
-2. Dale permiso de administrador:
-   - **En tu PC:** desde `api/`, `php artisan mdr:admin tu@correo.com`
-   - **En producción (Aiven):** en tu cliente MySQL,
-     `UPDATE usuario SET es_admin = 1 WHERE email = 'tu@correo.com';`
-3. Entra a `/admin`. Desde ahí, en **Operación → Usuarios**, puedes hacer
-   administradores a otras cuentas sin tocar la base.
-
-Qué tiene: **Aprobaciones** (negocios con su foto, datos y el carnet del
-dueño; documentos con la foto grande; aprobar o rechazar con motivo),
-**Operación** (pedidos, usuarios) y **Configuración** (tarifas de envío,
-tarifa de servicio y comisión).
+En tu base local, el permiso se da con `php artisan mdr:admin tu@correo.com`
+(desde `api/`). La verificación en dos pasos también se pide en local.
 
 ---
 
@@ -407,8 +506,10 @@ curl https://api-mdrmarket-production.up.railway.app/api/me -H "Accept: applicat
   aparece si tiene más de una**.
 - **Convertirse en repartidor o comerciante** pidiendo solo lo que falta:
   `CALL sp_datos_faltantes(usuario, 'repartidor')`. Al repartidor se le piden
-  carnet (anverso y reverso), licencia, foto del vehículo, foto de la placa y
-  RUAT; a una bicicleta solo carnet y foto del vehículo.
+  carnet (anverso y reverso), **selfie**, licencia, foto del vehículo, foto de
+  la placa y RUAT; a una bicicleta solo carnet, selfie y foto del vehículo. Al
+  comerciante, carnet y selfie. La selfie se toma con la cámara delantera y el
+  administrador la compara con la foto del carnet.
 - **Envío:** precio por km recorrido (`tarifa_envio`: hasta 3 km 3 Bs, hasta
   6 km 5 Bs, hasta 10 km 8 Bs, hasta 15 km 12 Bs, hasta 20 km 15 Bs, hasta 30 km 20 Bs)
   y cobertura del centro al **10mo anillo** (`fn_cotizar_envio`).
@@ -461,13 +562,14 @@ demuestre que cumple su función** (ver "Cómo probarlo" en cada módulo de la
 | Síntoma | Causa | Qué hacer |
 |---|---|---|
 | La primera consulta al servidor tarda 10–30 s | Railway Free "duerme" la API sin uso | Normal; las siguientes son rápidas |
-| La API responde 500 en todo lo que usa la base | Aiven apagó la base gratuita por inactividad | Consola de Aiven → encender el servicio `mdrmarket-db` |
+| La app o el panel dicen **"En mantenimiento"** (o `/api` dice `"base_de_datos": "sin conexión"`) | Aiven apagó la base gratuita por inactividad | https://console.aiven.io → proyecto `mdrmarket` → servicio `mdrmarket-db` → **Power on**. Pasa por *Rebuilding* y en 5–10 min queda **Running**; todo vuelve solo, sin tocar nada más. Si no tienes acceso a Aiven, avisa a Raschif |
 | Railway: `AH00534: More than one MPM loaded` | Imagen php:apache | Ya resuelto en `Dockerfile` y `entrypoint.sh`; no borrar esas líneas |
 | Railway: "Free plan resource provision limit exceeded" | Límite del plan Free (1 USD/mes) | Por eso la base está en Aiven y no en Railway |
 | La app en el emulador no conecta | Usa `localhost` | El emulador usa `10.0.2.2`; un celular real necesita la IP de la PC |
 | Error de CORS en Chrome | API apagada o URL mal escrita | Revisa que la API esté encendida y la URL termine en `/api` |
 | Al registrar el negocio no aparece el mapa, solo el botón GPS | Falta la clave de Google Maps, o la clave no tiene activada la Maps JavaScript API | Ver [app/README.md](app/README.md#con-el-mapa-de-google-chrome) |
-| Las fotos subidas desaparecen en el servidor de internet | El disco de Railway se borra en cada despliegue | Pendiente: pasar las fotos a Cloudinary (`MEDIA_DISK`) antes de publicar |
+| Las fotos subidas (negocios, productos, documentos) desaparecen en el servidor de internet | El disco de Railway se borra en cada despliegue | Montar un **disco permanente (Volume)** en Railway: ver [api/README.md](api/README.md#fotos-que-no-se-borren-volume-de-railway). Las que ya se borraron hay que volver a subirlas |
+| En el panel, al entrar, no se ve el QR | Versión vieja del panel | Ya corregido (`AutenticadorApp`); recarga con Ctrl + F5 |
 | VS Code marca en rojo cosas de Laravel | El editor no tiene indexado `vendor/` | Abre la carpeta `api/` sola en VS Code o corre `composer install` |
 
 ---

@@ -61,6 +61,10 @@ return [
             'timezone' => '+00:00',
             'options' => extension_loaded('pdo_mysql') ? array_filter([
                 PDO::MYSQL_ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
+                // En el servidor (DB_PERSISTENT=true en el Dockerfile) cada proceso
+                // de Apache reutiliza su conexión cifrada con la base en vez de
+                // abrir una nueva en cada solicitud: responde bastante más rápido.
+                PDO::ATTR_PERSISTENT => (bool) env('DB_PERSISTENT', false),
             ]) : [],
         ],
 

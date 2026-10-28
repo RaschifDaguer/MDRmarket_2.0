@@ -88,6 +88,9 @@ class AppServiceProvider extends ServiceProvider
         // Guardar o cambiar datos (direcciones, productos, estados, reseñas…).
         RateLimiter::for('escritura', fn (Request $request) => Limit::perMinute(40)->by($quien($request)));
 
+        // Ver fotos de negocios y productos: un catálogo pide muchas juntas.
+        RateLimiter::for('archivos', fn (Request $request) => Limit::perMinute(600)->by('ip'.self::ipCliente($request)));
+
         // Subir fotos (negocio, productos, documentos): son lo más pesado.
         RateLimiter::for('subidas', fn (Request $request) => [
             Limit::perMinute(15)->by('min:'.$quien($request)),

@@ -64,6 +64,10 @@ WHERE email = 'correo@del.admin';
 
 ## Seguridad
 
+- **Versión de PHP fijada** en el `Dockerfile` (`php:8.3.36-apache`). La 8.3.36
+  corrige "PHP2Shell" (CVE-2026-109618 y CVE-2026-109619, oct-2026). Cuando PHP
+  publique otra versión de seguridad de la rama 8.3 (https://www.php.net), sube
+  ese número y haz push: Railway reconstruye con la nueva.
 - **Sesión de la app:** el token vence a los 60 días (`SANCTUM_EXPIRATION`, en
   minutos). Los datos de cada usuario y negocio solo los ve su dueño: con un
   número ajeno en la URL la API responde 404.
@@ -79,6 +83,7 @@ WHERE email = 'correo@del.admin';
   | Hacer pedidos | 5 por minuto y 50 por día |
   | Guardar o cambiar datos | 40 por minuto |
   | Subir fotos | 15 por minuto y 200 por día |
+  | Ver fotos (`/api/archivos/…`) | 600 por minuto por IP (no gastan el límite general) |
 
   Además, un cliente puede tener como máximo **5 pedidos esperando respuesta**
   (`PedidoController::MAXIMO_PENDIENTES`); los aceptados no cuentan.
@@ -151,5 +156,37 @@ Publicada en **https://api-mdrmarket-production.up.railway.app/api**.
    `base64 -w0 ca.pem`).
 3. Railway asigna el puerto en `$PORT`; `docker/entrypoint.sh` lo configura solo,
    escribe el certificado de la base y deja Apache con un solo MPM (prefork).
+4. **Disco permanente para las fotos** (ver abajo).
 
 > Nunca subir al repositorio la contraseña de la base ni el `ca.pem`.
+
+### Fotos que no se borren (Volume de Railway)
+
+Las fotos que suben los usuarios (negocios, productos y documentos privados)
+se guardan en `storage/app`. El disco normal de Railway **se borra en cada
+despliegue**, así que hay que montar ahí un disco permanente. Se hace una sola vez:
+
+1. En el proyecto de Railway, `Ctrl + K` (o clic derecho en el lienzo) → **Volume**.
+2. Elige el servicio de la API.
+3. **Mount path:** `/var/www/html/storage/app`
+4. Railway redespliega solo. `docker/entrypoint.sh` crea las carpetas
+   `public/` y `private/` dentro del disco y se las da a Apache.
+
+Para comprobarlo: sube una foto de producto, haz cualquier despliegue y revisa
+que la foto siga viéndose. Los documentos privados quedan en el mismo disco y
+nunca se sirven sin sesión de administrador.
+
+### Rendimiento y caídas de la base
+
+- Cada proceso de Apache reutiliza su conexión cifrada con Aiven
+  (`DB_PERSISTENT=true` en el `Dockerfile`), en vez de abrir una nueva en cada solicitud.
+- Apache atiende como máximo **10 solicitudes a la vez** (`MaxRequestWorkers`):
+  alcanza para la memoria del plan y para las 76 conexiones de Aiven. Si llegan
+  más, esperan su turno en vez de tumbar el servidor.
+- Si la base está apagada o no responde, la API devuelve **503** con
+  "El servicio está en mantenimiento…", y el panel muestra una página "En
+  mantenimiento", en vez de "Error del servidor". `GET /api` muestra en todo
+  momento si la base está conectada.
+- La API (Railway) y la base (Aiven, San Francisco) conviene que estén en la
+  misma región de EE. UU. Si se nota lenta, en Railway: servicio → **Settings →
+  Region → US West**.

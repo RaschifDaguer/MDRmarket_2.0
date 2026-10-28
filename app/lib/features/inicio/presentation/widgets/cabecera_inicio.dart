@@ -27,6 +27,7 @@ class CabeceraInicio extends StatelessWidget {
 
     return CabeceraFlotante(
       altura: selector == null ? 116 : 184,
+      discreta: true,
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 720),
         child: Padding(

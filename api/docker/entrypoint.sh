@@ -22,6 +22,12 @@ elif [ -n "${DB_SSL_CA:-}" ]; then
     export MYSQL_ATTR_SSL_CA=/tmp/db-ca.pem
 fi
 
+# Fotos y documentos que suben los usuarios (storage/app). Si en Railway se
+# montó ahí un disco permanente (Volume), llega vacío y a nombre de root: se
+# crean las carpetas y se le dan a Apache para que pueda guardar.
+mkdir -p /var/www/html/storage/app/public /var/www/html/storage/app/private
+chown www-data:www-data /var/www/html/storage/app /var/www/html/storage/app/public /var/www/html/storage/app/private
+
 # Cachea la configuración con las variables de entorno del servidor.
 php artisan config:cache
 php artisan route:cache

@@ -10,11 +10,32 @@ use App\Http\Controllers\Api\NegocioController;
 use App\Http\Controllers\Api\PedidoController;
 use App\Http\Controllers\Api\PerfilController;
 use App\Http\Controllers\Api\ResenaController;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 
 // Límites de solicitudes por minuto (ver AppServiceProvider::limitesDeSolicitudes):
 // toda la API tiene el general ("api"); además, login, registro, pedidos,
 // cambios de datos ("escritura") y subida de fotos ("subidas") tienen el suyo.
+// Ver fotos ("archivos") tiene uno propio, más alto, en vez del general.
+
+// ---------- Estado del servidor (GET /api) ----------
+// Para comprobar de un vistazo que la API y la base de datos funcionan.
+Route::get('/', function () {
+    try {
+        DB::connection()->getPdo();
+        $base = 'conectada';
+    } catch (Throwable) {
+        $base = 'sin conexión (la base de datos está apagada o no responde)';
+    }
+
+    return response()->json([
+        'nombre' => 'API de MDR Market',
+        'estado' => 'en línea',
+        'base_de_datos' => $base,
+        'documentacion' => url('/docs/api'),
+        'panel_admin' => url('/admin'),
+    ]);
+});
 
 // ---------- Cuenta ----------
 Route::prefix('auth')->group(function () {
@@ -29,7 +50,13 @@ Route::get('productos', [CatalogoController::class, 'productos']);
 Route::get('productos/{id}', [CatalogoController::class, 'producto'])->whereNumber('id');
 Route::get('tiendas', [CatalogoController::class, 'tiendas']);
 Route::get('tiendas/{id}', [CatalogoController::class, 'tienda'])->whereNumber('id');
-Route::get('archivos/{ruta}', [ArchivoController::class, 'ver'])->where('ruta', '.*')->name('archivos.ver');
+// Fotos: un catálogo carga muchas a la vez, así que tienen su propio límite
+// (más alto) y no gastan el general de la API.
+Route::get('archivos/{ruta}', [ArchivoController::class, 'ver'])
+    ->where('ruta', '.*')
+    ->withoutMiddleware('throttle:api')
+    ->middleware('throttle:archivos')
+    ->name('archivos.ver');
 
 // ---------- Rutas que requieren sesión ----------
 Route::middleware('auth:sanctum')->group(function () {

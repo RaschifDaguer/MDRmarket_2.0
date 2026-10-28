@@ -13,7 +13,7 @@ trabajo que falta es **API (Laravel) + pantallas (Flutter)**.
 | 2 | API base | Registro, login, logout, `GET /me`, `PUT /me/vista`; errores en JSON y español |
 | 3 | App base | Arranque, login, registro (2 contraseñas + requisitos en vivo), inicio por vista y cambio de vista |
 | — | Publicación | API en Railway (despliegue automático) + base en Aiven |
-| 4a | Registrar mi negocio | Rubro, mapa de Google + GPS, foto, NIT opcional, carnet (solo si falta); queda "en revisión" |
+| 4a | Registrar mi negocio | Rubro, mapa de Google + GPS, foto, NIT opcional, carnet y selfie (solo si faltan); queda "en revisión" |
 | 5 | Catálogo | Buscador, categorías, ofertas, orden, detalle de producto (fotos, reseñas) y página de cada tienda (horario, productos, reseñas) |
 | 6 | Carrito y pedido | Carrito de un negocio con notas, direcciones guardadas (mapa/GPS), costo de envío por km, efectivo/QR/transferencia, pedido con **PIN de entrega**, cancelar mientras está pendiente, seguimiento del estado |
 | 7 | Vista comerciante | Resumen, abierto/cerrado, productos (foto, oferta, stock, tamaño), pedidos entrantes (aceptar → … → entregar con PIN), compras y gastos, perfil y horario |
@@ -26,8 +26,9 @@ trabajo que falta es **API (Laravel) + pantallas (Flutter)**.
 delivery: pasa el pedido a "en camino" y lo marca "entregado" con el PIN que le
 da el cliente. Así funcionan ya las ventas, las ganancias y las reseñas.
 
-**Pruebas:** 23 de la API (`php artisan test`, base `mdrmarket_prueba`) y 69 de
-la app con datos falsos, más recorridos en vivo contra la API local.
+**Pruebas:** 44 de la API (`php artisan test`, base `mdrmarket_prueba`), incluidas
+pruebas de ataque (`SeguridadTest`), y 71 de la app con datos falsos, más
+recorridos en vivo contra la API local.
 
 ---
 
@@ -108,10 +109,10 @@ la app con datos falsos, más recorridos en vivo contra la API local.
 ## Pendientes técnicos
 
 - [x] Almacenamiento de imágenes: **disco local por ahora** (`MEDIA_DISK=public`).
-- [ ] **Pasar las fotos públicas a Cloudinary antes de publicar** (el disco de
-  Railway se borra en cada despliegue). Solo cambia `MEDIA_DISK` y la clase
-  `api/app/Support/Archivos.php`; la app no se toca. Los documentos privados
-  (carnet, licencia) necesitan un disco privado que no se borre.
+- [ ] **Fotos que no se borren en Railway:** montar un Volume en
+  `/var/www/html/storage/app` (el servidor ya está preparado; ver
+  [api/README.md](../api/README.md#fotos-que-no-se-borren-volume-de-railway)).
+  Más adelante, opcional: fotos públicas en Cloudinary (`MEDIA_DISK`).
 - [x] Clave de Google Maps en la app: archivo local `app/dart_defines.local.json` (no se sube).
 - [ ] Restringir la clave de Google Maps en Google Cloud (por dominio web y por paquete `bo.mdrmarket.app`).
 - [ ] Configurar la clave de Google Maps para Android/iOS (al compilar para celular).

@@ -20,11 +20,21 @@ class MasTab extends StatelessWidget {
         'Calificaciones',
         negocio.totalResenas == 0
             ? 'Todavía no tienes reseñas'
-            : '⭐ ${negocio.ratingPromedio?.toStringAsFixed(1)} · ${negocio.totalResenas} reseñas',
+            : '⭐ ${negocio.ratingPromedio?.toStringAsFixed(1)} · '
+                '${negocio.totalResenas} ${negocio.totalResenas == 1 ? 'reseña' : 'reseñas'}',
         '/negocio/calificaciones',
       ),
       (Icons.storefront_outlined, 'Perfil del negocio', 'Nombre, foto, ubicación, pedido mínimo…', '/negocio/perfil'),
-      (Icons.schedule, 'Horario de atención', '${negocio.horarios.length} tramos cargados', '/negocio/horario'),
+      (
+        Icons.schedule,
+        'Horario de atención',
+        switch (negocio.horarios.length) {
+          0 => 'Todavía no cargaste tu horario',
+          1 => '1 tramo cargado',
+          final n => '$n tramos cargados',
+        },
+        '/negocio/horario',
+      ),
     ];
 
     return ListView(
