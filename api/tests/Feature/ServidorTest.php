@@ -16,6 +16,7 @@ class ServidorTest extends TestCase
             ->assertOk()
             ->assertJsonPath('estado', 'en línea')
             ->assertJsonPath('base_de_datos', 'conectada')
+            ->assertJsonPath('fotos', 'disco local')
             ->assertJsonStructure(['documentacion', 'panel_admin']);
     }
 

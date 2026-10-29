@@ -28,10 +28,21 @@ Route::get('/', function () {
         $base = 'sin conexión (la base de datos está apagada o no responde)';
     }
 
+    // ¿storage/app es otro disco (el Volume de Railway)? Si es el mismo que el
+    // resto del contenedor, las fotos se pierden en cada despliegue.
+    $disco = @stat(storage_path('app'));
+    $contenedor = @stat(storage_path());
+    $permanente = $disco && $contenedor && $disco['dev'] !== $contenedor['dev'];
+
     return response()->json([
         'nombre' => 'API de MDR Market',
         'estado' => 'en línea',
         'base_de_datos' => $base,
+        'fotos' => match (true) {
+            $permanente => 'disco permanente',
+            app()->environment('production') => 'disco temporal (se borran al desplegar)',
+            default => 'disco local',
+        },
         'documentacion' => url('/docs/api'),
         'panel_admin' => url('/admin'),
     ]);

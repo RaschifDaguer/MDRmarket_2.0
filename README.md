@@ -580,7 +580,7 @@ En la PC del dueño, `C:\Raschif\laragon\www\mdrmarket_v2_api` es un enlace a
 
 | Método | Ruta | Sesión | Para qué |
 |---|---|---|---|
-| GET | `/api` | — | Estado del servidor y de la base de datos (`"base_de_datos": "conectada"`) |
+| GET | `/api` | — | Estado del servidor, de la base de datos (`"base_de_datos": "conectada"`) y de las fotos (`"fotos": "disco permanente"`) |
 | POST | `/api/auth/registro` | — | Crear cuenta. Devuelve `token` y `usuario` |
 | POST | `/api/auth/login` | — | Iniciar sesión. Devuelve `token` y `usuario` |
 | POST | `/api/auth/logout` | ✔ | Cerrar sesión en este dispositivo |
