@@ -33,12 +33,15 @@ comerciante, aparece el botón **"cambiar vista"**.
 
 | Fecha | Qué cambió | Qué significa para ti |
 |---|---|---|
+| 29-oct | **Disco permanente activo** en Railway (Volume en `/var/www/html/storage/app`) | Las fotos de negocios, productos y documentos **ya no se borran** al actualizar el servidor. Comprobado: una foto de prueba sobrevivió a un redespliegue. Las que se perdieron antes hay que volver a subirlas |
+| 29-oct | `GET /api` muestra también **dónde se guardan las fotos** | Debe decir `"fotos": "disco permanente"`. Si dice *disco temporal*, el Volume se desconectó |
+| 29-oct | **`test@example.com` ya no es administrador** | Era una cuenta de prueba sin verificación en dos pasos. Los admins ahora son cuentas reales |
 | 28-oct | **PHP 8.3.36** en el servidor (imagen fijada en `api/Dockerfile`) | Corrige "PHP2Shell" (CVE-2026-109618 y CVE-2026-109619), una falla grave de PHP. Si trabajas en la API en tu PC, usa **PHP 8.3.36 o más nuevo** |
 | 28-oct | **Contraseña de Aiven cambiada** | La anterior ya no sirve. Si la necesitas, pídesela a Raschif por privado |
 | 28-oct | Fotos de los productos de ejemplo en **PNG** | Antes salían vacías en la app (eran SVG, que Flutter no dibuja) |
 | 28-oct | **"En mantenimiento"** cuando la base está apagada | Si Aiven se duerme, la app y el panel lo dicen claro (error 503) en vez de "Error del servidor" |
 | 28-oct | `GET /api` muestra el **estado del servidor** | Abre https://api-mdrmarket-production.up.railway.app/api: debe decir `"base_de_datos": "conectada"` |
-| 28-oct | Servidor preparado para un **disco permanente** (Volume de Railway) | Las fotos que se suban dejarán de borrarse en cada despliegue ([cómo](api/README.md#fotos-que-no-se-borren-volume-de-railway)) |
+| 28-oct | Servidor preparado para un **disco permanente** (Volume de Railway) | `docker/entrypoint.sh` crea las carpetas de fotos dentro del disco y se las da a Apache ([detalle](api/README.md#fotos-que-no-se-borren-volume-de-railway)) |
 | 28-oct | Conexión persistente con la base y máximo 10 procesos de Apache | Respuestas más rápidas; ante una avalancha de solicitudes, el servidor no se cae |
 | 28-oct | Cabecera de inicio más limpia; plurales en "Más" y calificaciones | Los íconos de fondo ya no tapan el saludo ni "cerrar sesión" |
 | 15-oct | **Selfie obligatoria** para comerciantes y repartidores | Al registrar el negocio se pide una foto de la cara con la cámara delantera; el admin la compara con el carnet |
@@ -689,7 +692,7 @@ demuestre que cumple su función** (ver "Cómo probarlo" en cada módulo de la
 | La app en el emulador no conecta | Usa `localhost` | El emulador usa `10.0.2.2`; un celular real necesita la IP de la PC |
 | Error de CORS en Chrome | API apagada o URL mal escrita | Revisa que la API esté encendida y la URL termine en `/api` |
 | Al registrar el negocio no aparece el mapa, solo el botón GPS | Falta la clave de Google Maps, o la clave no tiene activada la Maps JavaScript API | Ver [app/README.md](app/README.md#con-el-mapa-de-google-chrome) |
-| Las fotos subidas (negocios, productos, documentos) desaparecen en el servidor de internet | El disco de Railway se borra en cada despliegue | Montar un **disco permanente (Volume)** en Railway: ver [api/README.md](api/README.md#fotos-que-no-se-borren-volume-de-railway). Las que ya se borraron hay que volver a subirlas |
+| Una foto subida (negocio, producto, documento) no se ve o desapareció | Si es de antes del 29-oct, se borró con un despliegue (todavía no había disco permanente). Si es nueva, el Volume de Railway pudo desconectarse | Las antiguas hay que volver a subirlas. Abre https://api-mdrmarket-production.up.railway.app/api: si `"fotos"` no dice *disco permanente*, revisa el Volume del servicio en Railway ([cómo](api/README.md#fotos-que-no-se-borren-volume-de-railway)) |
 | En el panel, al entrar, no se ve el QR | Versión vieja del panel | Ya corregido (`AutenticadorApp`); recarga con Ctrl + F5 |
 | VS Code marca en rojo cosas de Laravel | El editor no tiene indexado `vendor/` | Abre la carpeta `api/` sola en VS Code o corre `composer install` |
 

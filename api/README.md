@@ -162,9 +162,13 @@ Publicada en **https://api-mdrmarket-production.up.railway.app/api**.
 
 ### Fotos que no se borren (Volume de Railway)
 
+✅ **Activo desde el 29-oct-2026.** Se comprobó subiendo una foto de prueba y
+redesplegando: la foto siguió viéndose.
+
 Las fotos que suben los usuarios (negocios, productos y documentos privados)
 se guardan en `storage/app`. El disco normal de Railway **se borra en cada
-despliegue**, así que hay que montar ahí un disco permanente. Se hace una sola vez:
+despliegue**, por eso ahí está montado un disco permanente. Si alguna vez hay
+que volver a crearlo (por ejemplo, en un servicio nuevo):
 
 1. En el proyecto de Railway, `Ctrl + K` (o clic derecho en el lienzo) → **Volume**.
 2. Elige el servicio de la API.
@@ -172,9 +176,10 @@ despliegue**, así que hay que montar ahí un disco permanente. Se hace una sola
 4. Railway redespliega solo. `docker/entrypoint.sh` crea las carpetas
    `public/` y `private/` dentro del disco y se las da a Apache.
 
-Para comprobarlo: sube una foto de producto, haz cualquier despliegue y revisa
-que la foto siga viéndose. Los documentos privados quedan en el mismo disco y
-nunca se sirven sin sesión de administrador.
+**Para comprobarlo:** `GET /api` debe decir `"fotos": "disco permanente"`. Si dice
+*disco temporal*, el Volume no está montado y las fotos nuevas se perderán en el
+próximo despliegue. Los documentos privados quedan en el mismo disco y nunca se
+sirven sin sesión de administrador.
 
 ### Rendimiento y caídas de la base
 

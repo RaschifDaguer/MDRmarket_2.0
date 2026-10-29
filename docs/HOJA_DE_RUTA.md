@@ -109,10 +109,13 @@ recorridos en vivo contra la API local.
 ## Pendientes técnicos
 
 - [x] Almacenamiento de imágenes: **disco local por ahora** (`MEDIA_DISK=public`).
-- [ ] **Fotos que no se borren en Railway:** montar un Volume en
-  `/var/www/html/storage/app` (el servidor ya está preparado; ver
+- [x] **Fotos que no se borren en Railway:** Volume montado en
+  `/var/www/html/storage/app` desde el 29-oct-2026 (ver
   [api/README.md](../api/README.md#fotos-que-no-se-borren-volume-de-railway)).
+  `GET /api` debe decir `"fotos": "disco permanente"`.
   Más adelante, opcional: fotos públicas en Cloudinary (`MEDIA_DISK`).
+- [x] Quitar el permiso de administrador a la cuenta de prueba `test@example.com` (29-oct-2026).
+- [x] PHP 8.3.36 en el servidor (corrige "PHP2Shell") y contraseña de Aiven cambiada (28-oct-2026).
 - [x] Clave de Google Maps en la app: archivo local `app/dart_defines.local.json` (no se sube).
 - [ ] Restringir la clave de Google Maps en Google Cloud (por dominio web y por paquete `bo.mdrmarket.app`).
 - [ ] Configurar la clave de Google Maps para Android/iOS (al compilar para celular).
