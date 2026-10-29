@@ -24,6 +24,12 @@ Usa la API de [`../api`](../api).
 Por defecto la app busca la API en `http://localhost:8001/api` (Chrome) o
 `http://10.0.2.2:8001/api` (emulador Android). Ver `lib/core/config/env.dart`.
 
+**Sin API local (lo normal para frontend):** usa el servidor de internet. En
+`dart_defines.local.json` pon
+`"API_URL": "https://api-mdrmarket-production.up.railway.app/api"` y ejecuta con
+`--dart-define-from-file=dart_defines.local.json` (ver abajo). Guía completa en el
+[README principal](../README.md#guía-para-el-equipo).
+
 ### Con el mapa de Google (Chrome)
 
 La clave de Google Maps **nunca** va en el código (el repo es público):

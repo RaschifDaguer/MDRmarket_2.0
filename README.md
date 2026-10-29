@@ -10,11 +10,10 @@ tres vistas en una sola cuenta:
 Cualquier usuario puede comprar. Si además se registra como repartidor o
 comerciante, aparece el botón **"cambiar vista"**.
 
-> 👋 **¿Recién llegas al proyecto?** Lee en orden: [Estado](#estado-actual) →
-> [Crear tu cuenta y ser administrador](#-crear-tu-cuenta-y-hacerte-administrador) →
-> [Herramientas](#1-herramientas-que-tienes-que-instalar) →
-> [Accesos](#2-accesos-que-tienes-que-pedir) → [Ponerlo en marcha](#3-ponerlo-en-marcha-en-tu-pc) →
-> [Cómo trabajar](#5-cómo-trabajar-sin-romper-nada) → [Hoja de ruta](docs/HOJA_DE_RUTA.md).
+> 👋 **¿Recién llegas al proyecto?** Empieza por la
+> [Guía para el equipo](#guía-para-el-equipo): cómo configurar la app, crear tu
+> cuenta, hacerte administrador y qué puedes cambiar en el backend. Lo nuevo
+> está en [Cambios recientes](#cambios-recientes).
 
 ## 🔗 Enlaces del proyecto
 
@@ -28,37 +27,154 @@ comerciante, aparece el botón **"cambiar vista"**.
 | **Repo de la base (Docker)** | https://github.com/RaschifDaguer/MDRmarket_2.0_docker | Ídem |
 | **Google Cloud** (clave de Maps, para los módulos de mapa) | https://console.cloud.google.com/apis/credentials | Pedir al dueño |
 
-## 🎯 Si vienes a hacer frontend y pruebas
+## Cambios recientes
 
-Lo mínimo para empezar, **sin Laragon ni base de datos local**:
+**Octubre 2026**
 
-1. Instala **Git**, **Flutter 3.44** (`flutter doctor` sin errores), **Android Studio** (SDK + un emulador) y **VS Code** con las extensiones *Flutter* y *Dart*.
-2. Pide acceso de colaborador a este repo y clónalo.
-3. Ejecuta la app contra el servidor de internet, que ya está conectado a la base de Aiven:
-   ```bash
-   cd app
-   flutter pub get
-   flutter run --dart-define=API_URL=https://api-mdrmarket-production.up.railway.app/api
-   ```
-4. Crea tu propia cuenta desde la pantalla de registro y prueba. Si además vas a
-   revisar negocios y documentos, pide que te hagan administrador:
-   [cómo](#-crear-tu-cuenta-y-hacerte-administrador).
-5. **Para no trabajar a ciegas**, lee:
-   - [docs/API_FRONTEND.md](docs/API_FRONTEND.md): qué manda y recibe cada
-     pantalla (JSON de ejemplo), estados del pedido y cómo mostrar los errores.
-   - [docs/DIAGRAMA_BD.md](docs/DIAGRAMA_BD.md): diagrama de las tablas y cómo se relacionan.
-   - [docs/HOJA_DE_RUTA.md](docs/HOJA_DE_RUTA.md): pantallas que faltan y
-     **cómo probar cada una**.
+| Fecha | Qué cambió | Qué significa para ti |
+|---|---|---|
+| 28-oct | **PHP 8.3.36** en el servidor (imagen fijada en `api/Dockerfile`) | Corrige "PHP2Shell" (CVE-2026-109618 y CVE-2026-109619), una falla grave de PHP. Si trabajas en la API en tu PC, usa **PHP 8.3.36 o más nuevo** |
+| 28-oct | **Contraseña de Aiven cambiada** | La anterior ya no sirve. Si la necesitas, pídesela a Raschif por privado |
+| 28-oct | Fotos de los productos de ejemplo en **PNG** | Antes salían vacías en la app (eran SVG, que Flutter no dibuja) |
+| 28-oct | **"En mantenimiento"** cuando la base está apagada | Si Aiven se duerme, la app y el panel lo dicen claro (error 503) en vez de "Error del servidor" |
+| 28-oct | `GET /api` muestra el **estado del servidor** | Abre https://api-mdrmarket-production.up.railway.app/api: debe decir `"base_de_datos": "conectada"` |
+| 28-oct | Servidor preparado para un **disco permanente** (Volume de Railway) | Las fotos que se suban dejarán de borrarse en cada despliegue ([cómo](api/README.md#fotos-que-no-se-borren-volume-de-railway)) |
+| 28-oct | Conexión persistente con la base y máximo 10 procesos de Apache | Respuestas más rápidas; ante una avalancha de solicitudes, el servidor no se cae |
+| 28-oct | Cabecera de inicio más limpia; plurales en "Más" y calificaciones | Los íconos de fondo ya no tapan el saludo ni "cerrar sesión" |
+| 15-oct | **Selfie obligatoria** para comerciantes y repartidores | Al registrar el negocio se pide una foto de la cara con la cámara delantera; el admin la compara con el carnet |
+| 15-oct | Carnet (los dos lados) + selfie = **una sola solicitud** en el panel | El admin ve las 3 fotos juntas y elige qué parte rechazar |
+| 14-oct | **Seguridad**: verificación en dos pasos en el panel, límites de solicitudes, cabeceras, `/docs/api` solo para admins, sesiones de la app que vencen a los 60 días | Ver [api/README.md](api/README.md#seguridad) |
 
-   Antes de subir cambios: `flutter analyze` y `flutter test` sin errores.
-6. **Si algo falla, abre un Issue en GitHub** con: qué hiciste, qué esperabas,
-   qué pasó, captura de pantalla y dispositivo (Chrome / emulador / celular).
+Pruebas al día: **44 de la API** (`php artisan test`, incluidas pruebas de
+ataque) y **71 de la app** (`flutter test`).
 
-Ten en cuenta que la app publicada usa **datos reales**: no borres ni cambies
-datos de otros usuarios en tus pruebas. Si necesitas una base propia para
-romper cosas, importa la copia `mdrmarket_new_aiven_2026-10-03.sql` del
-[repo Docker](https://github.com/RaschifDaguer/MDRmarket_2.0_docker) en Laragon
-(sección 3).
+---
+
+## Guía para el equipo
+
+Pensada para quien trabaja en el **frontend (Flutter) y las pruebas**. No
+necesitas Laragon ni una base de datos en tu PC: la app usa el servidor de
+internet (Railway), que ya está conectado a la base (Aiven).
+
+### Paso 1 — Accesos que tienes que pedir
+
+Pídeselos a Raschif (GitHub `RaschifDaguer`):
+
+- **Colaborador en GitHub** de este repo (y del repo de la base, si vas a tocarla).
+- **La clave de Google Maps**, por mensaje privado. Sin ella la app funciona igual,
+  pero en lugar del mapa muestra solo el botón de GPS.
+
+### Paso 2 — Instala las herramientas
+
+**Git**, **Flutter 3.44** (que `flutter doctor` no muestre errores), **Google
+Chrome**, **VS Code** con las extensiones *Flutter* y *Dart*, y si vas a probar
+en Android, **Android Studio** (SDK + un emulador). Detalle de versiones en la
+[sección 1](#1-herramientas-que-tienes-que-instalar).
+
+### Paso 3 — Configura y ejecuta el frontend
+
+```bash
+git clone https://github.com/RaschifDaguer/MDRmarket_2.0.git
+cd MDRmarket_2.0/app
+flutter pub get
+```
+
+Crea tu archivo de configuración local: copia `app/dart_defines.example.json`
+como **`app/dart_defines.local.json`** y déjalo así:
+
+```json
+{
+  "API_URL": "https://api-mdrmarket-production.up.railway.app/api",
+  "GOOGLE_MAPS_KEY": "la-clave-que-te-pasó-Raschif"
+}
+```
+
+Ese archivo **nunca se sube** al repositorio: ya está en `.gitignore`, porque el
+repo es público. Después ejecuta desde `app/`:
+
+```bash
+flutter run -d chrome --dart-define-from-file=dart_defines.local.json   # navegador
+flutter run --dart-define-from-file=dart_defines.local.json             # emulador o celular conectado
+```
+
+| Si quieres usar… | `API_URL` |
+|---|---|
+| El servidor de internet (lo normal) | `https://api-mdrmarket-production.up.railway.app/api` |
+| Una API en tu propia PC, desde Chrome | `http://localhost:8001/api` |
+| Una API en tu PC, desde el emulador Android | `http://10.0.2.2:8001/api` |
+| Una API en tu PC, desde un celular en tu Wi-Fi | `http://IP-DE-TU-PC:8001/api` |
+
+> Si la app dice **"En mantenimiento"** o no carga nada, abre
+> https://api-mdrmarket-production.up.railway.app/api: si dice *sin conexión*,
+> la base gratuita de Aiven se durmió. Avisa a Raschif para que la encienda
+> (tarda 5–10 minutos).
+
+### Paso 4 — Crea tu cuenta y hazte administrador
+
+Sigue [Crear tu cuenta y hacerte administrador](#-crear-tu-cuenta-y-hacerte-administrador):
+te registras en la app, Raschif te da el permiso desde el panel y la primera vez
+configuras Google Authenticator.
+
+### Paso 5 — Prueba la app completa
+
+Sigue el [recorrido completo](#recorrido-completo-para-probar-o-para-una-demostración):
+cliente → registrar negocio → aprobarlo como admin → agregar productos → pedido →
+entrega con PIN → reseña. Para entender qué manda y recibe cada pantalla:
+
+- [docs/API_FRONTEND.md](docs/API_FRONTEND.md): JSON de ejemplo, estados del pedido y errores.
+- [docs/HOJA_DE_RUTA.md](docs/HOJA_DE_RUTA.md): pantallas que faltan y **cómo probar cada una**.
+- [docs/DIAGRAMA_BD.md](docs/DIAGRAMA_BD.md): las tablas y cómo se relacionan.
+
+La app publicada usa **datos reales**: no borres ni cambies datos de otros
+usuarios. Para romper cosas sin miedo, usa una base local
+([sección 3](#3-ponerlo-en-marcha-en-tu-pc)).
+
+### Paso 6 — Sube tus cambios del frontend
+
+```bash
+git checkout main && git pull
+git checkout -b nombre-del-cambio        # una rama por cambio
+# … trabajas …
+cd app && flutter analyze && flutter test # los dos sin errores
+git add -A && git commit -m "App: qué cambiaste"
+git push -u origin nombre-del-cambio
+```
+
+Luego abre un **Pull Request** a `main` en GitHub para que Raschif lo revise.
+Los cambios que solo tocan `app/` **no** cambian nada del servidor. Si encuentras
+un error que no vas a arreglar tú, abre un **Issue** con qué hiciste, qué
+esperabas, qué pasó, una captura y el dispositivo (Chrome, emulador o celular).
+
+---
+
+## Cambios en el backend (API y base de datos)
+
+**Sí, puedes hacer cambios en el backend**, con estas reglas, porque todo lo que
+llega a `main` dentro de `api/` **se publica solo en el servidor real**:
+
+1. **Prepara tu PC:** PHP **8.3.36 o más nuevo** y Composer (con Laragon es lo
+   más fácil; si trae una versión más vieja de PHP, actualízala), más la base
+   local `mdrmarket_new` y la de pruebas `mdrmarket_prueba`. Pasos en la
+   [sección 3](#3-ponerlo-en-marcha-en-tu-pc) y en [api/README.md](api/README.md#pruebas).
+2. **Siempre en una rama y con Pull Request.** Nunca hagas push directo a `main`:
+   al unir a `main`, Railway reconstruye la API en 3–5 minutos.
+3. **Antes de pedir revisión:** `php artisan test` sin fallos. Si agregas una
+   ruta, agrega su prueba y actualiza [docs/API_FRONTEND.md](docs/API_FRONTEND.md).
+   La documentación de `/docs/api` se genera sola.
+4. **La estructura de la base NO se cambia con migraciones de Laravel.** Se
+   cambia en el script del [repo Docker](https://github.com/RaschifDaguer/MDRmarket_2.0_docker)
+   y con un archivo en su carpeta `cambios/`. Ese cambio se aplica en Aiven
+   **antes** de publicar el código que lo usa, con un respaldo previo, y lo
+   aplica quien tenga acceso a Aiven. **Nunca importes el script completo en
+   Aiven**: borra todos los datos. Ver [docs/BASE_DE_DATOS.md](docs/BASE_DE_DATOS.md).
+5. **No toques sin hablarlo antes:**
+   - la versión de PHP del `api/Dockerfile` (solo se sube, por seguridad);
+   - los límites de seguridad y la verificación en dos pasos del panel;
+   - `docker/entrypoint.sh`.
+6. **Secretos:** contraseñas, `.env`, `ca.pem`, `APP_KEY` y la clave de Google
+   **nunca** van al repositorio ni a grupos de chat.
+7. **Para estas cosas necesitas a Raschif**, porque requieren acceso al servidor:
+   variables de Railway, encender o cambiar Aiven y aplicar cambios de la base.
 
 ---
 
@@ -71,7 +187,7 @@ compras como cliente en la app y entras al panel web.
 ### Paso 1 — Crea tu cuenta en la app
 
 1. Abre la app contra el servidor de internet (ver arriba,
-   [Si vienes a hacer frontend](#-si-vienes-a-hacer-frontend-y-pruebas)) y toca
+   [Configura y ejecuta el frontend](#paso-3--configura-y-ejecuta-el-frontend)) y toca
    **"Crear cuenta"**.
 2. Llena tus datos reales:
    - **Nombre y apellido.**
@@ -168,6 +284,10 @@ documentos son privadas y solo se ven dentro del panel.
 
 ## Contenido
 
+- [Cambios recientes](#cambios-recientes)
+- [Guía para el equipo](#guía-para-el-equipo) (configurar el frontend, subir cambios)
+- [Cambios en el backend (API y base de datos)](#cambios-en-el-backend-api-y-base-de-datos)
+- [Crear tu cuenta y hacerte administrador](#-crear-tu-cuenta-y-hacerte-administrador)
 - [Estado actual](#estado-actual)
 - [Cómo está armado](#cómo-está-armado)
 - [1. Herramientas que tienes que instalar](#1-herramientas-que-tienes-que-instalar)
@@ -255,7 +375,7 @@ Versiones con las que se desarrolló (usa las mismas o más nuevas dentro de la 
 |---|---|---|---|
 | **Git** | 2.54 | Clonar y subir cambios | https://git-scm.com |
 | **Laragon** | 8.6 (trae PHP 8.3, MySQL 8.4, Apache, phpMyAdmin, HeidiSQL) | Correr la API y la base en tu PC | https://laragon.org — en Windows es lo más simple |
-| **PHP** | 8.3 (mínimo 8.2) | La API | Viene con Laragon |
+| **PHP** | **8.3.36 o más nuevo** | La API | Viene con Laragon, pero puede traer una 8.3 vieja: las anteriores a la 8.3.36 tienen la falla "PHP2Shell". Para actualizar: descarga `php-8.3.36-1-Win32-vs16-x64.zip` de https://downloads.php.net/~windows/releases/, descomprímelo en `laragon\bin\php\php-8.3.36-Win32-vs16-x64`, copia ahí tu `php.ini` (corrigiendo `extension_dir`) y elígelo en Laragon → PHP → Versión |
 | **Composer** | 2.9 | Dependencias de PHP | Viene con Laragon o https://getcomposer.org |
 | **MySQL** | 8.4 | Base de datos local | Viene con Laragon |
 | **Flutter SDK** | 3.44.1 (Dart 3.12.1), canal stable | La app | https://docs.flutter.dev/get-started/install — corre `flutter doctor` al terminar |
@@ -460,6 +580,7 @@ En la PC del dueño, `C:\Raschif\laragon\www\mdrmarket_v2_api` es un enlace a
 
 | Método | Ruta | Sesión | Para qué |
 |---|---|---|---|
+| GET | `/api` | — | Estado del servidor y de la base de datos (`"base_de_datos": "conectada"`) |
 | POST | `/api/auth/registro` | — | Crear cuenta. Devuelve `token` y `usuario` |
 | POST | `/api/auth/login` | — | Iniciar sesión. Devuelve `token` y `usuario` |
 | POST | `/api/auth/logout` | ✔ | Cerrar sesión en este dispositivo |
