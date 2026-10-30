@@ -1,8 +1,14 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:geolocator/geolocator.dart';
 
+import '../../../core/formato/formato.dart';
+import '../../../core/maps/coordenada.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_exception.dart';
+import '../../../core/network/pagina.dart';
+import '../../pedidos/domain/pedido.dart';
+import '../domain/pedido_disponible.dart';
 import '../domain/repartidor.dart';
 import '../domain/tipo_vehiculo.dart';
 
@@ -70,6 +76,57 @@ class RepartidorRepository {
         return Vehiculo.fromJson(r.data as Map<String, dynamic>);
       });
 
+  // ---------- Vista repartidor (módulo 8) ----------
+
+  /// En línea o desconectado; con la ubicación, si se pudo leer el GPS.
+  Future<bool> ponerDisponible(bool disponible, {Coordenada? ubicacion}) => _llamar(() async {
+        final r = await _dio.put('/repartidor/disponible', data: {
+          'disponible': disponible,
+          'latitud': ?ubicacion?.latitud,
+          'longitud': ?ubicacion?.longitud,
+        });
+        return (r.data as Map)['disponible'] == true;
+      });
+
+  Future<List<PedidoDisponible>> disponibles() => _llamar(() async {
+        final r = await _dio.get('/repartidor/pedidos-disponibles');
+        return (r.data as List).map((p) => PedidoDisponible.fromJson(p as Map<String, dynamic>)).toList();
+      });
+
+  /// El pedido que lleva ahora, o null.
+  Future<Pedido?> pedidoActual() => _llamar(() async {
+        final r = await _dio.get('/repartidor/pedido-actual');
+        final pedido = (r.data as Map)['pedido'];
+        return pedido is Map<String, dynamic> ? Pedido.fromJson(pedido) : null;
+      });
+
+  Future<Pedido> aceptar(int pedidoId) => _llamar(() async {
+        final r = await _dio.post('/pedidos/$pedidoId/aceptar');
+        return Pedido.fromJson(r.data as Map<String, dynamic>);
+      });
+
+  Future<Pedido> soltar(int pedidoId) => _llamar(() async {
+        final r = await _dio.post('/pedidos/$pedidoId/soltar');
+        return Pedido.fromJson(r.data as Map<String, dynamic>);
+      });
+
+  /// "en_camino" (lo recogió) o "entregado" con el [codigo] (PIN) del cliente.
+  Future<Pedido> cambiarEstado(int pedidoId, EstadoPedido estado, {String? codigo}) => _llamar(() async {
+        final r = await _dio.put('/repartidor/pedidos/$pedidoId/estado', data: {'estado': estado.api, 'codigo': ?codigo});
+        return Pedido.fromJson(r.data as Map<String, dynamic>);
+      });
+
+  Future<Entregas> entregas() => _llamar(() async {
+        final r = await _dio.get('/repartidor/entregas');
+        final datos = r.data as Map<String, dynamic>;
+        final resumen = (datos['resumen'] as Map?) ?? const {};
+        return Entregas(
+          pedidos: Pagina.desdeJson(datos, Pedido.fromJson).items,
+          total: (resumen['entregas'] as num?)?.toInt() ?? 0,
+          totalEnvios: Formato.numero(resumen['total_envios']),
+        );
+      });
+
   Future<T> _llamar<T>(Future<T> Function() peticion) async {
     try {
       return await peticion();
@@ -91,3 +148,33 @@ final tiposVehiculoProvider = FutureProvider<List<TipoVehiculo>>(
 final miRepartidorProvider = FutureProvider<PerfilRepartidor?>(
   (ref) => ref.watch(repartidorRepositoryProvider).miPerfil(),
 );
+
+/// Pedidos listos que puedo aceptar. Se actualiza al deslizar hacia abajo.
+final pedidosDisponiblesProvider = FutureProvider<List<PedidoDisponible>>(
+  (ref) => ref.watch(repartidorRepositoryProvider).disponibles(),
+);
+
+/// El pedido que llevo ahora (null si ninguno).
+final pedidoActualProvider = FutureProvider<Pedido?>(
+  (ref) => ref.watch(repartidorRepositoryProvider).pedidoActual(),
+);
+
+final entregasProvider = FutureProvider<Entregas>(
+  (ref) => ref.watch(repartidorRepositoryProvider).entregas(),
+);
+
+/// Lee el GPS una vez (null si no hay permiso o no responde). Las pruebas lo reemplazan.
+final ubicacionActualProvider = Provider<Future<Coordenada?> Function()>((ref) => () async {
+      try {
+        if (!await Geolocator.isLocationServiceEnabled()) return null;
+        var permiso = await Geolocator.checkPermission();
+        if (permiso == LocationPermission.denied) permiso = await Geolocator.requestPermission();
+        if (permiso == LocationPermission.denied || permiso == LocationPermission.deniedForever) return null;
+        final p = await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(accuracy: LocationAccuracy.high, timeLimit: Duration(seconds: 10)),
+        );
+        return Coordenada(p.latitude, p.longitude);
+      } catch (_) {
+        return null; // sin GPS se conecta igual; los pedidos salen por antigüedad
+      }
+    });

@@ -189,6 +189,12 @@ class _DetalleState extends ConsumerState<_Detalle> {
                         if (p.distanciaKm != null)
                           _Dato(icono: Icons.route_outlined, texto: 'A unos ${p.distanciaKm!.toStringAsFixed(1)} km'),
                         if (p.notas != null) _Dato(icono: Icons.chat_bubble_outline, texto: 'Nota: ${p.notas}'),
+                        // Lo tomó un repartidor de la app: él lo recoge y lo entrega.
+                        if (p.tieneRepartidor)
+                          _Dato(
+                            icono: Icons.delivery_dining_outlined,
+                            texto: ['Lo lleva ${p.repartidorNombre}', if (p.vehiculoTexto.isNotEmpty) p.vehiculoTexto].join(' · '),
+                          ),
                       ],
                     ),
                   ),
@@ -198,7 +204,8 @@ class _DetalleState extends ConsumerState<_Detalle> {
                 DetalleMontos(pedido: p),
                 const SizedBox(height: AppEspacios.m),
                 Card(child: Padding(padding: const EdgeInsets.all(AppEspacios.m), child: LineaAvance(pedido: p))),
-                if (p.estado == EstadoPedido.enCamino) ...[
+                // Solo si lo entrega el propio negocio (con repartidor, el PIN lo pide él).
+                if (p.estado == EstadoPedido.enCamino && !p.tieneRepartidor) ...[
                   const SizedBox(height: AppEspacios.m),
                   Card(
                     color: Theme.of(context).colorScheme.secondaryContainer,

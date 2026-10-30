@@ -6,8 +6,8 @@ trabajar a ciegas.
 
 - **Parte 1:** cuenta, perfil, registro del negocio y del repartidor.
 - **Parte 2:** catálogo, pedidos y todo lo del comerciante (también funcionan).
-- **Parte 3:** lo que todavía **falta** (vista repartidor y rastreo): datos
-  propuestos para maquetar.
+- **Parte 3:** lo que todavía **falta** (rastreo en el mapa): datos propuestos
+  para maquetar.
 
 > **Referencia completa y siempre al día:** `/docs/api` en la API (la genera
 > Scramble leyendo el código). Este documento explica *cómo usarla* desde la app.
@@ -441,8 +441,8 @@ Respuesta **201** (igual que `GET /pedidos/{id}`):
 | `confirmado` | Aceptado | Comerciante |
 | `preparando` | Preparando | Comerciante |
 | `listo` | Listo | Comerciante |
-| `en_camino` | En camino | Comerciante (después, el repartidor) |
-| `entregado` | Entregado | Comerciante con el PIN (después, el repartidor) |
+| `en_camino` | En camino | El repartidor que lo aceptó (o el comerciante, si nadie lo tomó) |
+| `entregado` | Entregado | Con el PIN: el repartidor que lo aceptó (o el comerciante, si nadie lo tomó) |
 | `cancelado` / `rechazado` | Cancelado / Rechazado | Cliente (pendiente), comerciante (con motivo), admin |
 
 ### Reseñas 🔒
@@ -476,9 +476,71 @@ Antes de recibir un pedido → **422** "Solo puedes reseñar después de recibir
 
 Fechas de los filtros: `AAAA-MM-DD` en hora de Bolivia.
 
+### Repartidor: llevar pedidos 🔒 (módulo 8)
+
+Para ver y aceptar pedidos tiene que estar **aprobado**, **sin sanción**, con su
+**vehículo aprobado** y **en línea**. Si no: **403** con el motivo
+(*"Tu cuenta de repartidor todavía no está aprobada."*, *"…está suspendida."*,
+*"Tu vehículo todavía no está aprobado."*) o **422** *"Ponte en línea para ver y aceptar pedidos."*.
+
+| Ruta | Para qué |
+|---|---|
+| `PUT /repartidor/disponible` | `{"disponible": true, "latitud": -17.78, "longitud": -63.18}` (ubicación opcional). Responde `{disponible, latitud, longitud}`. Desconectarse siempre se puede |
+| `GET /repartidor/pedidos-disponibles` | Pedidos `listo` sin repartidor que su vehículo puede llevar (ver abajo) |
+| `POST /pedidos/{id}/aceptar` | Lo toma. Responde el pedido (formato de `GET /pedidos/{id}`) |
+| `GET /repartidor/pedido-actual` | `{"pedido": {...}}` o `{"pedido": null}` |
+| `PUT /repartidor/pedidos/{id}/estado` | `{"estado": "en_camino"}` (lo recogió) · `{"estado": "entregado", "codigo": "4821"}` |
+| `POST /pedidos/{id}/soltar` | Antes de recogerlo: vuelve a quedar disponible (`motivo` opcional) |
+| `GET /repartidor/entregas` | Sus entregas (de a 20, más reciente primero) + `resumen: {entregas, total_envios}` |
+
+`GET /repartidor/pedidos-disponibles` (sin datos del cliente hasta aceptarlo):
+```json
+[
+  { "id": 42,
+    "negocio": { "id": 4, "nombre": "Pollos Marta", "logo_url": "…", "direccion": "Av. Busch 1234", "latitud": -17.7745, "longitud": -63.1935 },
+    "direccion_entrega": "Calle Libertad 123", "referencia_entrega": "Portón negro",
+    "distancia_km": 2.4, "distancia_al_negocio_km": 0.8,
+    "costo_envio": "5.00", "total": "73.00", "metodo_pago": "efectivo",
+    "tamano": "Liviano", "total_items": 3, "created_at": "…" }
+]
+```
+- `distancia_km`: del negocio a la casa del cliente. `distancia_al_negocio_km`: de
+  donde está el repartidor al negocio (`null` si no mandó su ubicación).
+- Con ubicación, del negocio más cercano al más lejano; sin ella, el que espera hace más tiempo primero.
+- Solo los del tamaño de su vehículo o más chicos (liviano < mediano < grande):
+  a una moto no le aparece un pedido de camión.
+- No aparecen sus propias compras ni los pedidos de su negocio.
+
+Reglas y errores (**422**, en `errors.pedido`):
+
+| Caso | Mensaje |
+|---|---|
+| Ya lleva otro (uno a la vez) | *Ya tienes un pedido en curso. Entrégalo antes de aceptar otro.* |
+| Dos repartidores aceptan a la vez: el segundo | *Otro repartidor ya aceptó este pedido.* |
+| Ya no está "listo" | *Este pedido ya no está disponible.* |
+| Vehículo chico | *Este pedido necesita un vehículo más grande.* |
+| Soltar después de recogerlo | *Ya lo recogiste: ahora tienes que entregarlo.* |
+| PIN equivocado (en `errors.codigo`) | *El PIN no coincide. Pídeselo de nuevo al cliente.* |
+
+- Un pedido de **otro** repartidor responde **404**.
+- El repartidor ve nombre y teléfono del cliente, **nunca el PIN**.
+- **Con repartidor**, el comerciante ya no puede poner `en_camino` ni `entregado`
+  (sus `acciones` solo traen `cancelado`). **Sin repartidor**, sigue entregando
+  con su propio delivery, como antes.
+- Avisos (`notificacion`) al cliente y al negocio al aceptar (`pedido_asignado`),
+  recoger (`pedido_en_camino`) y entregar (`pedido_entregado`).
+
+**Quién lo lleva.** En `GET /pedidos/{id}` (cliente) y `GET /negocios/{n}/pedidos/{id}`
+(negocio) viene `repartidor` (`null` si nadie lo tomó) y el tamaño que necesita:
+```json
+"repartidor": { "nombre": "Diego Rodríguez", "telefono": "70011122", "vehiculo": "Moto", "placa": "1234-ABC", "color": "Rojo" },
+"tamano": "Liviano",
+"recogido_en": "2026-10-30T16:10:00.000000Z"
+```
+
 ---
 
-## Parte 3 — Lo que falta (repartidor y rastreo) ⏳
+## Parte 3 — Lo que falta (rastreo) ⏳
 
 > Rutas **propuestas**: los campos salen de la base real. Sirven para maquetar
 > con datos falsos; se confirman al construir cada módulo.

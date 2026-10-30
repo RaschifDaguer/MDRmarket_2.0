@@ -28,6 +28,7 @@ import 'package:mdrmarket/features/pedidos/domain/pedido.dart';
 import 'package:mdrmarket/features/perfil/data/perfil_repository.dart';
 import 'package:mdrmarket/features/perfil/domain/faltante.dart';
 import 'package:mdrmarket/features/repartidor/data/repartidor_repository.dart';
+import 'package:mdrmarket/features/repartidor/domain/pedido_disponible.dart';
 import 'package:mdrmarket/features/repartidor/domain/repartidor.dart';
 import 'package:mdrmarket/features/repartidor/domain/tipo_vehiculo.dart';
 
@@ -358,7 +359,87 @@ class RepartidorFalso extends RepartidorRepository {
     vehiculos.add(datos);
     return const Vehiculo(id: 4, tipoCodigo: 'moto', tipoNombre: 'Moto');
   }
+
+  // ---------- Vista repartidor (módulo 8) ----------
+
+  List<PedidoDisponible> listaDisponibles = const [];
+  Pedido? actual;
+  Entregas misEntregas = const Entregas(pedidos: []);
+
+  /// Si se pone, aceptar falla con este error (ej. otro lo aceptó primero).
+  ApiException? errorAceptar;
+  final pinesProbados = <String>[];
+
+  @override
+  Future<bool> ponerDisponible(bool disponible, {Coordenada? ubicacion}) async {
+    perfil = PerfilRepartidor(estado: perfil?.estado ?? 'aprobado', disponible: disponible);
+    return disponible;
+  }
+
+  @override
+  Future<List<PedidoDisponible>> disponibles() async => listaDisponibles;
+
+  @override
+  Future<Pedido?> pedidoActual() async => actual;
+
+  @override
+  Future<Pedido> aceptar(int pedidoId) async {
+    if (errorAceptar != null) throw errorAceptar!;
+    return actual = pedidoDeEjemplo(estado: EstadoPedido.listo, paraNegocio: true);
+  }
+
+  @override
+  Future<Pedido> cambiarEstado(int pedidoId, EstadoPedido estado, {String? codigo}) async {
+    if (codigo != null) {
+      pinesProbados.add(codigo);
+      if (codigo != '4821') {
+        throw ApiException('Datos inválidos', statusCode: 422, errores: {
+          'codigo': ['El PIN no coincide. Pídeselo de nuevo al cliente.'],
+        });
+      }
+    }
+    return actual = pedidoDeEjemplo(estado: estado, paraNegocio: true);
+  }
+
+  @override
+  Future<Entregas> entregas() async => misEntregas;
 }
+
+const repartidorAprobado = Usuario(
+  id: 3,
+  nombre: 'Diego',
+  apellido: 'Rodríguez',
+  email: 'diego@correo.com',
+  ciNumero: '1234567',
+  vistas: [Vista.cliente, Vista.repartidor],
+  vistaGuardada: 'repartidor',
+  estadoRepartidor: 'aprobado',
+);
+
+/// Dos pedidos listos cerca, como los manda la API.
+const disponiblesDePrueba = [
+  PedidoDisponible(
+    id: 42,
+    negocioNombre: 'Pollos Marta',
+    negocioDireccion: 'Av. Busch 1234',
+    direccionEntrega: 'Calle Libertad 123',
+    distanciaKm: 2.4,
+    distanciaAlNegocioKm: 0.8,
+    costoEnvio: 5,
+    total: 73,
+    tamano: 'Liviano',
+  ),
+  PedidoDisponible(
+    id: 43,
+    negocioNombre: 'Farmacia Central',
+    direccionEntrega: 'Av. Beni 456',
+    distanciaKm: 5.1,
+    costoEnvio: 8,
+    total: 40,
+    metodoPago: 'qr',
+    tamano: 'Liviano',
+  ),
+];
 
 /// Todo lo que las pantallas piden a la API, reemplazado por datos falsos.
 List overridesFalsos({
@@ -372,6 +453,8 @@ List overridesFalsos({
 }) =>
     [
       repartidorRepositoryProvider.overrideWithValue(repartidor ?? RepartidorFalso()),
+      // Sin GPS en las pruebas.
+      ubicacionActualProvider.overrideWithValue(() async => null),
       authControllerProvider.overrideWith(() => SesionFalsa(usuario)),
       catalogoRepositoryProvider.overrideWithValue(catalogo ?? CatalogoFalso()),
       pedidosRepositoryProvider.overrideWithValue(pedidos ?? PedidosFalso()),

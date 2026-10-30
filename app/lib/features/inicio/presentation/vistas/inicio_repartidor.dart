@@ -6,9 +6,9 @@ import '../../../auth/domain/usuario.dart';
 import '../../../perfil/data/perfil_repository.dart';
 import '../../../repartidor/data/repartidor_repository.dart';
 import '../../../repartidor/presentation/faltantes_repartidor.dart';
+import '../../../repartidor/presentation/vista_repartidor.dart';
 import '../widgets/plantilla_vista.dart';
 import '../widgets/tarjeta_rol.dart';
-import 'aviso_proximo_modulo.dart';
 
 /// Vista repartidor. Mientras la solicitud no esté aprobada, muestra su estado
 /// y lo que le falta subir.
@@ -20,15 +20,8 @@ class InicioRepartidor extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return switch (usuario.estadoRepartidor) {
-      'aprobado' => const PlantillaVista(
-          tarjeta: TarjetaRol(
-            icono: Icons.delivery_dining,
-            titulo: 'Listo para repartir',
-            texto: 'Aquí verás los pedidos disponibles cerca de ti.',
-            tono: TonoRol.repartidor,
-          ),
-          proximo: AvisoProximoModulo(icono: Icons.delivery_dining),
-        ),
+      // Aprobado: en línea, pedidos disponibles, su pedido en curso y sus entregas.
+      'aprobado' => const VistaRepartidor(),
       'suspendido' => const PlantillaVista(
           tarjeta: TarjetaRol(
             icono: Icons.block,

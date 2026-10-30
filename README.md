@@ -33,6 +33,7 @@ comerciante, aparece el botón **"cambiar vista"**.
 
 | Fecha | Qué cambió | Qué significa para ti |
 |---|---|---|
+| 30-oct | **Vista repartidor (módulo 8):** interruptor "En línea", pedidos listos que su vehículo puede llevar, Aceptar, "Recogido", "Entregado" con el PIN, "Soltar pedido" y "Mis entregas" | Ya se puede probar el pedido completo con repartidor. El cliente ve quién lo lleva (nombre, vehículo y placa). Si el pedido lo tomó un repartidor, el negocio ya no puede marcarlo "en camino" ni "entregado"; si nadie lo tomó, el negocio sigue entregando con su propio delivery. Rutas en [docs/API_FRONTEND.md](docs/API_FRONTEND.md#repartidor-llevar-pedidos--módulo-8) |
 | 30-oct | **Registro de repartidor en la app (módulo 4b):** tarjeta "¿Quieres repartir?" en el inicio del cliente, pantalla "Quiero ser repartidor" (tarjetas por tipo de vehículo; placa y RUAT solo si los pide) y, en la vista repartidor, "Te falta subir…" con el botón Subir | Se puede probar todo el registro de punta a punta. Si te rechazan, la app muestra el motivo y el botón "Volver a enviar". Por ahora, un solo vehículo por repartidor |
 | 30-oct | **Registro de repartidor (módulo 4b), parte del backend:** `GET /api/tipos-vehiculo`, `POST /api/repartidor`, `POST /api/vehiculos` y la sección **Aprobaciones → Repartidores** del panel | La API ya permite registrarse como repartidor con su vehículo; placa y RUAT solo si el tipo los pide (la bicicleta no). Falta la pantalla de la app. Campos y ejemplos en [docs/API_FRONTEND.md](docs/API_FRONTEND.md#registro-de-repartidor--módulo-4b) |
 | 29-oct | **Disco permanente activo** en Railway (Volume en `/var/www/html/storage/app`) | Las fotos de negocios, productos y documentos **ya no se borran** al actualizar el servidor. Comprobado: una foto de prueba sobrevivió a un redespliegue. Las que se perdieron antes hay que volver a subirlas |
@@ -50,8 +51,8 @@ comerciante, aparece el botón **"cambiar vista"**.
 | 15-oct | Carnet (los dos lados) + selfie = **una sola solicitud** en el panel | El admin ve las 3 fotos juntas y elige qué parte rechazar |
 | 14-oct | **Seguridad**: verificación en dos pasos en el panel, límites de solicitudes, cabeceras, `/docs/api` solo para admins, sesiones de la app que vencen a los 60 días | Ver [api/README.md](api/README.md#seguridad) |
 
-Pruebas al día: **55 de la API** (`php artisan test`, incluidas pruebas de
-ataque) y **86 de la app** (`flutter test`).
+Pruebas al día: **64 de la API** (`php artisan test`, incluidas pruebas de
+ataque) y **100 de la app** (`flutter test`).
 
 ---
 
@@ -322,7 +323,7 @@ documentos son privadas y solo se ven dentro del panel.
 | 5 | Catálogo con categorías, búsqueda, ofertas y páginas de tienda | ✅ Hecho |
 | 6 | Carrito, direcciones, costo del envío y pedido (con PIN de entrega) | ✅ Hecho |
 | 7 | Vista comerciante: productos, pedidos entrantes, compras y gastos, perfil y horario | ✅ Hecho |
-| 8 | Vista repartidor: pedidos disponibles, aceptar y entregar | ⏳ (mientras tanto, el negocio entrega con su propio delivery y el PIN del cliente) |
+| 8 | Vista repartidor: en línea, pedidos disponibles, aceptar, recoger, entregar con PIN y mis entregas | ✅ Hecho (si ningún repartidor toma el pedido, el negocio puede entregarlo con su propio delivery) |
 | 9 | **Rastreo del pedido en el mapa** (GPS del repartidor en vivo) | ⏳ |
 | 10 | Reseñas (✅ producto y negocio, con respuesta del negocio); reportes y sanciones en la app ⏳ | Parcial |
 | 11 | Ganancias del comerciante (por período con gráfico y por producto) | ✅ Hecho |
@@ -602,6 +603,12 @@ En la PC del dueño, `C:\Raschif\laragon\www\mdrmarket_v2_api` es un enlace a
 | GET | `/api/repartidor` | ✔ | Mi perfil de repartidor, con el vehículo y el motivo si me rechazaron |
 | POST | `/api/repartidor` | ✔ | Registrarme como repartidor (queda en revisión) o volver a enviar si me rechazaron |
 | POST | `/api/vehiculos` | ✔ | Registrar mi vehículo (uno solo; placa y RUAT si el tipo los pide; placa única) |
+| PUT | `/api/repartidor/disponible` | ✔ repartidor | En línea o desconectado (con su ubicación) |
+| GET | `/api/repartidor/pedidos-disponibles` | ✔ repartidor | Pedidos listos que su vehículo puede llevar, del más cercano al más lejano |
+| GET | `/api/repartidor/pedido-actual` | ✔ repartidor | El pedido que lleva ahora |
+| POST | `/api/pedidos/{id}/aceptar`, `/soltar` | ✔ repartidor | Tomar un pedido (gana el primero) o soltarlo antes de recogerlo |
+| PUT | `/api/repartidor/pedidos/{id}/estado` | ✔ repartidor | "en_camino" (recogido) o "entregado" con el PIN |
+| GET | `/api/repartidor/entregas` | ✔ repartidor | Historial de entregas con lo ganado en envíos |
 | GET | `/api/archivos/{ruta}` | — | Ver una foto pública (negocios, productos) |
 | GET | `/api/productos`, `/api/productos/{id}` | — | Catálogo (filtros: categoría, negocio, texto, ofertas, orden) y detalle |
 | GET | `/api/tiendas`, `/api/tiendas/{id}` | — | Negocios aprobados y página de cada uno |
@@ -656,9 +663,11 @@ curl https://api-mdrmarket-production.up.railway.app/api/me -H "Accept: applicat
   catálogo (con la oferta vigente), respeta el pedido mínimo y la cobertura.
   Estados: pendiente → aceptado → preparando → listo → en camino → entregado
   (o rechazado / cancelado). El cliente cancela solo mientras está pendiente.
-- **Entrega:** mientras no exista el módulo del repartidor, **el negocio
-  entrega con su propio delivery** y marca "entregado" con el **PIN de 4
-  números** que solo ve el cliente.
+- **Entrega:** un pedido "listo" lo acepta un **repartidor** (aprobado, sin
+  sanción, en línea y con un vehículo del tamaño necesario), que lo recoge y lo
+  marca "entregado" con el **PIN de 4 números** que solo ve el cliente. Lleva un
+  pedido a la vez y puede soltarlo antes de recogerlo. Si ningún repartidor lo
+  toma, **el negocio puede entregarlo con su propio delivery**, con el mismo PIN.
 - **Aprobación:** un negocio nuevo queda "en revisión" hasta que un
   administrador lo aprueba en `/admin`; recién ahí aparece en el catálogo.
 - **Horario:** todo se guarda en **UTC**; los reportes se muestran en hora de

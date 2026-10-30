@@ -153,6 +153,19 @@ class _PedidoScreenState extends ConsumerState<PedidoScreen> {
                 ),
                 const SizedBox(height: AppEspacios.m),
                 Card(child: Padding(padding: const EdgeInsets.all(AppEspacios.m), child: LineaAvance(pedido: p))),
+                // Quién lleva el pedido (si lo tomó un repartidor de la app).
+                if (p.tieneRepartidor && !p.estado.fallido) ...[
+                  const SizedBox(height: AppEspacios.m),
+                  Card(
+                    key: const Key('tu-repartidor'),
+                    child: ListTile(
+                      leading: const Icon(Icons.delivery_dining_outlined),
+                      title: Text(p.repartidorNombre!),
+                      subtitle: Text(['Tu repartidor', if (p.vehiculoTexto.isNotEmpty) p.vehiculoTexto].join(' · ')),
+                      trailing: p.repartidorTelefono == null ? null : Text(p.repartidorTelefono!, style: textos.bodySmall),
+                    ),
+                  ),
+                ],
                 if (p.estado == EstadoPedido.entregado) ...[
                   const SizedBox(height: AppEspacios.m),
                   Card(

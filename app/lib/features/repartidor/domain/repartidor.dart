@@ -52,10 +52,13 @@ class Vehiculo {
 
 /// Mi perfil de repartidor (`GET /api/repartidor`).
 class PerfilRepartidor {
-  const PerfilRepartidor({required this.estado, this.motivoRechazo, this.vehiculos = const []});
+  const PerfilRepartidor({required this.estado, this.motivoRechazo, this.vehiculos = const [], this.disponible = false});
 
   /// 'pendiente', 'aprobado', 'rechazado' o 'suspendido'.
   final String estado;
+
+  /// "En línea" para recibir pedidos.
+  final bool disponible;
 
   /// Lo que escribió el administrador al rechazarlo (solo si está rechazado).
   final String? motivoRechazo;
@@ -69,6 +72,7 @@ class PerfilRepartidor {
   factory PerfilRepartidor.fromJson(Map<String, dynamic> json) => PerfilRepartidor(
         estado: (json['estado_verificacion'] as String?) ?? 'pendiente',
         motivoRechazo: json['motivo_rechazo'] as String?,
+        disponible: json['disponible'] == true,
         vehiculos: ((json['vehiculos'] as List?) ?? const [])
             .map((v) => Vehiculo.fromJson(v as Map<String, dynamic>))
             .toList(),
