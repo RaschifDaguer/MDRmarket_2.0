@@ -43,3 +43,12 @@ class AuthController extends AsyncNotifier<Usuario?> {
 
 final authControllerProvider =
     AsyncNotifierProvider<AuthController, Usuario?>(AuthController.new);
+
+/// Número del usuario conectado (null si nadie). Cambia solo al entrar con otra
+/// cuenta o cerrar sesión (no al editar el perfil). Los repositorios con datos
+/// de la persona lo vigilan: así, al cambiar de cuenta en la misma pestaña,
+/// sus pedidos, negocios, etc. se vuelven a pedir en vez de mostrar los de la
+/// cuenta anterior.
+final usuarioSesionProvider = Provider<int?>(
+  (ref) => ref.watch(authControllerProvider.select((sesion) => sesion.value?.id)),
+);

@@ -227,7 +227,7 @@ class PanelAdminTest extends TestCase
     public function test_las_paginas_de_repartidores_cargan(): void
     {
         $this->actingAs($this->crearUsuario(admin: true));
-        $repartidor = $this->crearRepartidor();
+        $repartidor = $this->repartidorEnRevision();
         $this->crearDocumento($repartidor->usuario_id);
 
         $this->get('/admin/repartidores')->assertOk()->assertSee('Moto 1111-PRB');
@@ -241,7 +241,7 @@ class PanelAdminTest extends TestCase
     public function test_aprobar_un_repartidor_aprueba_su_vehiculo_y_le_avisa(): void
     {
         $this->actingAs($this->crearUsuario(admin: true));
-        $repartidor = $this->crearRepartidor();
+        $repartidor = $this->repartidorEnRevision();
 
         Livewire::test(ListRepartidores::class)
             ->assertCanSeeTableRecords([$repartidor])
@@ -258,7 +258,7 @@ class PanelAdminTest extends TestCase
     public function test_rechazar_un_repartidor_pide_motivo(): void
     {
         $this->actingAs($this->crearUsuario(admin: true));
-        $repartidor = $this->crearRepartidor();
+        $repartidor = $this->repartidorEnRevision();
 
         Livewire::test(ListRepartidores::class)
             ->callAction(TestAction::make('rechazar')->table($repartidor), data: ['motivo' => ''])
@@ -287,7 +287,7 @@ class PanelAdminTest extends TestCase
     }
 
     /** Repartidor en revisión con una moto. */
-    private function crearRepartidor(): Repartidor
+    private function repartidorEnRevision(): Repartidor
     {
         $repartidor = Repartidor::create(['usuario_id' => $this->crearUsuario()->id]);
         $repartidor->vehiculos()->create(['tipo_vehiculo_id' => 1, 'placa' => '1111-PRB', 'ruat' => 'R-12345']);

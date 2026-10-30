@@ -17,6 +17,7 @@ class PedidoDisponible {
     this.metodoPago = 'efectivo',
     this.tamano,
     this.totalItems,
+    this.propio = false,
   });
 
   final int id;
@@ -40,6 +41,9 @@ class PedidoDisponible {
   final String? tamano;
   final int? totalItems;
 
+  /// Su propia compra (o de su negocio): no lo puede llevar él, lo lleva otro repartidor.
+  final bool propio;
+
   factory PedidoDisponible.fromJson(Map<String, dynamic> json) {
     final negocio = (json['negocio'] as Map?) ?? const {};
     return PedidoDisponible(
@@ -55,6 +59,7 @@ class PedidoDisponible {
       metodoPago: (json['metodo_pago'] as String?) ?? 'efectivo',
       tamano: json['tamano'] as String?,
       totalItems: (json['total_items'] as num?)?.toInt(),
+      propio: json['propio'] == true,
     );
   }
 }

@@ -33,7 +33,9 @@ comerciante, aparece el botón **"cambiar vista"**.
 
 | Fecha | Qué cambió | Qué significa para ti |
 |---|---|---|
-| 30-oct | **Vista repartidor (módulo 8):** interruptor "En línea", pedidos listos que su vehículo puede llevar, Aceptar, "Recogido", "Entregado" con el PIN, "Soltar pedido" y "Mis entregas" | Ya se puede probar el pedido completo con repartidor. El cliente ve quién lo lleva (nombre, vehículo y placa). Si el pedido lo tomó un repartidor, el negocio ya no puede marcarlo "en camino" ni "entregado"; si nadie lo tomó, el negocio sigue entregando con su propio delivery. Rutas en [docs/API_FRONTEND.md](docs/API_FRONTEND.md#repartidor-llevar-pedidos--módulo-8) |
+| 30-oct | **El local ya no entrega** (decisión de operaciones): llega hasta "listo"; "en camino" y "entregado" los hace solo el repartidor | En la app del comerciante, un pedido listo muestra "Buscando repartidor…" (puede cancelarlo mientras nadie lo toma) o "Lo lleva…". Ya no hay botón de entregar ni PIN para el local |
+| 30-oct | **Corregido:** al cambiar de cuenta en la misma pestaña se veían los pedidos de la cuenta anterior; y la compra propia de un repartidor no aparecía en su lista sin explicar por qué | Ahora cada cuenta ve solo lo suyo al instante. Su propia compra le aparece con "Es tu propio pedido: lo llevará otro repartidor". También: una dirección guardada sin coordenadas (datos de ejemplo) ya no rompe "¿Dónde lo recibes?" |
+| 30-oct | **Vista repartidor (módulo 8):** interruptor "En línea", pedidos listos que su vehículo puede llevar, Aceptar, "Recogido", "Entregado" con el PIN, "Soltar pedido" y "Mis entregas" | Ya se puede probar el pedido completo con repartidor. El cliente ve quién lo lleva (nombre, vehículo y placa). Rutas en [docs/API_FRONTEND.md](docs/API_FRONTEND.md#repartidor-llevar-pedidos--módulo-8) |
 | 30-oct | **Registro de repartidor en la app (módulo 4b):** tarjeta "¿Quieres repartir?" en el inicio del cliente, pantalla "Quiero ser repartidor" (tarjetas por tipo de vehículo; placa y RUAT solo si los pide) y, en la vista repartidor, "Te falta subir…" con el botón Subir | Se puede probar todo el registro de punta a punta. Si te rechazan, la app muestra el motivo y el botón "Volver a enviar". Por ahora, un solo vehículo por repartidor |
 | 30-oct | **Registro de repartidor (módulo 4b), parte del backend:** `GET /api/tipos-vehiculo`, `POST /api/repartidor`, `POST /api/vehiculos` y la sección **Aprobaciones → Repartidores** del panel | La API ya permite registrarse como repartidor con su vehículo; placa y RUAT solo si el tipo los pide (la bicicleta no). Falta la pantalla de la app. Campos y ejemplos en [docs/API_FRONTEND.md](docs/API_FRONTEND.md#registro-de-repartidor--módulo-4b) |
 | 29-oct | **Disco permanente activo** en Railway (Volume en `/var/www/html/storage/app`) | Las fotos de negocios, productos y documentos **ya no se borran** al actualizar el servidor. Comprobado: una foto de prueba sobrevivió a un redespliegue. Las que se perdieron antes hay que volver a subirlas |
@@ -52,7 +54,7 @@ comerciante, aparece el botón **"cambiar vista"**.
 | 14-oct | **Seguridad**: verificación en dos pasos en el panel, límites de solicitudes, cabeceras, `/docs/api` solo para admins, sesiones de la app que vencen a los 60 días | Ver [api/README.md](api/README.md#seguridad) |
 
 Pruebas al día: **64 de la API** (`php artisan test`, incluidas pruebas de
-ataque) y **100 de la app** (`flutter test`).
+ataque) y **105 de la app** (`flutter test`).
 
 ---
 
@@ -323,7 +325,7 @@ documentos son privadas y solo se ven dentro del panel.
 | 5 | Catálogo con categorías, búsqueda, ofertas y páginas de tienda | ✅ Hecho |
 | 6 | Carrito, direcciones, costo del envío y pedido (con PIN de entrega) | ✅ Hecho |
 | 7 | Vista comerciante: productos, pedidos entrantes, compras y gastos, perfil y horario | ✅ Hecho |
-| 8 | Vista repartidor: en línea, pedidos disponibles, aceptar, recoger, entregar con PIN y mis entregas | ✅ Hecho (si ningún repartidor toma el pedido, el negocio puede entregarlo con su propio delivery) |
+| 8 | Vista repartidor: en línea, pedidos disponibles, aceptar, recoger, entregar con PIN y mis entregas | ✅ Hecho (todo pedido lo lleva un repartidor de la app; el local no entrega) |
 | 9 | **Rastreo del pedido en el mapa** (GPS del repartidor en vivo) | ⏳ |
 | 10 | Reseñas (✅ producto y negocio, con respuesta del negocio); reportes y sanciones en la app ⏳ | Parcial |
 | 11 | Ganancias del comerciante (por período con gráfico y por producto) | ✅ Hecho |
@@ -666,8 +668,9 @@ curl https://api-mdrmarket-production.up.railway.app/api/me -H "Accept: applicat
 - **Entrega:** un pedido "listo" lo acepta un **repartidor** (aprobado, sin
   sanción, en línea y con un vehículo del tamaño necesario), que lo recoge y lo
   marca "entregado" con el **PIN de 4 números** que solo ve el cliente. Lleva un
-  pedido a la vez y puede soltarlo antes de recogerlo. Si ningún repartidor lo
-  toma, **el negocio puede entregarlo con su propio delivery**, con el mismo PIN.
+  pedido a la vez y puede soltarlo antes de recogerlo. **El local no entrega**
+  (no tiene delivery propio): lleva el pedido hasta "listo" y ve "Buscando
+  repartidor…" o quién lo lleva; mientras nadie lo toma, puede cancelarlo.
 - **Aprobación:** un negocio nuevo queda "en revisión" hasta que un
   administrador lo aprueba en `/admin`; recién ahí aparece en el catálogo.
 - **Horario:** todo se guarda en **UTC**; los reportes se muestran en hora de

@@ -102,6 +102,18 @@ void main() {
     expect(aceptar.onPressed, isNull);
   });
 
+  // Error encontrado probando a mano: su propia compra no aparecía y parecía un fallo.
+  testWidgets('su propio pedido aparece, pero sin "Aceptar"', (tester) async {
+    final repartidor = falso()
+      ..listaDisponibles = const [
+        PedidoDisponible(id: 50, negocioNombre: 'FarmaSuper', direccionEntrega: 'Mi casa', costoEnvio: 5, total: 30, propio: true),
+      ];
+    await abrirVista(tester, repartidor);
+    expect(find.text('FarmaSuper'), findsOneWidget);
+    expect(find.text('Es tu propio pedido: lo llevará otro repartidor.'), findsOneWidget);
+    expect(find.byKey(const Key('aceptar-50')), findsNothing);
+  });
+
   testWidgets('si otro repartidor lo aceptó primero, avisa', (tester) async {
     final repartidor = falso()
       ..errorAceptar = ApiException('Datos inválidos', statusCode: 422, errores: {

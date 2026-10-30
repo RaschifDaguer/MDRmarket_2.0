@@ -18,8 +18,6 @@ class RepartidorPedidoTest extends TestCase
 {
     use DatabaseTransactions;
 
-    private const MOTO = 1;
-
     private const CAMION = 5;
 
     private const GRANDE = 3;
@@ -53,7 +51,7 @@ class RepartidorPedidoTest extends TestCase
         $this->getJson('/api/repartidor/pedido-actual')->assertJsonPath('pedido.id', $pedido->id);
         $this->assertNotContains($pedido->id, $this->disponibles());
 
-        // El cliente ve quién lo lleva; el negocio también, y ya no puede sacarlo ni entregarlo.
+        // El cliente ve quién lo lleva; el negocio también, y ya no tiene acciones (va a buscarlo).
         Sanctum::actingAs($pedido->comprador);
         $this->getJson("/api/pedidos/{$pedido->id}")
             ->assertJsonPath('repartidor.vehiculo', 'Moto')
@@ -61,7 +59,7 @@ class RepartidorPedidoTest extends TestCase
         Sanctum::actingAs($this->negocio->usuario);
         $this->getJson("/api/negocios/{$this->negocio->id}/pedidos/{$pedido->id}")
             ->assertJsonPath('repartidor.nombre', 'Diego Repartidor')
-            ->assertJsonPath('acciones', ['cancelado']);
+            ->assertJsonPath('acciones', []);
 
         // Lo recoge y lo entrega (con el PIN equivocado no se puede).
         Sanctum::actingAs($repartidor);
@@ -169,8 +167,9 @@ class RepartidorPedidoTest extends TestCase
             ->assertJsonPath('errors.pedido.0', 'Ya lo recogiste: ahora tienes que entregarlo.');
     }
 
-    public function test_el_comerciante_entrega_solo_si_no_tiene_repartidor(): void
+    public function test_el_comerciante_nunca_lleva_ni_entrega(): void
     {
+        // Regla de operaciones: todo pedido lo lleva un repartidor de la app.
         $conRepartidor = $this->pedidoListo();
         $sinRepartidor = $this->pedidoListo();
         Sanctum::actingAs($this->crearRepartidor());
@@ -178,11 +177,24 @@ class RepartidorPedidoTest extends TestCase
 
         Sanctum::actingAs($this->negocio->usuario);
         $url = fn (Pedido $p) => "/api/negocios/{$this->negocio->id}/pedidos/{$p->id}/estado";
-        $this->putJson($url($conRepartidor), ['estado' => 'en_camino'])->assertUnprocessable()->assertJsonValidationErrors('estado');
+        $soloRepartidor = 'Solo el repartidor de la app recoge y entrega el pedido.';
+        foreach ([$conRepartidor, $sinRepartidor] as $pedido) {
+            $this->putJson($url($pedido), ['estado' => 'en_camino'])
+                ->assertUnprocessable()
+                ->assertJsonPath('errors.estado.0', $soloRepartidor);
+            $this->putJson($url($pedido), ['estado' => 'entregado', 'codigo' => '1234'])
+                ->assertUnprocessable()
+                ->assertJsonPath('errors.estado.0', $soloRepartidor);
+            $this->assertSame('listo', $pedido->refresh()->estado);
+        }
 
-        // Sin repartidor, el negocio sigue entregando con su propio delivery.
-        $this->putJson($url($sinRepartidor), ['estado' => 'en_camino'])->assertOk();
-        $this->putJson($url($sinRepartidor), ['estado' => 'entregado', 'codigo' => '1234'])->assertOk()->assertJsonPath('estado', 'entregado');
+        // Sin repartidor: "Buscando repartidor…" y solo puede cancelarlo.
+        $detalle = "/api/negocios/{$this->negocio->id}/pedidos";
+        $this->getJson("$detalle/{$sinRepartidor->id}")->assertJsonPath('acciones', ['cancelado'])->assertJsonPath('repartidor', null);
+        // Con repartidor: ya va en camino a buscarlo, no tiene botones.
+        $this->getJson("$detalle/{$conRepartidor->id}")->assertJsonPath('acciones', []);
+        $this->putJson($url($conRepartidor), ['estado' => 'cancelado', 'motivo' => 'Sin stock'])->assertUnprocessable();
+        $this->putJson($url($sinRepartidor), ['estado' => 'cancelado', 'motivo' => 'Sin stock'])->assertOk();
     }
 
     public function test_un_repartidor_no_ve_ni_toca_pedidos_de_otro(): void
@@ -246,22 +258,13 @@ class RepartidorPedidoTest extends TestCase
         $propio = $this->pedidoListo(comprador: $repartidor);
         Sanctum::actingAs($repartidor);
 
-        $this->assertNotContains($propio->id, $this->disponibles());
+        // Error encontrado probando a mano: si compraba con su misma cuenta, el
+        // pedido no aparecía y no sabía por qué. Ahora aparece marcado como propio.
+        $this->getJson('/api/repartidor/pedidos-disponibles')
+            ->assertJsonFragment(['id' => $propio->id, 'propio' => true]);
         $this->postJson("/api/pedidos/{$propio->id}/aceptar")
             ->assertUnprocessable()
             ->assertJsonPath('errors.pedido.0', 'No puedes llevar un pedido tuyo o de tu negocio.');
-    }
-
-    /** Repartidor con su vehículo (aprobado y en línea, salvo que se pida otra cosa). */
-    private function crearRepartidor(int $tipo = self::MOTO, string $placa = '7777-MDR', string $estado = 'aprobado', bool $disponible = true): Usuario
-    {
-        $usuario = $this->crearUsuario(['nombre' => 'Diego', 'apellido' => 'Repartidor']);
-        $repartidor = Repartidor::create(['usuario_id' => $usuario->id]);
-        $repartidor->forceFill(['estado_verificacion' => $estado, 'disponible' => $disponible])->save();
-        $vehiculo = $repartidor->vehiculos()->create(['tipo_vehiculo_id' => $tipo, 'placa' => $placa, 'ruat' => 'R-1']);
-        $vehiculo->forceFill(['estado_verificacion' => $estado === 'aprobado' ? 'aprobado' : 'pendiente'])->save();
-
-        return $usuario;
     }
 
     /** Pedido que el negocio ya dejó "listo" (PIN 1234, envío Bs 5). */

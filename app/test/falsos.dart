@@ -125,9 +125,17 @@ const casa = Direccion(
   predeterminada: true,
 );
 
-/// Pedido de ejemplo en el estado que se pida.
-Pedido pedidoDeEjemplo({EstadoPedido estado = EstadoPedido.pendiente, bool paraNegocio = false, List<EstadoPedido>? acciones}) {
+/// Pedido de ejemplo en el estado que se pida (con [conRepartidor], lo lleva Diego en moto).
+Pedido pedidoDeEjemplo({
+  EstadoPedido estado = EstadoPedido.pendiente,
+  bool paraNegocio = false,
+  List<EstadoPedido>? acciones,
+  bool conRepartidor = false,
+}) {
   return Pedido(
+    repartidorNombre: conRepartidor ? 'Diego Rodríguez' : null,
+    repartidorVehiculo: conRepartidor ? 'Moto' : null,
+    repartidorPlaca: conRepartidor ? '1234-ABC' : null,
     id: 42,
     estado: estado,
     negocioId: 5,
@@ -232,7 +240,9 @@ class MiNegocioFalso extends MiNegocioRepository {
   MiNegocioFalso() : super(Dio());
 
   final cambios = <EstadoPedido>[];
-  String? pinRecibido;
+
+  /// El pedido que se abre (por defecto: listo y sin repartidor, "Buscando repartidor…").
+  Pedido? pedidoMostrado;
 
   static const _montos = Montos(ventas: 350, gananciaBruta: 140, gastos: 40, gananciaNeta: 100, unidadesVendidas: 12);
 
@@ -266,21 +276,18 @@ class MiNegocioFalso extends MiNegocioRepository {
         ultimaPagina: 1,
       );
 
+  // El local llega hasta "listo": recoger y entregar lo hace el repartidor.
   @override
-  Future<Pedido> pedido(int negocioId, int pedidoId) async => pedidoDeEjemplo(
+  Future<Pedido> pedido(int negocioId, int pedidoId) async =>
+      pedidoMostrado ??
+      pedidoDeEjemplo(
         paraNegocio: true,
-        estado: cambios.isEmpty ? EstadoPedido.enCamino : EstadoPedido.entregado,
-        acciones: cambios.isEmpty ? const [EstadoPedido.entregado] : const [],
+        estado: cambios.isEmpty ? EstadoPedido.listo : cambios.last,
+        acciones: cambios.isEmpty ? const [EstadoPedido.cancelado] : const [],
       );
 
   @override
   Future<Pedido> cambiarEstado(int negocioId, int pedidoId, EstadoPedido estado, {String? motivo, String? codigo}) async {
-    if (estado == EstadoPedido.entregado && codigo != '4821') {
-      throw ApiException('Datos inválidos', statusCode: 422, errores: {
-        'codigo': ['El PIN no coincide. Pídeselo de nuevo al cliente.'],
-      });
-    }
-    pinRecibido = codigo;
     cambios.add(estado);
     return pedidoDeEjemplo(paraNegocio: true, estado: estado);
   }

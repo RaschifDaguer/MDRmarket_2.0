@@ -304,14 +304,32 @@ class _TarjetaDisponible extends StatelessWidget {
               ],
             ),
             const SizedBox(height: AppEspacios.m - 4),
-            FilledButton.icon(
-              key: Key('aceptar-${p.id}'),
-              onPressed: aceptando ? null : alAceptar,
-              icon: aceptando
-                  ? const SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                  : const Icon(Icons.check),
-              label: const Text('Aceptar'),
-            ),
+            if (p.propio)
+              // Su propia compra: se muestra para que sepa por qué no puede tomarla.
+              Container(
+                key: Key('propio-${p.id}'),
+                padding: const EdgeInsets.all(AppEspacios.s + 2),
+                decoration: BoxDecoration(color: c.secondaryContainer, borderRadius: BorderRadius.circular(AppRadios.campo)),
+                child: Row(
+                  children: [
+                    Icon(Icons.info_outline, size: 20, color: c.onSecondaryContainer),
+                    const SizedBox(width: AppEspacios.s),
+                    Expanded(
+                      child: Text('Es tu propio pedido: lo llevará otro repartidor.',
+                          style: textos.bodyMedium?.copyWith(color: c.onSecondaryContainer)),
+                    ),
+                  ],
+                ),
+              )
+            else
+              FilledButton.icon(
+                key: Key('aceptar-${p.id}'),
+                onPressed: aceptando ? null : alAceptar,
+                icon: aceptando
+                    ? const SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Icon(Icons.check),
+                label: const Text('Aceptar'),
+              ),
           ],
         ),
       ),

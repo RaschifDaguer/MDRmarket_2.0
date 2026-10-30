@@ -441,8 +441,8 @@ Respuesta **201** (igual que `GET /pedidos/{id}`):
 | `confirmado` | Aceptado | Comerciante |
 | `preparando` | Preparando | Comerciante |
 | `listo` | Listo | Comerciante |
-| `en_camino` | En camino | El repartidor que lo aceptó (o el comerciante, si nadie lo tomó) |
-| `entregado` | Entregado | Con el PIN: el repartidor que lo aceptó (o el comerciante, si nadie lo tomó) |
+| `en_camino` | En camino | Solo el repartidor que lo aceptó (lo recogió) |
+| `entregado` | Entregado | Solo el repartidor que lo aceptó, con el PIN del cliente |
 | `cancelado` / `rechazado` | Cancelado / Rechazado | Cliente (pendiente), comerciante (con motivo), admin |
 
 ### Reseñas 🔒
@@ -468,7 +468,7 @@ Antes de recibir un pedido → **422** "Solo puedes reseñar después de recibir
 | `PATCH …/productos/{p}/disponible` | Mostrar u ocultar |
 | `DELETE …/productos/{p}` | Eliminar |
 | `GET …/pedidos?grupo=nuevos\|en_curso\|terminados` | Pedidos que llegan |
-| `PUT …/pedidos/{p}/estado` | `{"estado": "confirmado"}` · rechazar/cancelar con `motivo` · `{"estado": "entregado", "codigo": "4821"}` |
+| `PUT …/pedidos/{p}/estado` | `confirmado` → `preparando` → `listo` (ej. `{"estado": "confirmado"}`) · rechazar/cancelar con `motivo`. "En camino" y "entregado" los hace el repartidor |
 | `GET/POST …/registros`, `DELETE …/registros/{r}` | Compras (`producto_id`, `cantidad`, `costo_unitario`, `proveedor`) y gastos (`descripcion`, `monto`); `fecha` opcional |
 | `GET …/reporte?desde&hasta&agrupar=dia\|semana\|mes\|anio` | `totales` y `periodos` (ventas, costo, ganancia bruta, compras, gastos, comisiones, ganancia neta, flujo de caja) |
 | `GET …/reporte-productos?desde&hasta` | Por producto: vendidas, ventas, ganancia, margen |
@@ -509,7 +509,8 @@ Para ver y aceptar pedidos tiene que estar **aprobado**, **sin sanción**, con s
 - Con ubicación, del negocio más cercano al más lejano; sin ella, el que espera hace más tiempo primero.
 - Solo los del tamaño de su vehículo o más chicos (liviano < mediano < grande):
   a una moto no le aparece un pedido de camión.
-- No aparecen sus propias compras ni los pedidos de su negocio.
+- Sus propias compras (o pedidos de su negocio) aparecen con `"propio": true`: no
+  los puede aceptar (los lleva otro repartidor). Los demás traen `"propio": false`.
 
 Reglas y errores (**422**, en `errors.pedido`):
 
@@ -524,9 +525,11 @@ Reglas y errores (**422**, en `errors.pedido`):
 
 - Un pedido de **otro** repartidor responde **404**.
 - El repartidor ve nombre y teléfono del cliente, **nunca el PIN**.
-- **Con repartidor**, el comerciante ya no puede poner `en_camino` ni `entregado`
-  (sus `acciones` solo traen `cancelado`). **Sin repartidor**, sigue entregando
-  con su propio delivery, como antes.
+- **El local no entrega:** el comerciante nunca puede poner `en_camino` ni
+  `entregado` (→ **422** en `estado`: *"Solo el repartidor de la app recoge y
+  entrega el pedido."*). Con el pedido `listo` y **sin** repartidor, sus `acciones`
+  son `["cancelado"]` (la app muestra "Buscando repartidor…"); **con** repartidor,
+  `[]` (la app muestra "Lo lleva…").
 - Avisos (`notificacion`) al cliente y al negocio al aceptar (`pedido_asignado`),
   recoger (`pedido_en_camino`) y entregar (`pedido_entregado`).
 

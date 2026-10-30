@@ -22,13 +22,12 @@ trabajo que falta es **API (Laravel) + pantallas (Flutter)**.
 | 12 | Panel de administrador | Filament en `/admin`: aprobar/rechazar negocios y documentos (fotos privadas), pedidos (cancelar), usuarios (activar, dar admin), tarifas de envío y comisiones |
 | — | Documentación de la API | Scramble en `/docs/api`, generada desde el código |
 
-**Entrega:** un pedido "listo" lo acepta un repartidor de la app (módulo 8), que
-lo recoge y lo entrega con el PIN. Si ningún repartidor lo toma, el negocio
-puede entregarlo con su propio delivery: lo pasa a "en camino" y lo marca
-"entregado" con el PIN que le da el cliente.
+**Entrega:** todo pedido lo lleva un repartidor de la app (módulo 8): lo acepta
+cuando está "listo", lo recoge y lo entrega con el PIN. El local no tiene
+delivery propio: llega hasta "listo" y, mientras nadie lo toma, puede cancelarlo.
 
 **Pruebas:** 64 de la API (`php artisan test`, base `mdrmarket_prueba`), incluidas
-pruebas de ataque (`SeguridadTest`), y 100 de la app con datos falsos, más
+pruebas de ataque (`SeguridadTest`), y 105 de la app con datos falsos, más
 recorridos en vivo contra la API local.
 
 ---
@@ -71,8 +70,10 @@ recorridos en vivo contra la API local.
   `GET /api/repartidor/entregas`. Detalle en [API_FRONTEND.md](API_FRONTEND.md#repartidor-llevar-pedidos--módulo-8).
 - **Reglas:** solo aprobados, sin sanción, con vehículo aprobado y en línea; un
   pedido a la vez; aceptar con `lockForUpdate` (gana el primero); rol
-  `repartidor` en `FlujoPedido` (`listo → en_camino → entregado`). Si el pedido
-  tiene repartidor, el negocio ya no lo entrega; si no, sigue con su delivery.
+  `repartidor` en `FlujoPedido` (`listo → en_camino → entregado`). El comerciante
+  nunca pone "en camino" ni "entregado" (el local no entrega); con un pedido
+  listo ve "Buscando repartidor…" o "Lo lleva…". Su propia compra le aparece al
+  repartidor marcada como propia (no la puede tomar).
 - **Base (sin cambios):** `pedido.repartidor_id`, `vehiculo_id`, `asignado_en`,
   `recogido_en`, `codigo_entrega`, `fn_distancia_km`, `fn_sancion_activa`,
   `trg_pedido_bu` (no asigna a sancionados), `trg_pedido_au` (venta y `total_entregas`).

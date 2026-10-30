@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/maps/coordenada.dart';
 import '../../../core/network/api_client.dart';
+import '../../auth/presentation/auth_controller.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/network/pagina.dart';
 import '../../carrito/domain/carrito.dart';
@@ -81,9 +82,15 @@ class PedidosRepository {
 
   // ----- Direcciones -----
 
+  /// Direcciones guardadas. Las que no tienen coordenadas (datos viejos o de
+  /// ejemplo) no sirven para calcular el envío: se omiten en vez de romper la lista.
   Future<List<Direccion>> direcciones() => _llamar(() async {
         final r = await _dio.get('/direcciones');
-        return (r.data as List).map((d) => Direccion.fromJson(d as Map<String, dynamic>)).toList();
+        return (r.data as List)
+            .cast<Map<String, dynamic>>()
+            .where((d) => d['latitud'] is num && d['longitud'] is num)
+            .map(Direccion.fromJson)
+            .toList();
       });
 
   Future<Direccion> guardarDireccion({
@@ -118,9 +125,10 @@ class PedidosRepository {
   }
 }
 
-final pedidosRepositoryProvider = Provider<PedidosRepository>(
-  (ref) => PedidosRepository(ref.watch(dioProvider)),
-);
+final pedidosRepositoryProvider = Provider<PedidosRepository>((ref) {
+  ref.watch(usuarioSesionProvider); // otra cuenta: sus pedidos se vuelven a pedir
+  return PedidosRepository(ref.watch(dioProvider));
+});
 
 /// Primera página de mis pedidos. Invalidar después de pedir o cancelar.
 final misPedidosProvider = FutureProvider<Pagina<Pedido>>(

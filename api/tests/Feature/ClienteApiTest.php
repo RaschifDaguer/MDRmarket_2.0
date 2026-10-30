@@ -223,12 +223,9 @@ class ClienteApiTest extends TestCase
         ]);
     }
 
-    /** El negocio lleva el pedido hasta "entregado" (sin pasar por la API). */
+    /** El negocio lo deja listo y un repartidor lo entrega (sin pasar por la API). */
     private function entregar(Negocio $negocio, int $pedidoId): void
     {
-        $pedido = $negocio->pedidos()->find($pedidoId);
-        foreach (['confirmado', 'preparando', 'listo', 'en_camino', 'entregado'] as $estado) {
-            $pedido = FlujoPedido::cambiar($pedido, $estado, $negocio->usuario, 'comerciante');
-        }
+        $this->entregarPedido($negocio->pedidos()->find($pedidoId));
     }
 }

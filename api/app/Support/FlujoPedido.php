@@ -17,18 +17,16 @@ use Illuminate\Validation\ValidationException;
  *   pendiente → confirmado → preparando → listo → en_camino → entregado
  *   (cancelado o rechazado antes de salir)
  *
- * Un pedido "listo" lo puede aceptar un repartidor (aceptar): desde ahí solo
- * él lo pasa a "en_camino" (lo recogió) y a "entregado" (con el PIN). Antes de
- * recogerlo puede soltarlo y vuelve a quedar disponible. Si ningún repartidor
- * lo tomó, el negocio sigue entregando con su propio delivery como antes.
+ * El negocio lo lleva hasta "listo". Todo pedido lo entrega un repartidor de
+ * la app (el local no tiene delivery propio): lo acepta (aceptar), lo pasa a
+ * "en_camino" (lo recogió) y a "entregado" (con el PIN). Antes de recogerlo
+ * puede soltarlo y vuelve a quedar disponible. Mientras nadie lo tome, el
+ * negocio puede cancelarlo.
  * Al entregar, la base (trg_pedido_au) registra la venta; al cancelar o
  * rechazar, devuelve el stock.
  */
 class FlujoPedido
 {
-    /** Pasos que, si el pedido tiene repartidor, solo hace él (no el negocio). */
-    private const SOLO_REPARTIDOR = ['en_camino', 'entregado'];
-
     /** Qué estados puede poner cada rol, según el estado actual. */
     private const PERMITIDOS = [
         'cliente' => [
@@ -38,8 +36,8 @@ class FlujoPedido
             'pendiente' => ['confirmado', 'rechazado'],
             'confirmado' => ['preparando', 'cancelado'],
             'preparando' => ['listo', 'cancelado'],
-            'listo' => ['en_camino', 'cancelado'],
-            'en_camino' => ['entregado'],
+            // Nunca "en_camino" ni "entregado": eso lo hace el repartidor.
+            'listo' => ['cancelado'],
         ],
         'repartidor' => [
             'listo' => ['en_camino'],
@@ -60,8 +58,8 @@ class FlujoPedido
         $siguientes = self::PERMITIDOS[$rol][$pedido->estado] ?? [];
 
         return match (true) {
-            // Lo lleva un repartidor: el negocio ya no lo saca ni lo entrega (sí puede cancelarlo).
-            $rol === 'comerciante' && $pedido->repartidor_id !== null => array_values(array_diff($siguientes, self::SOLO_REPARTIDOR)),
+            // Ya lo tomó un repartidor (va a buscarlo): el negocio ya no lo puede cancelar.
+            $rol === 'comerciante' && $pedido->repartidor_id !== null => [],
             // El repartidor solo mueve los pedidos que aceptó.
             $rol === 'repartidor' && $pedido->repartidor_id === null => [],
             default => $siguientes,

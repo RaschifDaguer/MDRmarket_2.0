@@ -7,6 +7,7 @@ import '../../../core/maps/coordenada.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/network/pagina.dart';
+import '../../auth/presentation/auth_controller.dart';
 import '../../pedidos/domain/pedido.dart';
 import '../domain/pedido_disponible.dart';
 import '../domain/repartidor.dart';
@@ -136,9 +137,10 @@ class RepartidorRepository {
   }
 }
 
-final repartidorRepositoryProvider = Provider<RepartidorRepository>(
-  (ref) => RepartidorRepository(ref.watch(dioProvider)),
-);
+final repartidorRepositoryProvider = Provider<RepartidorRepository>((ref) {
+  ref.watch(usuarioSesionProvider); // otra cuenta: su perfil y sus pedidos se vuelven a pedir
+  return RepartidorRepository(ref.watch(dioProvider));
+});
 
 final tiposVehiculoProvider = FutureProvider<List<TipoVehiculo>>(
   (ref) => ref.watch(repartidorRepositoryProvider).tiposVehiculo(),

@@ -57,6 +57,8 @@ class PedidoController extends Controller
      * que su vehículo puede llevar (de su tamaño o más chicos). Si mandó su
      * ubicación, del negocio más cercano al más lejano; si no, los que esperan
      * hace más tiempo primero. No incluye datos del cliente hasta aceptarlo.
+     * Sus propias compras (o pedidos de su negocio) aparecen con "propio": no
+     * los puede llevar, pero así sabe por qué (antes no aparecían y parecía un error).
      */
     public function disponibles(Request $request): JsonResponse
     {
@@ -69,8 +71,6 @@ class PedidoController extends Controller
             ->select('pedido.*')
             ->where('estado', 'listo')
             ->whereNull('repartidor_id')
-            ->where('comprador_id', '<>', $yo)
-            ->whereHas('negocio', fn ($q) => $q->where('usuario_id', '<>', $yo))
             ->where(fn ($q) => $q
                 ->whereNull('categoria_vehiculo_requerida_id')
                 ->orWhereHas('categoriaVehiculo', fn ($c) => $c->where('nivel', '<=', $nivel)))
@@ -106,6 +106,8 @@ class PedidoController extends Controller
             'metodo_pago' => $p->metodo_pago,
             'tamano' => $p->categoriaVehiculo?->nombre,
             'total_items' => $p->items_count,
+            // Su propia compra o de su negocio: lo tiene que llevar otro repartidor.
+            'propio' => in_array($yo, [(int) $p->comprador_id, (int) $p->negocio->usuario_id], true),
             'created_at' => $p->created_at,
         ]));
     }
