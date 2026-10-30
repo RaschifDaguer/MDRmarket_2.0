@@ -2,8 +2,10 @@
 
 namespace Tests\Feature;
 
+use App\Models\Repartidor;
 use App\Models\Usuario;
 use App\Models\Vehiculo;
+use App\Support\Revision;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Arr;
@@ -124,6 +126,52 @@ class RepartidorApiTest extends TestCase
             ->assertUnprocessable()
             ->assertJsonPath('errors.placa.0', 'Esa placa ya está registrada.');
         $this->assertSame(0, Vehiculo::where('repartidor_id', $otro->id)->count());
+    }
+
+    public function test_si_lo_rechazaron_puede_volver_a_solicitar(): void
+    {
+        $this->getJson('/api/repartidor')
+            ->assertNotFound()
+            ->assertJsonPath('message', 'Todavía no te registraste como repartidor.');
+
+        $this->postJson('/api/repartidor')->assertCreated();
+        $vehiculo = $this->postJson('/api/vehiculos', ['tipo_vehiculo_id' => self::BICICLETA])->assertCreated()->json('id');
+        $repartidor = Repartidor::find($this->cliente->id);
+        Revision::rechazarRepartidor($repartidor, 'La foto de la bici está borrosa');
+
+        $this->getJson('/api/repartidor')
+            ->assertOk()
+            ->assertJsonPath('estado_verificacion', 'rechazado')
+            ->assertJsonPath('motivo_rechazo', 'La foto de la bici está borrosa')
+            ->assertJsonPath('vehiculos.0.estado_verificacion', 'rechazado');
+
+        // Vuelve a enviar: él y su vehículo quedan otra vez en revisión.
+        $this->postJson('/api/repartidor')
+            ->assertOk()
+            ->assertJsonPath('estado_verificacion', 'pendiente')
+            ->assertJsonPath('motivo_rechazo', null)
+            ->assertJsonPath('vehiculos.0.id', $vehiculo)
+            ->assertJsonPath('vehiculos.0.estado_verificacion', 'pendiente');
+        $this->getJson('/api/me')->assertJsonPath('vistas', ['cliente', 'repartidor']);
+
+        // En cualquier otro estado sigue siendo "ya registrado".
+        foreach (['pendiente', 'aprobado', 'suspendido'] as $estado) {
+            $repartidor->forceFill(['estado_verificacion' => $estado])->save();
+            $this->postJson('/api/repartidor')
+                ->assertUnprocessable()
+                ->assertJsonPath('message', 'Ya estás registrado como repartidor.');
+        }
+    }
+
+    public function test_un_solo_vehiculo_en_uso(): void
+    {
+        $this->postJson('/api/repartidor')->assertCreated();
+        $this->postJson('/api/vehiculos', ['tipo_vehiculo_id' => self::BICICLETA])->assertCreated();
+
+        $this->postJson('/api/vehiculos', ['tipo_vehiculo_id' => self::MOTO, 'placa' => '5555-ZZZ', 'ruat' => '1'])
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'Ya tienes un vehículo registrado.');
+        $this->assertSame(1, Vehiculo::where('repartidor_id', $this->cliente->id)->count());
     }
 
     public function test_nadie_registra_vehiculos_para_otra_persona(): void

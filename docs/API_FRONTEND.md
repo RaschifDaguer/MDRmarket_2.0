@@ -255,7 +255,20 @@ Sin datos. Crea el perfil de repartidor **en revisión**. Respuesta **201**:
   "created_at": "2026-10-30T15:00:00.000000Z" }
 ```
 - Desde ese momento `GET /me` trae la vista `repartidor` y `roles.repartidor.estado: "pendiente"`.
-- Si ya es repartidor → **422** `{"message":"Ya estás registrado como repartidor."}`.
+- **Si lo habían rechazado**, sirve para **volver a enviar** la solicitud: responde **200**
+  y él y su vehículo quedan otra vez `pendiente`. Los documentos rechazados vuelven a
+  aparecer en los faltantes para subirlos de nuevo.
+- Si está pendiente, aprobado o suspendido → **422** `{"message":"Ya estás registrado como repartidor."}`.
+
+#### `GET /repartidor` 🔒
+Mi perfil (mismo formato que arriba) con el vehículo y, si lo rechazaron, el motivo:
+```json
+{ "usuario_id": 11, "estado_verificacion": "rechazado", "motivo_rechazo": "La placa no coincide con la foto",
+  "vehiculos": [ { "id": 4, "tipo": { "codigo": "moto", "…": "…" }, "placa": "4321-XYZ", "estado_verificacion": "rechazado", "…": "…" } ],
+  "…": "…" }
+```
+`motivo_rechazo` es `null` si no está rechazado. Si todavía no es repartidor → **404**
+*"Todavía no te registraste como repartidor."*
 
 #### `POST /vehiculos` 🔒
 JSON (no lleva fotos; las fotos van después con `POST /documentos`):
@@ -268,6 +281,7 @@ JSON (no lleva fotos; las fotos van después con `POST /documentos`):
 - La placa se guarda en mayúsculas y **no se puede repetir** → **422** en `placa`: *"Esa placa ya está registrada."*
 - Sin placa o RUAT cuando el tipo los pide → **422** en `placa` / `ruat`.
 - Si todavía no hizo `POST /repartidor` → **422** `{"message":"Primero regístrate como repartidor."}`.
+- **Por ahora, un solo vehículo en uso:** si ya tiene uno → **422** `{"message":"Ya tienes un vehículo registrado."}`.
 - El vehículo siempre queda a nombre de quien tiene la sesión.
 
 Respuesta **201**:
@@ -298,7 +312,9 @@ de otra persona → **422** *"Este documento debe ir ligado a un vehículo tuyo"
 
 Un administrador aprueba o rechaza (con motivo) al repartidor y su vehículo en
 `/admin` → Aprobaciones → Repartidores; se le deja un aviso (`repartidor_aprobado`
-o `repartidor_rechazado`). Si lo rechazan, la vista `repartidor` desaparece de `vistas`.
+o `repartidor_rechazado`). Si lo rechazan, la vista `repartidor` desaparece de `vistas`
+(`roles.repartidor.estado` sigue diciendo `rechazado`): la app lo invita a ver el
+motivo (`GET /repartidor`) y volver a enviar (`POST /repartidor`).
 
 ---
 

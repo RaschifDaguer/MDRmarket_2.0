@@ -4,12 +4,14 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\VehiculoRequest;
+use App\Models\Notificacion;
 use App\Models\Repartidor;
 use App\Models\TipoVehiculo;
 use App\Models\Vehiculo;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class RepartidorController extends Controller
@@ -40,14 +42,39 @@ class RepartidorController extends Controller
     }
 
     /**
+     * GET /api/repartidor — mi perfil de repartidor con su vehículo y, si lo
+     * rechazaron, el motivo (para mostrarlo y volver a enviar la solicitud).
+     */
+    public function show(Request $request): JsonResponse
+    {
+        $repartidor = $request->user()->repartidor()->with('vehiculos.tipo')->first();
+        if (! $repartidor) {
+            return response()->json(['message' => 'Todavía no te registraste como repartidor.'], 404);
+        }
+
+        return response()->json($this->formato($repartidor));
+    }
+
+    /**
      * POST /api/repartidor — el usuario se registra como repartidor. Queda
      * "pendiente" hasta que un administrador lo apruebe; mientras tanto ya
      * tiene la vista repartidor (para ver su estado y lo que le falta).
+     * Si lo habían rechazado, vuelve a enviar la solicitud: él y su vehículo
+     * quedan otra vez en revisión (los documentos rechazados se vuelven a pedir).
      */
     public function store(Request $request): JsonResponse
     {
         $usuario = $request->user();
-        if ($usuario->repartidor()->exists()) {
+        $existente = $usuario->repartidor()->first();
+        if ($existente?->estado_verificacion === 'rechazado') {
+            DB::transaction(function () use ($existente) {
+                $existente->forceFill(['estado_verificacion' => 'pendiente'])->save();
+                $existente->vehiculos()->where('estado_verificacion', 'rechazado')->update(['estado_verificacion' => 'pendiente']);
+            });
+
+            return response()->json($this->formato($existente->refresh()->load('vehiculos.tipo')));
+        }
+        if ($existente) {
             return $this->yaRegistrado();
         }
 
@@ -72,6 +99,10 @@ class RepartidorController extends Controller
         if (! $repartidor) {
             return response()->json(['message' => 'Primero regístrate como repartidor.'], 422);
         }
+        // Por ahora, un solo vehículo en uso por repartidor.
+        if ($repartidor->vehiculos()->where('en_uso', true)->exists()) {
+            return response()->json(['message' => 'Ya tienes un vehículo registrado.'], 422);
+        }
 
         try {
             $vehiculo = $repartidor->vehiculos()->create($request->validated());
@@ -95,6 +126,10 @@ class RepartidorController extends Controller
             'disponible' => $r->disponible,
             'rating_promedio' => $r->rating_promedio,
             'total_entregas' => $r->total_entregas,
+            // El motivo solo se guarda en el aviso que se le dejó al rechazarlo.
+            'motivo_rechazo' => $r->estado_verificacion === 'rechazado'
+                ? Notificacion::where('usuario_id', $r->usuario_id)->where('tipo', 'repartidor_rechazado')->latest('id')->value('cuerpo')
+                : null,
             'vehiculos' => $r->vehiculos->map(fn (Vehiculo $v) => $this->formatoVehiculo($v))->all(),
             'created_at' => $r->created_at,
         ];

@@ -49,7 +49,7 @@ comerciante, aparece el botón **"cambiar vista"**.
 | 15-oct | Carnet (los dos lados) + selfie = **una sola solicitud** en el panel | El admin ve las 3 fotos juntas y elige qué parte rechazar |
 | 14-oct | **Seguridad**: verificación en dos pasos en el panel, límites de solicitudes, cabeceras, `/docs/api` solo para admins, sesiones de la app que vencen a los 60 días | Ver [api/README.md](api/README.md#seguridad) |
 
-Pruebas al día: **53 de la API** (`php artisan test`, incluidas pruebas de
+Pruebas al día: **55 de la API** (`php artisan test`, incluidas pruebas de
 ataque) y **71 de la app** (`flutter test`).
 
 ---
@@ -598,8 +598,9 @@ En la PC del dueño, `C:\Raschif\laragon\www\mdrmarket_v2_api` es un enlace a
 | GET | `/api/documentos` | ✔ | Mis documentos subidos y su estado |
 | POST | `/api/documentos` | ✔ | Subir la foto de un documento (carnet, licencia, fotos del vehículo con `vehiculo_id`…) |
 | GET | `/api/tipos-vehiculo` | ✔ | Moto, bicicleta, auto, camioneta, camión: categoría y si piden placa, RUAT y licencia |
-| POST | `/api/repartidor` | ✔ | Registrarme como repartidor (queda en revisión) |
-| POST | `/api/vehiculos` | ✔ | Registrar mi vehículo (placa y RUAT si el tipo los pide; placa única) |
+| GET | `/api/repartidor` | ✔ | Mi perfil de repartidor, con el vehículo y el motivo si me rechazaron |
+| POST | `/api/repartidor` | ✔ | Registrarme como repartidor (queda en revisión) o volver a enviar si me rechazaron |
+| POST | `/api/vehiculos` | ✔ | Registrar mi vehículo (uno solo; placa y RUAT si el tipo los pide; placa única) |
 | GET | `/api/archivos/{ruta}` | — | Ver una foto pública (negocios, productos) |
 | GET | `/api/productos`, `/api/productos/{id}` | — | Catálogo (filtros: categoría, negocio, texto, ofertas, orden) y detalle |
 | GET | `/api/tiendas`, `/api/tiendas/{id}` | — | Negocios aprobados y página de cada uno |

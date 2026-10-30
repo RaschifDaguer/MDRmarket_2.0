@@ -80,6 +80,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('pedidos/{pedido}', [PedidoController::class, 'show']);
     Route::get('negocios', [NegocioController::class, 'index']);
     Route::get('tipos-vehiculo', [RepartidorController::class, 'tiposVehiculo']);
+    Route::get('repartidor', [RepartidorController::class, 'show']);
 
     // Hacer un pedido: límite propio (evita pedidos falsos en masa).
     Route::post('pedidos', [PedidoController::class, 'store'])->middleware('throttle:pedidos');
