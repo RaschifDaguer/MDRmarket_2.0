@@ -27,6 +27,9 @@ import 'package:mdrmarket/features/pedidos/domain/direccion.dart';
 import 'package:mdrmarket/features/pedidos/domain/pedido.dart';
 import 'package:mdrmarket/features/perfil/data/perfil_repository.dart';
 import 'package:mdrmarket/features/perfil/domain/faltante.dart';
+import 'package:mdrmarket/features/repartidor/data/repartidor_repository.dart';
+import 'package:mdrmarket/features/repartidor/domain/repartidor.dart';
+import 'package:mdrmarket/features/repartidor/domain/tipo_vehiculo.dart';
 
 class SesionFalsa extends AuthController {
   SesionFalsa(this._usuario);
@@ -298,16 +301,77 @@ class MiNegocioFalso extends MiNegocioRepository {
       ];
 }
 
+const repartidorEnRevision = Usuario(
+  id: 1,
+  nombre: 'Diego',
+  apellido: 'Rodríguez',
+  email: 'diego@correo.com',
+  ciNumero: '1234567',
+  vistas: [Vista.cliente, Vista.repartidor],
+  vistaGuardada: 'repartidor',
+  estadoRepartidor: 'pendiente',
+);
+
+/// Los 5 tipos de vehículo, como los manda `GET /api/tipos-vehiculo`.
+const tiposDePrueba = [
+  TipoVehiculo(id: 1, codigo: 'moto', nombre: 'Moto', categoria: 'Liviano', descripcion: 'Motos y bicicletas: paquetes chicos y comida'),
+  TipoVehiculo(id: 2, codigo: 'bicicleta', nombre: 'Bicicleta', requierePlaca: false, requiereRuat: false, requiereLicencia: false, categoria: 'Liviano'),
+  TipoVehiculo(id: 3, codigo: 'auto', nombre: 'Auto', categoria: 'Mediano'),
+  TipoVehiculo(id: 4, codigo: 'camioneta', nombre: 'Camioneta', categoria: 'Mediano'),
+  TipoVehiculo(id: 5, codigo: 'camion', nombre: 'Camión', categoria: 'Grande'),
+];
+
+/// Lo que la API pide a un repartidor nuevo en moto (vehículo 4).
+const faltaMoto = [
+  ...faltaIdentidad,
+  Faltante(codigo: 'documento.licencia_conducir', texto: 'Foto: Licencia de conducir', documento: 'licencia_conducir'),
+  Faltante(codigo: 'documento.foto_vehiculo:vehiculo4', texto: 'Foto del vehículo', documento: 'foto_vehiculo', vehiculoId: 4),
+  Faltante(codigo: 'documento.foto_placa:vehiculo4', texto: 'Foto de la placa', documento: 'foto_placa', vehiculoId: 4),
+  Faltante(codigo: 'documento.ruat:vehiculo4', texto: 'Foto: RUAT del vehículo', documento: 'ruat', vehiculoId: 4),
+];
+
+class RepartidorFalso extends RepartidorRepository {
+  RepartidorFalso({this.perfil, this.errorVehiculo}) : super(Dio());
+
+  PerfilRepartidor? perfil;
+
+  /// Si se pone, registrar el vehículo falla con este error (ej. placa repetida).
+  final ApiException? errorVehiculo;
+  int solicitudes = 0;
+  final vehiculos = <DatosVehiculo>[];
+
+  @override
+  Future<List<TipoVehiculo>> tiposVehiculo() async => tiposDePrueba;
+
+  @override
+  Future<PerfilRepartidor?> miPerfil() async => perfil;
+
+  @override
+  Future<PerfilRepartidor> solicitar() async {
+    solicitudes++;
+    return perfil = const PerfilRepartidor(estado: 'pendiente');
+  }
+
+  @override
+  Future<Vehiculo> registrarVehiculo(DatosVehiculo datos) async {
+    if (errorVehiculo != null) throw errorVehiculo!;
+    vehiculos.add(datos);
+    return const Vehiculo(id: 4, tipoCodigo: 'moto', tipoNombre: 'Moto');
+  }
+}
+
 /// Todo lo que las pantallas piden a la API, reemplazado por datos falsos.
 List overridesFalsos({
   required Usuario usuario,
   CatalogoFalso? catalogo,
   PedidosFalso? pedidos,
   MiNegocioFalso? miNegocio,
+  RepartidorFalso? repartidor,
   List<Negocio> negocios = const [],
   List<Faltante> faltantes = const [],
 }) =>
     [
+      repartidorRepositoryProvider.overrideWithValue(repartidor ?? RepartidorFalso()),
       authControllerProvider.overrideWith(() => SesionFalsa(usuario)),
       catalogoRepositoryProvider.overrideWithValue(catalogo ?? CatalogoFalso()),
       pedidosRepositoryProvider.overrideWithValue(pedidos ?? PedidosFalso()),

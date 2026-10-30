@@ -27,20 +27,24 @@ delivery: pasa el pedido a "en camino" y lo marca "entregado" con el PIN que le
 da el cliente. Así funcionan ya las ventas, las ganancias y las reseñas.
 
 **Pruebas:** 55 de la API (`php artisan test`, base `mdrmarket_prueba`), incluidas
-pruebas de ataque (`SeguridadTest`), y 71 de la app con datos falsos, más
+pruebas de ataque (`SeguridadTest`), y 86 de la app con datos falsos, más
 recorridos en vivo contra la API local.
 
 ---
 
 ## Pendiente
 
-### Módulo 4b — Registro de repartidor 🔧 *en curso*
+### Módulo 4b — Registro de repartidor ✅ *hecho (en revisión)*
 **Objetivo:** que un cliente se convierta en repartidor pidiendo solo lo que le falta.
 
 - **Hecho (backend y panel):** `GET /api/tipos-vehiculo`, `GET` y `POST /api/repartidor`
   (un rechazado puede volver a enviar su solicitud), `POST /api/vehiculos` (un solo
   vehículo en uso; placa y RUAT si el tipo los pide; placa única) y
   Aprobaciones → Repartidores en el panel (aprobar, rechazar con motivo, suspender).
+- **Hecho (app):** `features/repartidor/` (pantalla "Quiero ser repartidor"), tarjeta
+  "¿Quieres repartir?" en la vista cliente y "Te falta subir…" en la vista repartidor.
+- **Pendiente para después:** editar los datos del vehículo (hoy, si lo rechazan por
+  la placa o el RUAT, no se pueden corregir desde la app) y permitir más de un vehículo.
 - **Pantallas:** "Quiero ser repartidor" (tipo de vehículo, placa, RUAT, fotos).
   La lista "Te falta subir…" y la hoja para subir documentos ya existen
   (`features/perfil/`): se reutilizan.

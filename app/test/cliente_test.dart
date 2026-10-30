@@ -52,7 +52,9 @@ void main() {
     final pedidos = PedidosFalso();
     await abrirApp(tester, overridesFalsos(usuario: cliente, pedidos: pedidos));
 
-    // 1. Catálogo → detalle del producto.
+    // 1. Catálogo → detalle del producto (debajo de las invitaciones a vender y repartir).
+    await tester.ensureVisible(find.byKey(const Key('producto-10')));
+    await tester.pump();
     await tester.tap(find.byKey(const Key('producto-10')));
     await esperar(tester);
     expect(find.text('¡Riquísimo!'), findsOneWidget); // reseña

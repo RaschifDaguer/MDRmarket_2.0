@@ -20,6 +20,7 @@ import '../../features/comerciante/presentation/registros_screen.dart';
 import '../../features/inicio/presentation/inicio_screen.dart';
 import '../../features/pedidos/presentation/checkout_screen.dart';
 import '../../features/pedidos/presentation/pedido_screen.dart';
+import '../../features/repartidor/presentation/registrar_repartidor_screen.dart';
 
 /// Número de la ruta (ej. /producto/12 → 12).
 int _id(GoRouterState estado) => int.tryParse(estado.pathParameters['id'] ?? '') ?? 0;
@@ -55,6 +56,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/registro', builder: (_, _) => const RegistroScreen()),
       GoRoute(path: '/inicio', builder: (_, _) => const InicioScreen()),
       GoRoute(path: '/registrar-negocio', builder: (_, _) => const RegistrarNegocioScreen()),
+      GoRoute(path: '/registrar-repartidor', builder: (_, _) => const RegistrarRepartidorScreen()),
 
       // Cliente
       GoRoute(path: '/producto/:id', builder: (_, s) => ProductoScreen(productoId: _id(s))),
