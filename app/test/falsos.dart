@@ -1,4 +1,6 @@
 // Datos y repositorios falsos para probar las pantallas sin internet.
+import 'dart:math' as math;
+
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -25,8 +27,11 @@ import 'package:mdrmarket/features/comerciante/domain/negocio.dart';
 import 'package:mdrmarket/features/pedidos/data/pedidos_repository.dart';
 import 'package:mdrmarket/features/pedidos/domain/direccion.dart';
 import 'package:mdrmarket/features/pedidos/domain/pedido.dart';
+import 'package:mdrmarket/features/pedidos/domain/seguimiento.dart';
+import 'package:mdrmarket/features/pedidos/presentation/widgets/seguimiento_pedido.dart';
 import 'package:mdrmarket/features/perfil/data/perfil_repository.dart';
 import 'package:mdrmarket/features/perfil/domain/faltante.dart';
+import 'package:mdrmarket/features/repartidor/data/envio_ubicacion.dart';
 import 'package:mdrmarket/features/repartidor/data/repartidor_repository.dart';
 import 'package:mdrmarket/features/repartidor/domain/pedido_disponible.dart';
 import 'package:mdrmarket/features/repartidor/domain/repartidor.dart';
@@ -229,6 +234,14 @@ class PedidosFalso extends PedidosRepository {
   @override
   Future<Pedido> pedido(int id) async => pedidoActual ?? pedidoDeEjemplo();
 
+  /// Respuestas del rastreo, una por consulta (la última se repite).
+  List<Seguimiento> seguimientos = const [];
+  int consultasSeguimiento = 0;
+
+  @override
+  Future<Seguimiento> seguimiento(int id) async =>
+      seguimientos[math.min(consultasSeguimiento++, seguimientos.length - 1)];
+
   @override
   Future<Pedido> cancelar(int id, {String? motivo}) async {
     cancelados++;
@@ -410,6 +423,12 @@ class RepartidorFalso extends RepartidorRepository {
 
   @override
   Future<Entregas> entregas() async => misEntregas;
+
+  /// Posiciones que mandó (rastreo).
+  final ubicacionesEnviadas = <Coordenada>[];
+
+  @override
+  Future<void> enviarUbicacion(Coordenada punto) async => ubicacionesEnviadas.add(punto);
 }
 
 const repartidorAprobado = Usuario(
@@ -457,11 +476,16 @@ List overridesFalsos({
   RepartidorFalso? repartidor,
   List<Negocio> negocios = const [],
   List<Faltante> faltantes = const [],
+  LecturaGps gps = const LecturaGps(Coordenada(-17.78, -63.18)),
+  Widget Function(Seguimiento)? mapa,
 }) =>
     [
       repartidorRepositoryProvider.overrideWithValue(repartidor ?? RepartidorFalso()),
       // Sin GPS en las pruebas.
       ubicacionActualProvider.overrideWithValue(() async => null),
+      leerGpsProvider.overrideWithValue(() async => gps),
+      // Sin clave de Google Maps (como en las pruebas); se puede pasar un mapa falso.
+      mapaSeguimientoProvider.overrideWithValue(mapa),
       authControllerProvider.overrideWith(() => SesionFalsa(usuario)),
       catalogoRepositoryProvider.overrideWithValue(catalogo ?? CatalogoFalso()),
       pedidosRepositoryProvider.overrideWithValue(pedidos ?? PedidosFalso()),

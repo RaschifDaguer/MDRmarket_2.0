@@ -26,8 +26,8 @@ trabajo que falta es **API (Laravel) + pantallas (Flutter)**.
 cuando está "listo", lo recoge y lo entrega con el PIN. El local no tiene
 delivery propio: llega hasta "listo" y, mientras nadie lo toma, puede cancelarlo.
 
-**Pruebas:** 64 de la API (`php artisan test`, base `mdrmarket_prueba`), incluidas
-pruebas de ataque (`SeguridadTest`), y 105 de la app con datos falsos, más
+**Pruebas:** 69 de la API (`php artisan test`, base `mdrmarket_prueba`), incluidas
+pruebas de ataque (`SeguridadTest`), y 113 de la app con datos falsos, más
 recorridos en vivo contra la API local.
 
 ---
@@ -80,7 +80,9 @@ recorridos en vivo contra la API local.
 - **Pendiente para después:** avisar al repartidor cuando aparece un pedido
   nuevo (push, módulo 13) y paginar "Mis entregas" más allá de las últimas 20.
 
-### Módulo 9 — Rastreo del pedido en el mapa ⏳
+### Módulo 9 — Rastreo del pedido en el mapa ✅ *hecho (en revisión)*
+- **Hecho:** `POST /api/repartidor/ubicacion` (solo con pedido activo, una cada 3 s), `GET /api/pedidos/{id}/seguimiento` (cliente y negocio; posición solo mientras lo lleva), envío del GPS cada 7 s en la app del repartidor y mapa o texto con el tiempo estimado para el cliente. Velocidad: clave `velocidad_promedio_kmh` en `configuracion` (25 km/h si no existe).
+- **Pendiente:** probar el mapa real con Playwright y la clave de Maps; ruta por calles con Google Directions.
 **Objetivo:** que el cliente vea al repartidor moverse en el mapa hasta su casa.
 
 - **App repartidor:** mientras tiene un pedido "en camino", envía su GPS cada

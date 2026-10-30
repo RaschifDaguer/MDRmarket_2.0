@@ -117,6 +117,12 @@ class RepartidorRepository {
         return Pedido.fromJson(r.data as Map<String, dynamic>);
       });
 
+  /// Manda su GPS mientras lleva un pedido (rastreo en el mapa del cliente).
+  /// 422 = ya no lleva ningún pedido (lo entregó, lo soltó o lo cancelaron).
+  Future<void> enviarUbicacion(Coordenada punto) => _llamar(() async {
+        await _dio.post('/repartidor/ubicacion', data: {'latitud': punto.latitud, 'longitud': punto.longitud});
+      });
+
   Future<Entregas> entregas() => _llamar(() async {
         final r = await _dio.get('/repartidor/entregas');
         final datos = r.data as Map<String, dynamic>;

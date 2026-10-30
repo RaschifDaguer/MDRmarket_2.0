@@ -3,12 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/maps/coordenada.dart';
 import '../../../core/network/api_client.dart';
-import '../../auth/presentation/auth_controller.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/network/pagina.dart';
+import '../../auth/presentation/auth_controller.dart';
 import '../../carrito/domain/carrito.dart';
 import '../domain/direccion.dart';
 import '../domain/pedido.dart';
+import '../domain/seguimiento.dart';
 
 /// Dónde entregar: una dirección guardada o una nueva (texto + punto en el mapa).
 typedef DestinoPedido = ({int? direccionId, String? direccion, String? referencia, Coordenada? ubicacion});
@@ -61,6 +62,12 @@ class PedidosRepository {
   Future<Pedido> pedido(int id) => _llamar(() async {
         final r = await _dio.get('/pedidos/$id');
         return Pedido.fromJson(r.data as Map<String, dynamic>);
+      });
+
+  /// Dónde va el pedido: posición del repartidor y tiempo estimado (rastreo).
+  Future<Seguimiento> seguimiento(int id) => _llamar(() async {
+        final r = await _dio.get('/pedidos/$id/seguimiento');
+        return Seguimiento.fromJson(r.data as Map<String, dynamic>);
       });
 
   Future<Pedido> cancelar(int id, {String? motivo}) => _llamar(() async {
@@ -137,6 +144,11 @@ final misPedidosProvider = FutureProvider<Pagina<Pedido>>(
 
 final pedidoProvider = FutureProvider.family<Pedido, int>(
   (ref, id) => ref.watch(pedidosRepositoryProvider).pedido(id),
+);
+
+/// Rastreo de un pedido. La pantalla lo vuelve a pedir cada pocos segundos.
+final seguimientoProvider = FutureProvider.family<Seguimiento, int>(
+  (ref, id) => ref.watch(pedidosRepositoryProvider).seguimiento(id),
 );
 
 final direccionesProvider = FutureProvider<List<Direccion>>(

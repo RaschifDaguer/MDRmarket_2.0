@@ -12,6 +12,7 @@ import '../data/pedidos_repository.dart';
 import '../domain/pedido.dart';
 import 'calificar_sheet.dart';
 import 'widgets/piezas_pedido.dart';
+import 'widgets/seguimiento_pedido.dart';
 
 /// Detalle de un pedido para el cliente: avance, PIN de entrega, productos,
 /// cancelar (mientras está pendiente) y calificar (cuando ya llegó).
@@ -153,6 +154,18 @@ class _PedidoScreenState extends ConsumerState<PedidoScreen> {
                 ),
                 const SizedBox(height: AppEspacios.m),
                 Card(child: Padding(padding: const EdgeInsets.all(AppEspacios.m), child: LineaAvance(pedido: p))),
+                // Rastreo en el mapa mientras el repartidor lo lleva (se actualiza solo).
+                if (p.tieneRepartidor && (p.estado == EstadoPedido.listo || p.estado == EstadoPedido.enCamino)) ...[
+                  const SizedBox(height: AppEspacios.m),
+                  SeguimientoPedido(
+                    pedidoId: p.id,
+                    estado: p.estado,
+                    alCambiarEstado: () {
+                      ref.invalidate(pedidoProvider(widget.pedidoId));
+                      ref.invalidate(misPedidosProvider);
+                    },
+                  ),
+                ],
                 // Quién lleva el pedido (si lo tomó un repartidor de la app).
                 if (p.tieneRepartidor && !p.estado.fallido) ...[
                   const SizedBox(height: AppEspacios.m),

@@ -10,6 +10,7 @@ import '../../../core/widgets/widgets.dart';
 import '../../pedidos/domain/pedido.dart';
 import '../../pedidos/presentation/widgets/piezas_pedido.dart';
 import '../data/repartidor_repository.dart';
+import 'aviso_ubicacion.dart';
 import 'dialogo_pin.dart';
 
 /// El pedido que lleva el repartidor: dónde recogerlo, a quién entregarlo,
@@ -179,6 +180,8 @@ class _PedidoActualScreenState extends ConsumerState<PedidoActualScreen> {
       child: ListView(
         padding: const EdgeInsets.all(AppEspacios.m),
         children: [
+          // Manda su GPS al cliente (o avisa si falta el permiso de ubicación).
+          const AvisoUbicacion(),
           // Qué hacer ahora.
           Card(
             color: c.secondaryContainer,

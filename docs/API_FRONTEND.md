@@ -543,26 +543,32 @@ Reglas y errores (**422**, en `errors.pedido`):
 
 ---
 
-## Parte 3 — Lo que falta (rastreo) ⏳
+### Rastreo en el mapa 🔒 (módulo 9) ✅
 
-> Rutas **propuestas**: los campos salen de la base real. Sirven para maquetar
-> con datos falsos; se confirman al construir cada módulo.
+`POST /repartidor/ubicacion` `{ "latitud": -17.78012, "longitud": -63.19021 }` — la
+app del repartidor lo manda cada 7 s mientras lleva un pedido. **201**
+`{"pedido_id": 42, "guardada": true}`. Sin pedido activo → **422**; coordenadas
+inválidas o `0,0` → **422**; más seguido que cada 3 s → **429**.
 
-### Rastreo en el mapa (módulo 9)
-`GET /pedidos/{id}/seguimiento` — la app del cliente lo consulta cada 5–10 s:
+`GET /pedidos/{id}/seguimiento` — solo el cliente dueño y el negocio (otro → **404**).
+La app del cliente lo consulta cada 6 s:
 ```json
 {
-  "estado": "en_camino",
-  "repartidor": { "nombre": "Diego Rodríguez", "vehiculo": "Moto", "placa": "SCZ-1234",
-                  "latitud": "-17.7801200", "longitud": "-63.1902100",
-                  "actualizado_en": "2026-10-03T20:31:05Z" },
-  "negocio":  { "latitud": "-17.7745000", "longitud": "-63.1935000" },
-  "destino":  { "latitud": "-17.8007823", "longitud": "-63.1886937" },
-  "tiempo_estimado_min": 8
+  "pedido_id": 42, "estado": "en_camino",
+  "repartidor": { "nombre": "Diego Rodríguez", "vehiculo": "Moto", "placa": "SCZ-1234" },
+  "ubicacion_repartidor": { "latitud": -17.78012, "longitud": -63.19021,
+                            "actualizado_en": "…", "hace_segundos": 4 },
+  "negocio": { "nombre": "FarmaSuper", "latitud": -17.7696, "longitud": -63.1658 },
+  "destino": { "direccion": "Calle Libertad 123", "latitud": -17.7845, "longitud": -63.1812 },
+  "distancia_km": 2.4, "tiempo_estimado_min": 6, "velocidad_kmh": 25
 }
 ```
-El repartidor envía su posición con `POST /repartidor/ubicacion`
-`{ "pedido_id": 100, "latitud": -17.78012, "longitud": -63.19021 }`.
+- `repartidor` y `ubicacion_repartidor` solo mientras lo lleva (aceptado o en camino);
+  al entregarse o cancelarse vienen `null` (privacidad).
+- Tiempo = distancia que falta (línea recta × `factor_ruta`) ÷ velocidad
+  (`velocidad_promedio_kmh` en `configuracion`, 25 km/h si no existe).
+
+## Parte 3 — Lo que falta ⏳
 
 ### Reseñas del repartidor (módulo 10)
 `PUT /resenas` con `{ "tipo": "repartidor", "repartidor_id": 5, "estrellas": 4 }`

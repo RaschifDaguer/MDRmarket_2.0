@@ -10,6 +10,7 @@ import '../../pedidos/domain/pedido.dart';
 import '../../pedidos/presentation/widgets/piezas_pedido.dart';
 import '../data/repartidor_repository.dart';
 import '../domain/pedido_disponible.dart';
+import 'aviso_ubicacion.dart';
 
 /// Vista del repartidor aprobado: "Pedidos" (en línea, su pedido en curso y
 /// los disponibles para aceptar) y "Mis entregas" (pestañas abajo).
@@ -115,6 +116,8 @@ class _PedidosTabState extends ConsumerState<_PedidosTab> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  // Manda su GPS mientras lleva un pedido (o avisa si falta el permiso).
+                  const AvisoUbicacion(),
                   Aparecer(orden: 1, child: _interruptor(enLinea)),
                   if (actual != null) ...[
                     const SizedBox(height: AppEspacios.m),

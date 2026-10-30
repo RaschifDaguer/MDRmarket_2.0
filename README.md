@@ -53,8 +53,8 @@ comerciante, aparece el botón **"cambiar vista"**.
 | 15-oct | Carnet (los dos lados) + selfie = **una sola solicitud** en el panel | El admin ve las 3 fotos juntas y elige qué parte rechazar |
 | 14-oct | **Seguridad**: verificación en dos pasos en el panel, límites de solicitudes, cabeceras, `/docs/api` solo para admins, sesiones de la app que vencen a los 60 días | Ver [api/README.md](api/README.md#seguridad) |
 
-Pruebas al día: **64 de la API** (`php artisan test`, incluidas pruebas de
-ataque) y **105 de la app** (`flutter test`).
+Pruebas al día: **69 de la API** (`php artisan test`, incluidas pruebas de
+ataque) y **113 de la app** (`flutter test`).
 
 ---
 
@@ -326,7 +326,7 @@ documentos son privadas y solo se ven dentro del panel.
 | 6 | Carrito, direcciones, costo del envío y pedido (con PIN de entrega) | ✅ Hecho |
 | 7 | Vista comerciante: productos, pedidos entrantes, compras y gastos, perfil y horario | ✅ Hecho |
 | 8 | Vista repartidor: en línea, pedidos disponibles, aceptar, recoger, entregar con PIN y mis entregas | ✅ Hecho (todo pedido lo lleva un repartidor de la app; el local no entrega) |
-| 9 | **Rastreo del pedido en el mapa** (GPS del repartidor en vivo) | ⏳ |
+| 9 | **Rastreo del pedido en el mapa** (GPS del repartidor en vivo) | ✅ Hecho (consulta cada pocos segundos; falta probar el mapa con Playwright) |
 | 10 | Reseñas (✅ producto y negocio, con respuesta del negocio); reportes y sanciones en la app ⏳ | Parcial |
 | 11 | Ganancias del comerciante (por período con gráfico y por producto) | ✅ Hecho |
 | 12 | Panel de administrador web (Filament) en `/admin`: aprobar negocios, repartidores e identidades (carnet + selfie), pedidos, usuarios, tarifas; verificación en dos pasos | ✅ Hecho |
