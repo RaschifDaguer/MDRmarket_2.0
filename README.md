@@ -33,6 +33,7 @@ comerciante, aparece el botón **"cambiar vista"**.
 
 | Fecha | Qué cambió | Qué significa para ti |
 |---|---|---|
+| 30-oct | **Registro de repartidor (módulo 4b), parte del backend:** `GET /api/tipos-vehiculo`, `POST /api/repartidor`, `POST /api/vehiculos` y la sección **Aprobaciones → Repartidores** del panel | La API ya permite registrarse como repartidor con su vehículo; placa y RUAT solo si el tipo los pide (la bicicleta no). Falta la pantalla de la app. Campos y ejemplos en [docs/API_FRONTEND.md](docs/API_FRONTEND.md#registro-de-repartidor--módulo-4b) |
 | 29-oct | **Disco permanente activo** en Railway (Volume en `/var/www/html/storage/app`) | Las fotos de negocios, productos y documentos **ya no se borran** al actualizar el servidor. Comprobado: una foto de prueba sobrevivió a un redespliegue. Las que se perdieron antes hay que volver a subirlas |
 | 29-oct | `GET /api` muestra también **dónde se guardan las fotos** | Debe decir `"fotos": "disco permanente"`. Si dice *disco temporal*, el Volume se desconectó |
 | 29-oct | **`test@example.com` ya no es administrador** | Era una cuenta de prueba sin verificación en dos pasos. Los admins ahora son cuentas reales |
@@ -48,7 +49,7 @@ comerciante, aparece el botón **"cambiar vista"**.
 | 15-oct | Carnet (los dos lados) + selfie = **una sola solicitud** en el panel | El admin ve las 3 fotos juntas y elige qué parte rechazar |
 | 14-oct | **Seguridad**: verificación en dos pasos en el panel, límites de solicitudes, cabeceras, `/docs/api` solo para admins, sesiones de la app que vencen a los 60 días | Ver [api/README.md](api/README.md#seguridad) |
 
-Pruebas al día: **44 de la API** (`php artisan test`, incluidas pruebas de
+Pruebas al día: **53 de la API** (`php artisan test`, incluidas pruebas de
 ataque) y **71 de la app** (`flutter test`).
 
 ---
@@ -316,7 +317,7 @@ documentos son privadas y solo se ven dentro del panel.
 | 3 | **App:** pantallas de arranque, inicio de sesión, registro e inicio por vista, con el botón "cambiar vista" | ✅ Hecho |
 | — | **Servidor en internet:** API en Railway + base en Aiven, con despliegue automático | ✅ Hecho |
 | 4a | Registro de comerciante (negocio, mapa/GPS, foto, carnet y selfie) | ✅ Hecho |
-| 4b | Registro de repartidor (vehículo y documentos) | ⏳ Siguiente |
+| 4b | Registro de repartidor (vehículo y documentos) | 🔧 API y panel hechos (aprobar/rechazar repartidor y vehículo); ⏳ falta la pantalla de la app |
 | 5 | Catálogo con categorías, búsqueda, ofertas y páginas de tienda | ✅ Hecho |
 | 6 | Carrito, direcciones, costo del envío y pedido (con PIN de entrega) | ✅ Hecho |
 | 7 | Vista comerciante: productos, pedidos entrantes, compras y gastos, perfil y horario | ✅ Hecho |
@@ -324,7 +325,7 @@ documentos son privadas y solo se ven dentro del panel.
 | 9 | **Rastreo del pedido en el mapa** (GPS del repartidor en vivo) | ⏳ |
 | 10 | Reseñas (✅ producto y negocio, con respuesta del negocio); reportes y sanciones en la app ⏳ | Parcial |
 | 11 | Ganancias del comerciante (por período con gráfico y por producto) | ✅ Hecho |
-| 12 | Panel de administrador web (Filament) en `/admin`: aprobar negocios e identidades (carnet + selfie), pedidos, usuarios, tarifas; verificación en dos pasos | ✅ Hecho |
+| 12 | Panel de administrador web (Filament) en `/admin`: aprobar negocios, repartidores e identidades (carnet + selfie), pedidos, usuarios, tarifas; verificación en dos pasos | ✅ Hecho |
 | 13 | Notificaciones, recuperar contraseña y publicación (APK / Play Store / iOS) | ⏳ |
 
 El detalle de cada módulo pendiente, con qué construir y cómo probarlo, está en
@@ -595,7 +596,10 @@ En la PC del dueño, `C:\Raschif\laragon\www\mdrmarket_v2_api` es un enlace a
 | GET | `/api/negocios` | ✔ | Mis negocios |
 | POST | `/api/negocios` | ✔ | Registrar mi negocio (con foto; queda en revisión) |
 | GET | `/api/documentos` | ✔ | Mis documentos subidos y su estado |
-| POST | `/api/documentos` | ✔ | Subir la foto de un documento (carnet, licencia…) |
+| POST | `/api/documentos` | ✔ | Subir la foto de un documento (carnet, licencia, fotos del vehículo con `vehiculo_id`…) |
+| GET | `/api/tipos-vehiculo` | ✔ | Moto, bicicleta, auto, camioneta, camión: categoría y si piden placa, RUAT y licencia |
+| POST | `/api/repartidor` | ✔ | Registrarme como repartidor (queda en revisión) |
+| POST | `/api/vehiculos` | ✔ | Registrar mi vehículo (placa y RUAT si el tipo los pide; placa única) |
 | GET | `/api/archivos/{ruta}` | — | Ver una foto pública (negocios, productos) |
 | GET | `/api/productos`, `/api/productos/{id}` | — | Catálogo (filtros: categoría, negocio, texto, ofertas, orden) y detalle |
 | GET | `/api/tiendas`, `/api/tiendas/{id}` | — | Negocios aprobados y página de cada uno |

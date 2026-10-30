@@ -5,9 +5,11 @@ namespace Tests\Feature;
 use App\Filament\Resources\Documentos\Pages\ListDocumentos;
 use App\Filament\Resources\Negocios\Pages\ListNegocios;
 use App\Filament\Resources\Pedidos\Pages\ListPedidos;
+use App\Filament\Resources\Repartidores\Pages\ListRepartidores;
 use App\Filament\Widgets\Resumen;
 use App\Models\Documento;
 use App\Models\Notificacion;
+use App\Models\Repartidor;
 use Filament\Actions\Testing\TestAction;
 use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
@@ -220,6 +222,77 @@ class PanelAdminTest extends TestCase
         Livewire::test(ListDocumentos::class)
             ->assertCanSeeTableRecords([$nueva])
             ->assertSee('Foto del rostro (selfie)');
+    }
+
+    public function test_las_paginas_de_repartidores_cargan(): void
+    {
+        $this->actingAs($this->crearUsuario(admin: true));
+        $repartidor = $this->crearRepartidor();
+        $this->crearDocumento($repartidor->usuario_id);
+
+        $this->get('/admin/repartidores')->assertOk()->assertSee('Moto 1111-PRB');
+        $this->get("/admin/repartidores/{$repartidor->usuario_id}")
+            ->assertOk()
+            ->assertSee('1111-PRB')
+            ->assertSee('R-12345')
+            ->assertSee('Carnet de identidad (anverso)');
+    }
+
+    public function test_aprobar_un_repartidor_aprueba_su_vehiculo_y_le_avisa(): void
+    {
+        $this->actingAs($this->crearUsuario(admin: true));
+        $repartidor = $this->crearRepartidor();
+
+        Livewire::test(ListRepartidores::class)
+            ->assertCanSeeTableRecords([$repartidor])
+            ->callAction(TestAction::make('aprobar')->table($repartidor))
+            ->assertNotified();
+
+        $repartidor->refresh();
+        $this->assertSame('aprobado', $repartidor->estado_verificacion);
+        $this->assertNotNull($repartidor->verificado_en);
+        $this->assertSame('aprobado', $repartidor->vehiculos()->first()->estado_verificacion);
+        $this->assertTrue(Notificacion::where('usuario_id', $repartidor->usuario_id)->where('tipo', 'repartidor_aprobado')->exists());
+    }
+
+    public function test_rechazar_un_repartidor_pide_motivo(): void
+    {
+        $this->actingAs($this->crearUsuario(admin: true));
+        $repartidor = $this->crearRepartidor();
+
+        Livewire::test(ListRepartidores::class)
+            ->callAction(TestAction::make('rechazar')->table($repartidor), data: ['motivo' => ''])
+            ->assertHasFormErrors(['motivo' => 'required']);
+        $this->assertSame('pendiente', $repartidor->refresh()->estado_verificacion);
+
+        Livewire::test(ListRepartidores::class)
+            ->callAction(TestAction::make('rechazar')->table($repartidor), data: ['motivo' => 'La placa no coincide con la foto'])
+            ->assertNotified();
+
+        $this->assertSame('rechazado', $repartidor->refresh()->estado_verificacion);
+        $this->assertSame('rechazado', $repartidor->vehiculos()->first()->estado_verificacion);
+        $this->assertSame(
+            ['La placa no coincide con la foto'],
+            Notificacion::where('usuario_id', $repartidor->usuario_id)->where('tipo', 'repartidor_rechazado')->pluck('cuerpo')->all()
+        );
+    }
+
+    public function test_sin_vehiculo_no_se_puede_aprobar(): void
+    {
+        $this->actingAs($this->crearUsuario(admin: true));
+        $repartidor = Repartidor::create(['usuario_id' => $this->crearUsuario()->id])->refresh();
+
+        Livewire::test(ListRepartidores::class)
+            ->assertActionDisabled(TestAction::make('aprobar')->table($repartidor));
+    }
+
+    /** Repartidor en revisión con una moto. */
+    private function crearRepartidor(): Repartidor
+    {
+        $repartidor = Repartidor::create(['usuario_id' => $this->crearUsuario()->id]);
+        $repartidor->vehiculos()->create(['tipo_vehiculo_id' => 1, 'placa' => '1111-PRB', 'ruat' => 'R-12345']);
+
+        return $repartidor->refresh();
     }
 
     private function crearDocumento(int $usuarioId, int $tipo = 1): Documento

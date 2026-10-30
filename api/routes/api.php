@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\DocumentoController;
 use App\Http\Controllers\Api\NegocioController;
 use App\Http\Controllers\Api\PedidoController;
 use App\Http\Controllers\Api\PerfilController;
+use App\Http\Controllers\Api\RepartidorController;
 use App\Http\Controllers\Api\ResenaController;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
@@ -78,6 +79,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('pedidos', [PedidoController::class, 'index']);
     Route::get('pedidos/{pedido}', [PedidoController::class, 'show']);
     Route::get('negocios', [NegocioController::class, 'index']);
+    Route::get('tipos-vehiculo', [RepartidorController::class, 'tiposVehiculo']);
 
     // Hacer un pedido: límite propio (evita pedidos falsos en masa).
     Route::post('pedidos', [PedidoController::class, 'store'])->middleware('throttle:pedidos');
@@ -98,6 +100,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('envio/cotizar', [PedidoController::class, 'cotizar']);
         Route::post('pedidos/{pedido}/cancelar', [PedidoController::class, 'cancelar']);
         Route::put('resenas', [ResenaController::class, 'guardar']);
+        Route::post('repartidor', [RepartidorController::class, 'store']);
+        Route::post('vehiculos', [RepartidorController::class, 'vehiculo']);
     });
 
     // ----- Todo lo de un negocio: solo su dueño (si no, 404) -----

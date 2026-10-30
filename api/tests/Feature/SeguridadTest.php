@@ -29,6 +29,7 @@ class SeguridadTest extends TestCase
             ['GET', '/api/negocios'], ['POST', '/api/negocios'], ['GET', '/api/negocios/1/resumen'],
             ['GET', '/api/negocios/1/pedidos'], ['PUT', '/api/negocios/1/pedidos/1/estado'],
             ['POST', '/api/negocios/1/productos'], ['PUT', '/api/resenas'], ['POST', '/api/auth/logout'],
+            ['GET', '/api/tipos-vehiculo'], ['POST', '/api/repartidor'], ['POST', '/api/vehiculos'],
         ] as [$metodo, $ruta]) {
             $this->json($metodo, $ruta)
                 ->assertUnauthorized()

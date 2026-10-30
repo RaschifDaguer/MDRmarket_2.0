@@ -4,10 +4,10 @@ Qué manda y qué recibe la app en cada pantalla. Sirve para maquetar con
 **datos de prueba** las pantallas cuya ruta de la API todavía no existe, sin
 trabajar a ciegas.
 
-- **Parte 1:** cuenta, perfil y registro del negocio.
+- **Parte 1:** cuenta, perfil, registro del negocio y del repartidor.
 - **Parte 2:** catálogo, pedidos y todo lo del comerciante (también funcionan).
-- **Parte 3:** lo que todavía **falta** (repartidor y rastreo): datos propuestos
-  para maquetar.
+- **Parte 3:** lo que todavía **falta** (vista repartidor y rastreo): datos
+  propuestos para maquetar.
 
 > **Referencia completa y siempre al día:** `/docs/api` en la API (la genera
 > Scramble leyendo el código). Este documento explica *cómo usarla* desde la app.
@@ -225,6 +225,80 @@ Mis documentos con su `estado` (`pendiente`, `aprobado`, `rechazado`) y `observa
 ### `GET /archivos/{ruta}`
 Devuelve una foto pública (logo del negocio, productos). No hace falta armar
 esta URL: la API ya la manda completa en `logo_url`.
+
+### Registro de repartidor 🔒 (módulo 4b)
+
+Orden en la app: `GET /tipos-vehiculo` → `POST /repartidor` → `POST /vehiculos`
+→ `GET /me/faltantes/repartidor` → subir cada foto con `POST /documentos`.
+
+#### `GET /tipos-vehiculo` 🔒
+Para elegir el vehículo y saber qué campos mostrar:
+```json
+[
+  { "id": 1, "codigo": "moto", "nombre": "Moto",
+    "requiere_placa": true, "requiere_ruat": true, "requiere_licencia": true,
+    "categoria": { "id": 1, "codigo": "liviano", "nombre": "Liviano",
+                   "descripcion": "Motos y bicicletas: paquetes chicos y comida", "capacidad_kg_max": 20 } },
+  { "id": 2, "codigo": "bicicleta", "nombre": "Bicicleta",
+    "requiere_placa": false, "requiere_ruat": false, "requiere_licencia": false,
+    "categoria": { "id": 1, "codigo": "liviano", "…": "…" } }
+]
+```
+Son 5: moto y bicicleta (liviano), auto y camioneta (mediano), camión (grande).
+Si `requiere_placa` o `requiere_ruat` es `false`, no mostrar esos campos.
+
+#### `POST /repartidor` 🔒
+Sin datos. Crea el perfil de repartidor **en revisión**. Respuesta **201**:
+```json
+{ "usuario_id": 11, "estado_verificacion": "pendiente", "disponible": false,
+  "rating_promedio": null, "total_entregas": 0, "vehiculos": [],
+  "created_at": "2026-10-30T15:00:00.000000Z" }
+```
+- Desde ese momento `GET /me` trae la vista `repartidor` y `roles.repartidor.estado: "pendiente"`.
+- Si ya es repartidor → **422** `{"message":"Ya estás registrado como repartidor."}`.
+
+#### `POST /vehiculos` 🔒
+JSON (no lleva fotos; las fotos van después con `POST /documentos`):
+```json
+{ "tipo_vehiculo_id": 1, "placa": "4321-XYZ", "ruat": "R-778899",
+  "marca": "Honda", "modelo": "XR150", "color": "Rojo", "anio": 2022 }
+```
+- Obligatorio: `tipo_vehiculo_id`. `placa` y `ruat` solo si el tipo los pide (la bicicleta no).
+- El resto es opcional. `anio` entre 1950 y el año que viene.
+- La placa se guarda en mayúsculas y **no se puede repetir** → **422** en `placa`: *"Esa placa ya está registrada."*
+- Sin placa o RUAT cuando el tipo los pide → **422** en `placa` / `ruat`.
+- Si todavía no hizo `POST /repartidor` → **422** `{"message":"Primero regístrate como repartidor."}`.
+- El vehículo siempre queda a nombre de quien tiene la sesión.
+
+Respuesta **201**:
+```json
+{ "id": 4, "tipo": { "id": 1, "codigo": "moto", "nombre": "Moto" },
+  "placa": "4321-XYZ", "ruat": "R-778899", "marca": "Honda", "modelo": "XR150",
+  "color": "Rojo", "anio": 2022, "en_uso": true, "estado_verificacion": "pendiente",
+  "created_at": "2026-10-30T15:01:00.000000Z" }
+```
+
+#### Lo que falta subir
+Después del vehículo, `GET /me/faltantes/repartidor` pide las fotos. Con moto:
+
+| `codigo` | `documento` | `vehiculo_id` |
+|---|---|---|
+| `documento.ci_anverso`, `documento.ci_reverso` | `ci_anverso`, `ci_reverso` | `null` |
+| `documento.foto_rostro` (selfie) | `foto_rostro` | `null` |
+| `documento.licencia_conducir` | `licencia_conducir` | `null` |
+| `documento.foto_vehiculo:vehiculo4` | `foto_vehiculo` | `4` |
+| `documento.foto_placa:vehiculo4` | `foto_placa` | `4` |
+| `documento.ruat:vehiculo4` | `ruat` | `4` |
+
+Con bicicleta solo: carnet (los dos lados), selfie y `foto_vehiculo`.
+
+Para cada uno: `POST /documentos` con `tipo` = `documento` y, si no es `null`,
+el mismo `vehiculo_id`. Al subir todo, `completo: true`. Con el `vehiculo_id`
+de otra persona → **422** *"Este documento debe ir ligado a un vehículo tuyo"*.
+
+Un administrador aprueba o rechaza (con motivo) al repartidor y su vehículo en
+`/admin` → Aprobaciones → Repartidores; se le deja un aviso (`repartidor_aprobado`
+o `repartidor_rechazado`). Si lo rechazan, la vista `repartidor` desaparece de `vistas`.
 
 ---
 
