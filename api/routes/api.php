@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\DocumentoController;
 use App\Http\Controllers\Api\NegocioController;
 use App\Http\Controllers\Api\PedidoController;
 use App\Http\Controllers\Api\PerfilController;
+use App\Http\Controllers\Api\Repartidor;
 use App\Http\Controllers\Api\RepartidorController;
 use App\Http\Controllers\Api\ResenaController;
 use Illuminate\Support\Facades\DB;
@@ -81,6 +82,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('negocios', [NegocioController::class, 'index']);
     Route::get('tipos-vehiculo', [RepartidorController::class, 'tiposVehiculo']);
     Route::get('repartidor', [RepartidorController::class, 'show']);
+    Route::get('repartidor/pedidos-disponibles', [Repartidor\PedidoController::class, 'disponibles']);
+    Route::get('repartidor/pedido-actual', [Repartidor\PedidoController::class, 'actual']);
+    Route::get('repartidor/entregas', [Repartidor\PedidoController::class, 'entregas']);
 
     // Hacer un pedido: límite propio (evita pedidos falsos en masa).
     Route::post('pedidos', [PedidoController::class, 'store'])->middleware('throttle:pedidos');
@@ -103,6 +107,12 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('resenas', [ResenaController::class, 'guardar']);
         Route::post('repartidor', [RepartidorController::class, 'store']);
         Route::post('vehiculos', [RepartidorController::class, 'vehiculo']);
+
+        // Repartidor: en línea, aceptar, soltar, recoger y entregar.
+        Route::put('repartidor/disponible', [Repartidor\PedidoController::class, 'disponible']);
+        Route::post('pedidos/{pedido}/aceptar', [Repartidor\PedidoController::class, 'aceptar']);
+        Route::post('pedidos/{pedido}/soltar', [Repartidor\PedidoController::class, 'soltar']);
+        Route::put('repartidor/pedidos/{pedido}/estado', [Repartidor\PedidoController::class, 'estado']);
     });
 
     // ----- Todo lo de un negocio: solo su dueño (si no, 404) -----

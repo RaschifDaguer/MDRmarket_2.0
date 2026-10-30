@@ -19,6 +19,9 @@ class Pedido extends Model
 
     public const ESTADOS_ACTIVOS = ['pendiente', 'confirmado', 'preparando', 'listo', 'en_camino'];
 
+    /** Estados en los que un repartidor tiene el pedido a su cargo. */
+    public const ESTADOS_REPARTO = ['listo', 'en_camino'];
+
     protected $fillable = [
         'comprador_id',
         'negocio_id',
@@ -78,6 +81,24 @@ class Pedido extends Model
     public function negocio(): BelongsTo
     {
         return $this->belongsTo(Negocio::class);
+    }
+
+    /** Quien lo lleva (null si nadie lo aceptó o lo entrega el propio negocio). */
+    public function repartidor(): BelongsTo
+    {
+        return $this->belongsTo(Usuario::class, 'repartidor_id')->withTrashed();
+    }
+
+    /** Vehículo con el que lo lleva (se guarda al aceptar). */
+    public function vehiculo(): BelongsTo
+    {
+        return $this->belongsTo(Vehiculo::class)->withTrashed();
+    }
+
+    /** Tamaño mínimo de vehículo que necesita (liviano, mediano o grande). */
+    public function categoriaVehiculo(): BelongsTo
+    {
+        return $this->belongsTo(CategoriaVehiculo::class, 'categoria_vehiculo_requerida_id');
     }
 
     public function items(): HasMany

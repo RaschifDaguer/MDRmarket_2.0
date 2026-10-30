@@ -69,6 +69,6 @@ class PedidoController extends Controller
 
     private function conDetalle(Pedido $pedido): Pedido
     {
-        return $pedido->refresh()->load(['negocio', 'comprador', 'items.producto.imagenPrincipal', 'historial']);
+        return $pedido->refresh()->load(['negocio', 'comprador', 'items.producto.imagenPrincipal', 'historial', 'repartidor', 'vehiculo.tipo']);
     }
 }
