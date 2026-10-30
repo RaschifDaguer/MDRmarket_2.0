@@ -13,7 +13,8 @@ import '../domain/negocio.dart';
 import 'con_negocio.dart';
 
 /// Un pedido que llegó al negocio: cliente, dirección, productos y los
-/// botones para avanzarlo (aceptar, preparar, listo, en camino, entregar).
+/// botones para avanzarlo (aceptar, preparar, listo). Lo recoge y lo entrega
+/// un repartidor de la app: aquí se ve "Buscando repartidor…" o quién lo lleva.
 class PedidoNegocioScreen extends StatelessWidget {
   const PedidoNegocioScreen({super.key, required this.pedidoId});
 
@@ -44,8 +45,8 @@ class _DetalleState extends ConsumerState<_Detalle> {
   ({int negocioId, int pedidoId}) get _id => (negocioId: widget.negocio.id, pedidoId: widget.pedidoId);
 
   Future<void> _avanzar(EstadoPedido estado) async {
+    // El local llega hasta "listo"; recoger y entregar (con el PIN) lo hace el repartidor.
     String? motivo;
-    String? codigo;
     if (estado == EstadoPedido.rechazado || estado == EstadoPedido.cancelado) {
       motivo = await _pedirTexto(
         titulo: estado == EstadoPedido.rechazado ? '¿Por qué lo rechazas?' : '¿Por qué lo cancelas?',
@@ -53,20 +54,10 @@ class _DetalleState extends ConsumerState<_Detalle> {
       );
       if (motivo == null) return;
     }
-    if (estado == EstadoPedido.entregado) {
-      codigo = await _pedirTexto(
-        titulo: 'PIN del cliente',
-        ayuda: 'Pídele al cliente su PIN de 4 números. Sin el PIN no se puede marcar como entregado.',
-        pin: true,
-      );
-      if (codigo == null) return;
-    }
 
     setState(() => _cambiando = true);
     try {
-      await ref
-          .read(miNegocioRepositoryProvider)
-          .cambiarEstado(widget.negocio.id, widget.pedidoId, estado, motivo: motivo, codigo: codigo);
+      await ref.read(miNegocioRepositoryProvider).cambiarEstado(widget.negocio.id, widget.pedidoId, estado, motivo: motivo);
       ref.invalidate(pedidoNegocioProvider(_id));
       ref.invalidate(pedidosNegocioProvider);
       ref.invalidate(resumenNegocioProvider(widget.negocio.id));
@@ -76,7 +67,7 @@ class _DetalleState extends ConsumerState<_Detalle> {
     } on ApiException catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(e.errorDe('codigo') ?? e.errorDe('motivo') ?? e.errorDe('estado') ?? e.mensaje),
+          content: Text(e.errorDe('motivo') ?? e.errorDe('estado') ?? e.mensaje),
         ));
       }
       ref.invalidate(pedidoNegocioProvider(_id));
@@ -85,7 +76,7 @@ class _DetalleState extends ConsumerState<_Detalle> {
     }
   }
 
-  Future<String?> _pedirTexto({required String titulo, required String ayuda, bool pin = false}) async {
+  Future<String?> _pedirTexto({required String titulo, required String ayuda}) async {
     final control = TextEditingController();
     final valor = await showDialog<String>(
       context: context,
@@ -98,14 +89,10 @@ class _DetalleState extends ConsumerState<_Detalle> {
             Text(ayuda),
             const SizedBox(height: AppEspacios.m),
             TextField(
-              key: Key(pin ? 'campo-pin' : 'campo-motivo'),
+              key: const Key('campo-motivo'),
               controller: control,
               autofocus: true,
-              keyboardType: pin ? TextInputType.number : TextInputType.text,
-              maxLength: pin ? 4 : 255,
-              inputFormatters: pin ? [FilteringTextInputFormatter.digitsOnly] : null,
-              textAlign: pin ? TextAlign.center : TextAlign.start,
-              style: pin ? Theme.of(contexto).textTheme.headlineMedium?.copyWith(letterSpacing: 12) : null,
+              maxLength: 255,
             ),
           ],
         ),
@@ -169,6 +156,7 @@ class _DetalleState extends ConsumerState<_Detalle> {
             child: ListView(
               padding: const EdgeInsets.all(AppEspacios.m),
               children: [
+                if (_estadoReparto(context, p) case final aviso?) ...[aviso, const SizedBox(height: AppEspacios.m)],
                 Card(
                   child: Padding(
                     padding: const EdgeInsets.all(AppEspacios.m),
@@ -198,16 +186,6 @@ class _DetalleState extends ConsumerState<_Detalle> {
                 DetalleMontos(pedido: p),
                 const SizedBox(height: AppEspacios.m),
                 Card(child: Padding(padding: const EdgeInsets.all(AppEspacios.m), child: LineaAvance(pedido: p))),
-                if (p.estado == EstadoPedido.enCamino) ...[
-                  const SizedBox(height: AppEspacios.m),
-                  Card(
-                    color: Theme.of(context).colorScheme.secondaryContainer,
-                    child: const ListTile(
-                      leading: Icon(Icons.pin_outlined),
-                      title: Text('Al entregar, pide al cliente su PIN de 4 números.'),
-                    ),
-                  ),
-                ],
                 const SizedBox(height: AppEspacios.xl),
               ],
             ),
@@ -215,6 +193,50 @@ class _DetalleState extends ConsumerState<_Detalle> {
         );
       },
     );
+  }
+
+  /// Quién lo lleva: el local no entrega, lo hace un repartidor de la app.
+  /// "Buscando repartidor…" mientras nadie lo toma; "Lo lleva…" después.
+  Widget? _estadoReparto(BuildContext context, Pedido p) {
+    final c = Theme.of(context).colorScheme;
+    if (p.estado.terminado) return null;
+
+    if (p.tieneRepartidor) {
+      return Card(
+        key: const Key('lo-lleva'),
+        color: c.primaryContainer,
+        child: ListTile(
+          leading: Icon(Icons.delivery_dining, color: c.onPrimaryContainer),
+          title: Text('Lo lleva ${p.repartidorNombre}', style: TextStyle(color: c.onPrimaryContainer, fontWeight: FontWeight.w600)),
+          subtitle: Text(
+            [
+              if (p.vehiculoTexto.isNotEmpty) p.vehiculoTexto,
+              p.estado == EstadoPedido.enCamino ? 'Ya lo recogió y va camino al cliente.' : 'Va a tu local a recogerlo.',
+            ].join(' · '),
+            style: TextStyle(color: c.onPrimaryContainer),
+          ),
+        ),
+      );
+    }
+    if (p.estado == EstadoPedido.listo) {
+      return Card(
+        key: const Key('buscando-repartidor'),
+        color: c.secondaryContainer,
+        child: ListTile(
+          leading: SizedBox.square(
+            dimension: 24,
+            child: CircularProgressIndicator(strokeWidth: 2.5, color: c.onSecondaryContainer),
+          ),
+          title: Text('Buscando repartidor…',
+              style: TextStyle(color: c.onSecondaryContainer, fontWeight: FontWeight.w600)),
+          subtitle: Text(
+            'Un repartidor de la app lo recogerá y lo entregará con el PIN del cliente. Si nadie lo toma, puedes cancelarlo.',
+            style: TextStyle(color: c.onSecondaryContainer),
+          ),
+        ),
+      );
+    }
+    return null;
   }
 }
 

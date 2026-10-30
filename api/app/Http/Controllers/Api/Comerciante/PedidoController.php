@@ -43,23 +43,21 @@ class PedidoController extends Controller
     }
 
     /**
-     * PUT /{pedido}/estado — aceptar, rechazar, preparando, listo, en camino o
-     * entregado. Para "entregado" hay que escribir el PIN que da el cliente.
+     * PUT /{pedido}/estado — aceptar, rechazar, preparando, listo o cancelar.
+     * "En camino" y "entregado" los hace el repartidor de la app (el local no
+     * tiene delivery propio).
      */
     public function estado(Request $request, Negocio $negocio, Pedido $pedido): PedidoResource
     {
         $datos = $request->validate([
             'estado' => ['required', Rule::in(['confirmado', 'rechazado', 'preparando', 'listo', 'en_camino', 'entregado', 'cancelado'])],
             'motivo' => ['nullable', 'required_if:estado,rechazado,cancelado', 'string', 'max:255'],
-            'codigo' => ['nullable', 'required_if:estado,entregado', 'string', 'size:4'],
         ], [
             'motivo.required_if' => 'Cuéntale al cliente por qué (ej. "nos quedamos sin stock").',
-            'codigo.required_if' => 'Pídele al cliente su PIN de 4 números.',
-            'codigo.size' => 'El PIN tiene 4 números.',
         ]);
 
-        if ($datos['estado'] === 'entregado' && $datos['codigo'] !== $pedido->codigo_entrega) {
-            throw ValidationException::withMessages(['codigo' => 'El PIN no coincide. Pídeselo de nuevo al cliente.']);
+        if (in_array($datos['estado'], ['en_camino', 'entregado'], true)) {
+            throw ValidationException::withMessages(['estado' => 'Solo el repartidor de la app recoge y entrega el pedido.']);
         }
 
         $pedido = FlujoPedido::cambiar($pedido, $datos['estado'], $request->user(), 'comerciante', $datos['motivo'] ?? null);
@@ -69,6 +67,6 @@ class PedidoController extends Controller
 
     private function conDetalle(Pedido $pedido): Pedido
     {
-        return $pedido->refresh()->load(['negocio', 'comprador', 'items.producto.imagenPrincipal', 'historial']);
+        return $pedido->refresh()->load(['negocio', 'comprador', 'items.producto.imagenPrincipal', 'historial', 'repartidor', 'vehiculo.tipo']);
     }
 }

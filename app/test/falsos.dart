@@ -1,4 +1,6 @@
 // Datos y repositorios falsos para probar las pantallas sin internet.
+import 'dart:math' as math;
+
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -25,8 +27,15 @@ import 'package:mdrmarket/features/comerciante/domain/negocio.dart';
 import 'package:mdrmarket/features/pedidos/data/pedidos_repository.dart';
 import 'package:mdrmarket/features/pedidos/domain/direccion.dart';
 import 'package:mdrmarket/features/pedidos/domain/pedido.dart';
+import 'package:mdrmarket/features/pedidos/domain/seguimiento.dart';
+import 'package:mdrmarket/features/pedidos/presentation/widgets/seguimiento_pedido.dart';
 import 'package:mdrmarket/features/perfil/data/perfil_repository.dart';
 import 'package:mdrmarket/features/perfil/domain/faltante.dart';
+import 'package:mdrmarket/features/repartidor/data/envio_ubicacion.dart';
+import 'package:mdrmarket/features/repartidor/data/repartidor_repository.dart';
+import 'package:mdrmarket/features/repartidor/domain/pedido_disponible.dart';
+import 'package:mdrmarket/features/repartidor/domain/repartidor.dart';
+import 'package:mdrmarket/features/repartidor/domain/tipo_vehiculo.dart';
 
 class SesionFalsa extends AuthController {
   SesionFalsa(this._usuario);
@@ -121,9 +130,17 @@ const casa = Direccion(
   predeterminada: true,
 );
 
-/// Pedido de ejemplo en el estado que se pida.
-Pedido pedidoDeEjemplo({EstadoPedido estado = EstadoPedido.pendiente, bool paraNegocio = false, List<EstadoPedido>? acciones}) {
+/// Pedido de ejemplo en el estado que se pida (con [conRepartidor], lo lleva Diego en moto).
+Pedido pedidoDeEjemplo({
+  EstadoPedido estado = EstadoPedido.pendiente,
+  bool paraNegocio = false,
+  List<EstadoPedido>? acciones,
+  bool conRepartidor = false,
+}) {
   return Pedido(
+    repartidorNombre: conRepartidor ? 'Diego Rodríguez' : null,
+    repartidorVehiculo: conRepartidor ? 'Moto' : null,
+    repartidorPlaca: conRepartidor ? '1234-ABC' : null,
     id: 42,
     estado: estado,
     negocioId: 5,
@@ -217,6 +234,14 @@ class PedidosFalso extends PedidosRepository {
   @override
   Future<Pedido> pedido(int id) async => pedidoActual ?? pedidoDeEjemplo();
 
+  /// Respuestas del rastreo, una por consulta (la última se repite).
+  List<Seguimiento> seguimientos = const [];
+  int consultasSeguimiento = 0;
+
+  @override
+  Future<Seguimiento> seguimiento(int id) async =>
+      seguimientos[math.min(consultasSeguimiento++, seguimientos.length - 1)];
+
   @override
   Future<Pedido> cancelar(int id, {String? motivo}) async {
     cancelados++;
@@ -228,7 +253,9 @@ class MiNegocioFalso extends MiNegocioRepository {
   MiNegocioFalso() : super(Dio());
 
   final cambios = <EstadoPedido>[];
-  String? pinRecibido;
+
+  /// El pedido que se abre (por defecto: listo y sin repartidor, "Buscando repartidor…").
+  Pedido? pedidoMostrado;
 
   static const _montos = Montos(ventas: 350, gananciaBruta: 140, gastos: 40, gananciaNeta: 100, unidadesVendidas: 12);
 
@@ -262,21 +289,18 @@ class MiNegocioFalso extends MiNegocioRepository {
         ultimaPagina: 1,
       );
 
+  // El local llega hasta "listo": recoger y entregar lo hace el repartidor.
   @override
-  Future<Pedido> pedido(int negocioId, int pedidoId) async => pedidoDeEjemplo(
+  Future<Pedido> pedido(int negocioId, int pedidoId) async =>
+      pedidoMostrado ??
+      pedidoDeEjemplo(
         paraNegocio: true,
-        estado: cambios.isEmpty ? EstadoPedido.enCamino : EstadoPedido.entregado,
-        acciones: cambios.isEmpty ? const [EstadoPedido.entregado] : const [],
+        estado: cambios.isEmpty ? EstadoPedido.listo : cambios.last,
+        acciones: cambios.isEmpty ? const [EstadoPedido.cancelado] : const [],
       );
 
   @override
   Future<Pedido> cambiarEstado(int negocioId, int pedidoId, EstadoPedido estado, {String? motivo, String? codigo}) async {
-    if (estado == EstadoPedido.entregado && codigo != '4821') {
-      throw ApiException('Datos inválidos', statusCode: 422, errores: {
-        'codigo': ['El PIN no coincide. Pídeselo de nuevo al cliente.'],
-      });
-    }
-    pinRecibido = codigo;
     cambios.add(estado);
     return pedidoDeEjemplo(paraNegocio: true, estado: estado);
   }
@@ -298,16 +322,170 @@ class MiNegocioFalso extends MiNegocioRepository {
       ];
 }
 
+const repartidorEnRevision = Usuario(
+  id: 1,
+  nombre: 'Diego',
+  apellido: 'Rodríguez',
+  email: 'diego@correo.com',
+  ciNumero: '1234567',
+  vistas: [Vista.cliente, Vista.repartidor],
+  vistaGuardada: 'repartidor',
+  estadoRepartidor: 'pendiente',
+);
+
+/// Los 5 tipos de vehículo, como los manda `GET /api/tipos-vehiculo`.
+const tiposDePrueba = [
+  TipoVehiculo(id: 1, codigo: 'moto', nombre: 'Moto', categoria: 'Liviano', descripcion: 'Motos y bicicletas: paquetes chicos y comida'),
+  TipoVehiculo(id: 2, codigo: 'bicicleta', nombre: 'Bicicleta', requierePlaca: false, requiereRuat: false, requiereLicencia: false, categoria: 'Liviano'),
+  TipoVehiculo(id: 3, codigo: 'auto', nombre: 'Auto', categoria: 'Mediano'),
+  TipoVehiculo(id: 4, codigo: 'camioneta', nombre: 'Camioneta', categoria: 'Mediano'),
+  TipoVehiculo(id: 5, codigo: 'camion', nombre: 'Camión', categoria: 'Grande'),
+];
+
+/// Lo que la API pide a un repartidor nuevo en moto (vehículo 4).
+const faltaMoto = [
+  ...faltaIdentidad,
+  Faltante(codigo: 'documento.licencia_conducir', texto: 'Foto: Licencia de conducir', documento: 'licencia_conducir'),
+  Faltante(codigo: 'documento.foto_vehiculo:vehiculo4', texto: 'Foto del vehículo', documento: 'foto_vehiculo', vehiculoId: 4),
+  Faltante(codigo: 'documento.foto_placa:vehiculo4', texto: 'Foto de la placa', documento: 'foto_placa', vehiculoId: 4),
+  Faltante(codigo: 'documento.ruat:vehiculo4', texto: 'Foto: RUAT del vehículo', documento: 'ruat', vehiculoId: 4),
+];
+
+class RepartidorFalso extends RepartidorRepository {
+  RepartidorFalso({this.perfil, this.errorVehiculo}) : super(Dio());
+
+  PerfilRepartidor? perfil;
+
+  /// Si se pone, registrar el vehículo falla con este error (ej. placa repetida).
+  final ApiException? errorVehiculo;
+  int solicitudes = 0;
+  final vehiculos = <DatosVehiculo>[];
+
+  @override
+  Future<List<TipoVehiculo>> tiposVehiculo() async => tiposDePrueba;
+
+  @override
+  Future<PerfilRepartidor?> miPerfil() async => perfil;
+
+  @override
+  Future<PerfilRepartidor> solicitar() async {
+    solicitudes++;
+    return perfil = const PerfilRepartidor(estado: 'pendiente');
+  }
+
+  @override
+  Future<Vehiculo> registrarVehiculo(DatosVehiculo datos) async {
+    if (errorVehiculo != null) throw errorVehiculo!;
+    vehiculos.add(datos);
+    return const Vehiculo(id: 4, tipoCodigo: 'moto', tipoNombre: 'Moto');
+  }
+
+  // ---------- Vista repartidor (módulo 8) ----------
+
+  List<PedidoDisponible> listaDisponibles = const [];
+  Pedido? actual;
+  Entregas misEntregas = const Entregas(pedidos: []);
+
+  /// Si se pone, aceptar falla con este error (ej. otro lo aceptó primero).
+  ApiException? errorAceptar;
+  final pinesProbados = <String>[];
+
+  @override
+  Future<bool> ponerDisponible(bool disponible, {Coordenada? ubicacion}) async {
+    perfil = PerfilRepartidor(estado: perfil?.estado ?? 'aprobado', disponible: disponible);
+    return disponible;
+  }
+
+  @override
+  Future<List<PedidoDisponible>> disponibles() async => listaDisponibles;
+
+  @override
+  Future<Pedido?> pedidoActual() async => actual;
+
+  @override
+  Future<Pedido> aceptar(int pedidoId) async {
+    if (errorAceptar != null) throw errorAceptar!;
+    return actual = pedidoDeEjemplo(estado: EstadoPedido.listo, paraNegocio: true);
+  }
+
+  @override
+  Future<Pedido> cambiarEstado(int pedidoId, EstadoPedido estado, {String? codigo}) async {
+    if (codigo != null) {
+      pinesProbados.add(codigo);
+      if (codigo != '4821') {
+        throw ApiException('Datos inválidos', statusCode: 422, errores: {
+          'codigo': ['El PIN no coincide. Pídeselo de nuevo al cliente.'],
+        });
+      }
+    }
+    return actual = pedidoDeEjemplo(estado: estado, paraNegocio: true);
+  }
+
+  @override
+  Future<Entregas> entregas() async => misEntregas;
+
+  /// Posiciones que mandó (rastreo).
+  final ubicacionesEnviadas = <Coordenada>[];
+
+  @override
+  Future<void> enviarUbicacion(Coordenada punto) async => ubicacionesEnviadas.add(punto);
+}
+
+const repartidorAprobado = Usuario(
+  id: 3,
+  nombre: 'Diego',
+  apellido: 'Rodríguez',
+  email: 'diego@correo.com',
+  ciNumero: '1234567',
+  vistas: [Vista.cliente, Vista.repartidor],
+  vistaGuardada: 'repartidor',
+  estadoRepartidor: 'aprobado',
+);
+
+/// Dos pedidos listos cerca, como los manda la API.
+const disponiblesDePrueba = [
+  PedidoDisponible(
+    id: 42,
+    negocioNombre: 'Pollos Marta',
+    negocioDireccion: 'Av. Busch 1234',
+    direccionEntrega: 'Calle Libertad 123',
+    distanciaKm: 2.4,
+    distanciaAlNegocioKm: 0.8,
+    costoEnvio: 5,
+    total: 73,
+    tamano: 'Liviano',
+  ),
+  PedidoDisponible(
+    id: 43,
+    negocioNombre: 'Farmacia Central',
+    direccionEntrega: 'Av. Beni 456',
+    distanciaKm: 5.1,
+    costoEnvio: 8,
+    total: 40,
+    metodoPago: 'qr',
+    tamano: 'Liviano',
+  ),
+];
+
 /// Todo lo que las pantallas piden a la API, reemplazado por datos falsos.
 List overridesFalsos({
   required Usuario usuario,
   CatalogoFalso? catalogo,
   PedidosFalso? pedidos,
   MiNegocioFalso? miNegocio,
+  RepartidorFalso? repartidor,
   List<Negocio> negocios = const [],
   List<Faltante> faltantes = const [],
+  LecturaGps gps = const LecturaGps(Coordenada(-17.78, -63.18)),
+  Widget Function(Seguimiento)? mapa,
 }) =>
     [
+      repartidorRepositoryProvider.overrideWithValue(repartidor ?? RepartidorFalso()),
+      // Sin GPS en las pruebas.
+      ubicacionActualProvider.overrideWithValue(() async => null),
+      leerGpsProvider.overrideWithValue(() async => gps),
+      // Sin clave de Google Maps (como en las pruebas); se puede pasar un mapa falso.
+      mapaSeguimientoProvider.overrideWithValue(mapa),
       authControllerProvider.overrideWith(() => SesionFalsa(usuario)),
       catalogoRepositoryProvider.overrideWithValue(catalogo ?? CatalogoFalso()),
       pedidosRepositoryProvider.overrideWithValue(pedidos ?? PedidosFalso()),

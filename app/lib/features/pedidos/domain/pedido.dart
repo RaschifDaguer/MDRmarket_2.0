@@ -111,6 +111,12 @@ class Pedido {
     this.resenaNegocio,
     this.resenasProductos = const [],
     this.creado,
+    this.entregado,
+    this.repartidorNombre,
+    this.repartidorTelefono,
+    this.repartidorVehiculo,
+    this.repartidorPlaca,
+    this.tamano,
   });
 
   final int id;
@@ -151,6 +157,23 @@ class Pedido {
   final MiResena? resenaNegocio;
   final List<MiResena> resenasProductos;
   final DateTime? creado;
+  final DateTime? entregado;
+
+  /// Quién lo lleva (null si nadie lo aceptó o lo entrega el propio negocio).
+  final String? repartidorNombre;
+  final String? repartidorTelefono;
+
+  /// Ej. "Moto" y "1234-ABC".
+  final String? repartidorVehiculo;
+  final String? repartidorPlaca;
+
+  /// Tamaño de vehículo que necesita: Liviano, Mediano o Grande.
+  final String? tamano;
+
+  bool get tieneRepartidor => repartidorNombre != null;
+
+  /// "Moto · 1234-ABC" (solo lo que tenga).
+  String get vehiculoTexto => [?repartidorVehiculo, ?repartidorPlaca].join(' · ');
 
   int get unidades => totalItems ?? items.fold(0, (t, i) => t + i.cantidad);
 
@@ -169,6 +192,7 @@ class Pedido {
   factory Pedido.fromJson(Map<String, dynamic> json) {
     final negocio = (json['negocio'] as Map?) ?? const {};
     final cliente = json['cliente'] as Map?;
+    final repartidor = json['repartidor'] as Map?;
     final resenas = json['mis_resenas'] as Map?;
     return Pedido(
       id: json['id'] as int,
@@ -209,6 +233,12 @@ class Pedido {
           .map((r) => MiResena.fromJson(r as Map<String, dynamic>))
           .toList(),
       creado: Formato.fechaDe(json['created_at']),
+      entregado: Formato.fechaDe(json['entregado_en']),
+      repartidorNombre: repartidor?['nombre'] as String?,
+      repartidorTelefono: repartidor?['telefono'] as String?,
+      repartidorVehiculo: repartidor?['vehiculo'] as String?,
+      repartidorPlaca: repartidor?['placa'] as String?,
+      tamano: json['tamano'] as String?,
     );
   }
 }

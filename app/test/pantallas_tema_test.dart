@@ -10,6 +10,7 @@ import 'package:mdrmarket/features/auth/presentation/login_screen.dart';
 import 'package:mdrmarket/features/auth/presentation/registro_screen.dart';
 import 'package:mdrmarket/features/auth/presentation/splash_screen.dart';
 import 'package:mdrmarket/features/inicio/presentation/inicio_screen.dart';
+import 'package:mdrmarket/features/perfil/data/perfil_repository.dart';
 
 /// Sesión falsa: nunca llama a la API ni usa internet.
 class _SesionFalsa extends AuthController {
@@ -47,6 +48,8 @@ void main() {
       retry: (_, _) => null,
       overrides: [
         if (sesion != null) authControllerProvider.overrideWith(() => _SesionFalsa(sesion)),
+        // La vista repartidor en revisión pide lo que falta subir: sin internet, nada.
+        faltantesProvider.overrideWith((ref, rol) async => const []),
       ],
       child: MaterialApp(theme: tema, home: pantalla),
     ));

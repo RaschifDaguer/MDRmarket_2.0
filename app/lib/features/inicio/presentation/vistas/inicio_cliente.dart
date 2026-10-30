@@ -28,10 +28,25 @@ class _InicioClienteState extends State<InicioCliente> {
 
   @override
   Widget build(BuildContext context) {
+    // Cualquier cliente puede abrir su negocio o repartir sin crear otra cuenta.
+    // (Si le rechazaron la solicitud de repartidor, ya no tiene esa vista.)
+    final invitaciones = [
+      if (!widget.usuario.vistas.contains(Vista.comerciante)) const _InvitacionNegocio(),
+      if (!widget.usuario.vistas.contains(Vista.repartidor))
+        _InvitacionRepartidor(rechazado: widget.usuario.estadoRepartidor == 'rechazado'),
+    ];
     final paginas = [
       CatalogoView(
-        // Cualquier cliente puede abrir su negocio sin crear otra cuenta.
-        encabezado: widget.usuario.vistas.contains(Vista.comerciante) ? null : const _InvitacionNegocio(),
+        encabezado: invitaciones.isEmpty
+            ? null
+            : Column(
+                children: [
+                  for (final (i, invitacion) in invitaciones.indexed) ...[
+                    if (i > 0) const SizedBox(height: AppEspacios.s),
+                    invitacion,
+                  ],
+                ],
+              ),
       ),
       const TiendasView(),
       const MisPedidosView(),
@@ -96,6 +111,48 @@ class _InvitacionNegocio extends StatelessWidget {
               style: FilledButton.styleFrom(minimumSize: const Size(0, 40)),
               onPressed: () => context.go('/registrar-negocio'),
               child: const Text('Registrar'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// "¿Quieres repartir?" en pequeño, igual a la del negocio. Si le rechazaron
+/// la solicitud, invita a ver el motivo y volver a enviarla.
+class _InvitacionRepartidor extends StatelessWidget {
+  const _InvitacionRepartidor({this.rechazado = false});
+
+  final bool rechazado;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = Theme.of(context).colorScheme;
+    final textos = Theme.of(context).textTheme;
+    return Card(
+      color: c.secondaryContainer,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: AppEspacios.m - 4, vertical: AppEspacios.s),
+        child: Row(
+          children: [
+            Icon(Icons.delivery_dining_outlined, color: c.onSecondaryContainer),
+            const SizedBox(width: AppEspacios.m - 4),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(rechazado ? 'Tu solicitud de repartidor no fue aprobada' : '¿Quieres repartir?',
+                      style: textos.titleSmall),
+                  Text(rechazado ? 'Mira el motivo y vuelve a enviarla.' : 'Gana dinero llevando pedidos con tu vehículo.',
+                      style: textos.bodySmall),
+                ],
+              ),
+            ),
+            FilledButton.tonal(
+              style: FilledButton.styleFrom(minimumSize: const Size(0, 40)),
+              onPressed: () => context.go('/registrar-repartidor'),
+              child: Text(rechazado ? 'Revisar' : 'Registrarme'),
             ),
           ],
         ),

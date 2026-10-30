@@ -22,21 +22,29 @@ trabajo que falta es **API (Laravel) + pantallas (Flutter)**.
 | 12 | Panel de administrador | Filament en `/admin`: aprobar/rechazar negocios y documentos (fotos privadas), pedidos (cancelar), usuarios (activar, dar admin), tarifas de envío y comisiones |
 | — | Documentación de la API | Scramble en `/docs/api`, generada desde el código |
 
-**Entrega mientras no exista el repartidor:** el negocio entrega con su propio
-delivery: pasa el pedido a "en camino" y lo marca "entregado" con el PIN que le
-da el cliente. Así funcionan ya las ventas, las ganancias y las reseñas.
+**Entrega:** todo pedido lo lleva un repartidor de la app (módulo 8): lo acepta
+cuando está "listo", lo recoge y lo entrega con el PIN. El local no tiene
+delivery propio: llega hasta "listo" y, mientras nadie lo toma, puede cancelarlo.
 
-**Pruebas:** 44 de la API (`php artisan test`, base `mdrmarket_prueba`), incluidas
-pruebas de ataque (`SeguridadTest`), y 71 de la app con datos falsos, más
+**Pruebas:** 69 de la API (`php artisan test`, base `mdrmarket_prueba`), incluidas
+pruebas de ataque (`SeguridadTest`), y 113 de la app con datos falsos, más
 recorridos en vivo contra la API local.
 
 ---
 
 ## Pendiente
 
-### Módulo 4b — Registro de repartidor ⏳ *siguiente*
+### Módulo 4b — Registro de repartidor ✅ *hecho (en revisión)*
 **Objetivo:** que un cliente se convierta en repartidor pidiendo solo lo que le falta.
 
+- **Hecho (backend y panel):** `GET /api/tipos-vehiculo`, `GET` y `POST /api/repartidor`
+  (un rechazado puede volver a enviar su solicitud), `POST /api/vehiculos` (un solo
+  vehículo en uso; placa y RUAT si el tipo los pide; placa única) y
+  Aprobaciones → Repartidores en el panel (aprobar, rechazar con motivo, suspender).
+- **Hecho (app):** `features/repartidor/` (pantalla "Quiero ser repartidor"), tarjeta
+  "¿Quieres repartir?" en la vista cliente y "Te falta subir…" en la vista repartidor.
+- **Pendiente para después:** editar los datos del vehículo (hoy, si lo rechazan por
+  la placa o el RUAT, no se pueden corregir desde la app) y permitir más de un vehículo.
 - **Pantallas:** "Quiero ser repartidor" (tipo de vehículo, placa, RUAT, fotos).
   La lista "Te falta subir…" y la hoja para subir documentos ya existen
   (`features/perfil/`): se reutilizan.
@@ -50,20 +58,31 @@ recorridos en vivo contra la API local.
   pide CI, selfie y foto del vehículo. La selfie (`foto_rostro`) ya la pide la
   base a todo repartidor; la hoja de subir documentos ya abre la cámara delantera.
 
-### Módulo 8 — Vista repartidor ⏳
-- **Pantallas:** "en línea / desconectado", pedidos "listos" cerca (filtrados
-  por la categoría de su vehículo), aceptar, "recogido", "entregado" con PIN.
-- **API:** `PUT /api/repartidor/disponible`, `GET /api/repartidor/pedidos-disponibles`,
-  `POST /api/pedidos/{id}/aceptar`, `PUT /api/pedidos/{id}/estado`.
-- **Código:** agregar el rol `repartidor` en `api/app/Support/FlujoPedido.php`
-  (`listo → en_camino → entregado`). La entrega propia del negocio puede quedar
-  como opción para negocios con su delivery.
-- **Base:** `pedido.categoria_vehiculo_requerida_id` (ya se llena al pedir),
-  `codigo_entrega`, `trg_pedido_bu` (no asigna a sancionados), `trg_pedido_au`.
-- **Cómo probarlo:** pedido "listo" → el repartidor lo acepta → "en camino" →
-  "entregado" con el PIN correcto → en `registro_comercio` aparece la venta.
+### Módulo 8 — Vista repartidor ✅ *hecho (en revisión)*
+- **Pantallas (hecho):** interruptor "En línea" (manda el GPS si hay permiso),
+  pedidos "listos" que su vehículo puede llevar (se actualizan al deslizar),
+  Aceptar, pantalla del pedido en curso ("Recogido", "Entregado" con PIN de 4
+  números, "Soltar pedido" antes de recogerlo) y pestaña "Mis entregas".
+  El cliente ve nombre, vehículo y placa de su repartidor; el negocio, quién lo lleva.
+- **API (hecho):** `PUT /api/repartidor/disponible`, `GET /api/repartidor/pedidos-disponibles`,
+  `GET /api/repartidor/pedido-actual`, `POST /api/pedidos/{id}/aceptar`,
+  `POST /api/pedidos/{id}/soltar`, `PUT /api/repartidor/pedidos/{id}/estado`,
+  `GET /api/repartidor/entregas`. Detalle en [API_FRONTEND.md](API_FRONTEND.md#repartidor-llevar-pedidos--módulo-8).
+- **Reglas:** solo aprobados, sin sanción, con vehículo aprobado y en línea; un
+  pedido a la vez; aceptar con `lockForUpdate` (gana el primero); rol
+  `repartidor` en `FlujoPedido` (`listo → en_camino → entregado`). El comerciante
+  nunca pone "en camino" ni "entregado" (el local no entrega); con un pedido
+  listo ve "Buscando repartidor…" o "Lo lleva…". Su propia compra le aparece al
+  repartidor marcada como propia (no la puede tomar).
+- **Base (sin cambios):** `pedido.repartidor_id`, `vehiculo_id`, `asignado_en`,
+  `recogido_en`, `codigo_entrega`, `fn_distancia_km`, `fn_sancion_activa`,
+  `trg_pedido_bu` (no asigna a sancionados), `trg_pedido_au` (venta y `total_entregas`).
+- **Pendiente para después:** avisar al repartidor cuando aparece un pedido
+  nuevo (push, módulo 13) y paginar "Mis entregas" más allá de las últimas 20.
 
-### Módulo 9 — Rastreo del pedido en el mapa ⏳
+### Módulo 9 — Rastreo del pedido en el mapa ✅ *hecho (en revisión)*
+- **Hecho:** `POST /api/repartidor/ubicacion` (solo con pedido activo, una cada 3 s), `GET /api/pedidos/{id}/seguimiento` (cliente y negocio; posición solo mientras lo lleva), envío del GPS cada 7 s en la app del repartidor y mapa o texto con el tiempo estimado para el cliente. Velocidad: clave `velocidad_promedio_kmh` en `configuracion` (25 km/h si no existe).
+- **Pendiente:** probar el mapa real con Playwright y la clave de Maps; ruta por calles con Google Directions.
 **Objetivo:** que el cliente vea al repartidor moverse en el mapa hasta su casa.
 
 - **App repartidor:** mientras tiene un pedido "en camino", envía su GPS cada

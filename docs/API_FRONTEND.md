@@ -4,9 +4,9 @@ Qué manda y qué recibe la app en cada pantalla. Sirve para maquetar con
 **datos de prueba** las pantallas cuya ruta de la API todavía no existe, sin
 trabajar a ciegas.
 
-- **Parte 1:** cuenta, perfil y registro del negocio.
+- **Parte 1:** cuenta, perfil, registro del negocio y del repartidor.
 - **Parte 2:** catálogo, pedidos y todo lo del comerciante (también funcionan).
-- **Parte 3:** lo que todavía **falta** (repartidor y rastreo): datos propuestos
+- **Parte 3:** lo que todavía **falta** (rastreo en el mapa): datos propuestos
   para maquetar.
 
 > **Referencia completa y siempre al día:** `/docs/api` en la API (la genera
@@ -226,6 +226,96 @@ Mis documentos con su `estado` (`pendiente`, `aprobado`, `rechazado`) y `observa
 Devuelve una foto pública (logo del negocio, productos). No hace falta armar
 esta URL: la API ya la manda completa en `logo_url`.
 
+### Registro de repartidor 🔒 (módulo 4b)
+
+Orden en la app: `GET /tipos-vehiculo` → `POST /repartidor` → `POST /vehiculos`
+→ `GET /me/faltantes/repartidor` → subir cada foto con `POST /documentos`.
+
+#### `GET /tipos-vehiculo` 🔒
+Para elegir el vehículo y saber qué campos mostrar:
+```json
+[
+  { "id": 1, "codigo": "moto", "nombre": "Moto",
+    "requiere_placa": true, "requiere_ruat": true, "requiere_licencia": true,
+    "categoria": { "id": 1, "codigo": "liviano", "nombre": "Liviano",
+                   "descripcion": "Motos y bicicletas: paquetes chicos y comida", "capacidad_kg_max": 20 } },
+  { "id": 2, "codigo": "bicicleta", "nombre": "Bicicleta",
+    "requiere_placa": false, "requiere_ruat": false, "requiere_licencia": false,
+    "categoria": { "id": 1, "codigo": "liviano", "…": "…" } }
+]
+```
+Son 5: moto y bicicleta (liviano), auto y camioneta (mediano), camión (grande).
+Si `requiere_placa` o `requiere_ruat` es `false`, no mostrar esos campos.
+
+#### `POST /repartidor` 🔒
+Sin datos. Crea el perfil de repartidor **en revisión**. Respuesta **201**:
+```json
+{ "usuario_id": 11, "estado_verificacion": "pendiente", "disponible": false,
+  "rating_promedio": null, "total_entregas": 0, "vehiculos": [],
+  "created_at": "2026-10-30T15:00:00.000000Z" }
+```
+- Desde ese momento `GET /me` trae la vista `repartidor` y `roles.repartidor.estado: "pendiente"`.
+- **Si lo habían rechazado**, sirve para **volver a enviar** la solicitud: responde **200**
+  y él y su vehículo quedan otra vez `pendiente`. Los documentos rechazados vuelven a
+  aparecer en los faltantes para subirlos de nuevo.
+- Si está pendiente, aprobado o suspendido → **422** `{"message":"Ya estás registrado como repartidor."}`.
+
+#### `GET /repartidor` 🔒
+Mi perfil (mismo formato que arriba) con el vehículo y, si lo rechazaron, el motivo:
+```json
+{ "usuario_id": 11, "estado_verificacion": "rechazado", "motivo_rechazo": "La placa no coincide con la foto",
+  "vehiculos": [ { "id": 4, "tipo": { "codigo": "moto", "…": "…" }, "placa": "4321-XYZ", "estado_verificacion": "rechazado", "…": "…" } ],
+  "…": "…" }
+```
+`motivo_rechazo` es `null` si no está rechazado. Si todavía no es repartidor → **404**
+*"Todavía no te registraste como repartidor."*
+
+#### `POST /vehiculos` 🔒
+JSON (no lleva fotos; las fotos van después con `POST /documentos`):
+```json
+{ "tipo_vehiculo_id": 1, "placa": "4321-XYZ", "ruat": "R-778899",
+  "marca": "Honda", "modelo": "XR150", "color": "Rojo", "anio": 2022 }
+```
+- Obligatorio: `tipo_vehiculo_id`. `placa` y `ruat` solo si el tipo los pide (la bicicleta no).
+- El resto es opcional. `anio` entre 1950 y el año que viene.
+- La placa se guarda en mayúsculas y **no se puede repetir** → **422** en `placa`: *"Esa placa ya está registrada."*
+- Sin placa o RUAT cuando el tipo los pide → **422** en `placa` / `ruat`.
+- Si todavía no hizo `POST /repartidor` → **422** `{"message":"Primero regístrate como repartidor."}`.
+- **Por ahora, un solo vehículo en uso:** si ya tiene uno → **422** `{"message":"Ya tienes un vehículo registrado."}`.
+- El vehículo siempre queda a nombre de quien tiene la sesión.
+
+Respuesta **201**:
+```json
+{ "id": 4, "tipo": { "id": 1, "codigo": "moto", "nombre": "Moto" },
+  "placa": "4321-XYZ", "ruat": "R-778899", "marca": "Honda", "modelo": "XR150",
+  "color": "Rojo", "anio": 2022, "en_uso": true, "estado_verificacion": "pendiente",
+  "created_at": "2026-10-30T15:01:00.000000Z" }
+```
+
+#### Lo que falta subir
+Después del vehículo, `GET /me/faltantes/repartidor` pide las fotos. Con moto:
+
+| `codigo` | `documento` | `vehiculo_id` |
+|---|---|---|
+| `documento.ci_anverso`, `documento.ci_reverso` | `ci_anverso`, `ci_reverso` | `null` |
+| `documento.foto_rostro` (selfie) | `foto_rostro` | `null` |
+| `documento.licencia_conducir` | `licencia_conducir` | `null` |
+| `documento.foto_vehiculo:vehiculo4` | `foto_vehiculo` | `4` |
+| `documento.foto_placa:vehiculo4` | `foto_placa` | `4` |
+| `documento.ruat:vehiculo4` | `ruat` | `4` |
+
+Con bicicleta solo: carnet (los dos lados), selfie y `foto_vehiculo`.
+
+Para cada uno: `POST /documentos` con `tipo` = `documento` y, si no es `null`,
+el mismo `vehiculo_id`. Al subir todo, `completo: true`. Con el `vehiculo_id`
+de otra persona → **422** *"Este documento debe ir ligado a un vehículo tuyo"*.
+
+Un administrador aprueba o rechaza (con motivo) al repartidor y su vehículo en
+`/admin` → Aprobaciones → Repartidores; se le deja un aviso (`repartidor_aprobado`
+o `repartidor_rechazado`). Si lo rechazan, la vista `repartidor` desaparece de `vistas`
+(`roles.repartidor.estado` sigue diciendo `rechazado`): la app lo invita a ver el
+motivo (`GET /repartidor`) y volver a enviar (`POST /repartidor`).
+
 ---
 
 ## Parte 2 — Catálogo, pedidos y comerciante ✅
@@ -351,8 +441,8 @@ Respuesta **201** (igual que `GET /pedidos/{id}`):
 | `confirmado` | Aceptado | Comerciante |
 | `preparando` | Preparando | Comerciante |
 | `listo` | Listo | Comerciante |
-| `en_camino` | En camino | Comerciante (después, el repartidor) |
-| `entregado` | Entregado | Comerciante con el PIN (después, el repartidor) |
+| `en_camino` | En camino | Solo el repartidor que lo aceptó (lo recogió) |
+| `entregado` | Entregado | Solo el repartidor que lo aceptó, con el PIN del cliente |
 | `cancelado` / `rechazado` | Cancelado / Rechazado | Cliente (pendiente), comerciante (con motivo), admin |
 
 ### Reseñas 🔒
@@ -378,7 +468,7 @@ Antes de recibir un pedido → **422** "Solo puedes reseñar después de recibir
 | `PATCH …/productos/{p}/disponible` | Mostrar u ocultar |
 | `DELETE …/productos/{p}` | Eliminar |
 | `GET …/pedidos?grupo=nuevos\|en_curso\|terminados` | Pedidos que llegan |
-| `PUT …/pedidos/{p}/estado` | `{"estado": "confirmado"}` · rechazar/cancelar con `motivo` · `{"estado": "entregado", "codigo": "4821"}` |
+| `PUT …/pedidos/{p}/estado` | `confirmado` → `preparando` → `listo` (ej. `{"estado": "confirmado"}`) · rechazar/cancelar con `motivo`. "En camino" y "entregado" los hace el repartidor |
 | `GET/POST …/registros`, `DELETE …/registros/{r}` | Compras (`producto_id`, `cantidad`, `costo_unitario`, `proveedor`) y gastos (`descripcion`, `monto`); `fecha` opcional |
 | `GET …/reporte?desde&hasta&agrupar=dia\|semana\|mes\|anio` | `totales` y `periodos` (ventas, costo, ganancia bruta, compras, gastos, comisiones, ganancia neta, flujo de caja) |
 | `GET …/reporte-productos?desde&hasta` | Por producto: vendidas, ventas, ganancia, margen |
@@ -386,28 +476,99 @@ Antes de recibir un pedido → **422** "Solo puedes reseñar después de recibir
 
 Fechas de los filtros: `AAAA-MM-DD` en hora de Bolivia.
 
+### Repartidor: llevar pedidos 🔒 (módulo 8)
+
+Para ver y aceptar pedidos tiene que estar **aprobado**, **sin sanción**, con su
+**vehículo aprobado** y **en línea**. Si no: **403** con el motivo
+(*"Tu cuenta de repartidor todavía no está aprobada."*, *"…está suspendida."*,
+*"Tu vehículo todavía no está aprobado."*) o **422** *"Ponte en línea para ver y aceptar pedidos."*.
+
+| Ruta | Para qué |
+|---|---|
+| `PUT /repartidor/disponible` | `{"disponible": true, "latitud": -17.78, "longitud": -63.18}` (ubicación opcional). Responde `{disponible, latitud, longitud}`. Desconectarse siempre se puede |
+| `GET /repartidor/pedidos-disponibles` | Pedidos `listo` sin repartidor que su vehículo puede llevar (ver abajo) |
+| `POST /pedidos/{id}/aceptar` | Lo toma. Responde el pedido (formato de `GET /pedidos/{id}`) |
+| `GET /repartidor/pedido-actual` | `{"pedido": {...}}` o `{"pedido": null}` |
+| `PUT /repartidor/pedidos/{id}/estado` | `{"estado": "en_camino"}` (lo recogió) · `{"estado": "entregado", "codigo": "4821"}` |
+| `POST /pedidos/{id}/soltar` | Antes de recogerlo: vuelve a quedar disponible (`motivo` opcional) |
+| `GET /repartidor/entregas` | Sus entregas (de a 20, más reciente primero) + `resumen: {entregas, total_envios}` |
+
+`GET /repartidor/pedidos-disponibles` (sin datos del cliente hasta aceptarlo):
+```json
+[
+  { "id": 42,
+    "negocio": { "id": 4, "nombre": "Pollos Marta", "logo_url": "…", "direccion": "Av. Busch 1234", "latitud": -17.7745, "longitud": -63.1935 },
+    "direccion_entrega": "Calle Libertad 123", "referencia_entrega": "Portón negro",
+    "distancia_km": 2.4, "distancia_al_negocio_km": 0.8,
+    "costo_envio": "5.00", "total": "73.00", "metodo_pago": "efectivo",
+    "tamano": "Liviano", "total_items": 3, "created_at": "…" }
+]
+```
+- `distancia_km`: del negocio a la casa del cliente. `distancia_al_negocio_km`: de
+  donde está el repartidor al negocio (`null` si no mandó su ubicación).
+- Con ubicación, del negocio más cercano al más lejano; sin ella, el que espera hace más tiempo primero.
+- Solo los del tamaño de su vehículo o más chicos (liviano < mediano < grande):
+  a una moto no le aparece un pedido de camión.
+- Sus propias compras (o pedidos de su negocio) aparecen con `"propio": true`: no
+  los puede aceptar (los lleva otro repartidor). Los demás traen `"propio": false`.
+
+Reglas y errores (**422**, en `errors.pedido`):
+
+| Caso | Mensaje |
+|---|---|
+| Ya lleva otro (uno a la vez) | *Ya tienes un pedido en curso. Entrégalo antes de aceptar otro.* |
+| Dos repartidores aceptan a la vez: el segundo | *Otro repartidor ya aceptó este pedido.* |
+| Ya no está "listo" | *Este pedido ya no está disponible.* |
+| Vehículo chico | *Este pedido necesita un vehículo más grande.* |
+| Soltar después de recogerlo | *Ya lo recogiste: ahora tienes que entregarlo.* |
+| PIN equivocado (en `errors.codigo`) | *El PIN no coincide. Pídeselo de nuevo al cliente.* |
+
+- Un pedido de **otro** repartidor responde **404**.
+- El repartidor ve nombre y teléfono del cliente, **nunca el PIN**.
+- **El local no entrega:** el comerciante nunca puede poner `en_camino` ni
+  `entregado` (→ **422** en `estado`: *"Solo el repartidor de la app recoge y
+  entrega el pedido."*). Con el pedido `listo` y **sin** repartidor, sus `acciones`
+  son `["cancelado"]` (la app muestra "Buscando repartidor…"); **con** repartidor,
+  `[]` (la app muestra "Lo lleva…").
+- Avisos (`notificacion`) al cliente y al negocio al aceptar (`pedido_asignado`),
+  recoger (`pedido_en_camino`) y entregar (`pedido_entregado`).
+
+**Quién lo lleva.** En `GET /pedidos/{id}` (cliente) y `GET /negocios/{n}/pedidos/{id}`
+(negocio) viene `repartidor` (`null` si nadie lo tomó) y el tamaño que necesita:
+```json
+"repartidor": { "nombre": "Diego Rodríguez", "telefono": "70011122", "vehiculo": "Moto", "placa": "1234-ABC", "color": "Rojo" },
+"tamano": "Liviano",
+"recogido_en": "2026-10-30T16:10:00.000000Z"
+```
+
 ---
 
-## Parte 3 — Lo que falta (repartidor y rastreo) ⏳
+### Rastreo en el mapa 🔒 (módulo 9) ✅
 
-> Rutas **propuestas**: los campos salen de la base real. Sirven para maquetar
-> con datos falsos; se confirman al construir cada módulo.
+`POST /repartidor/ubicacion` `{ "latitud": -17.78012, "longitud": -63.19021 }` — la
+app del repartidor lo manda cada 7 s mientras lleva un pedido. **201**
+`{"pedido_id": 42, "guardada": true}`. Sin pedido activo → **422**; coordenadas
+inválidas o `0,0` → **422**; más seguido que cada 3 s → **429**.
 
-### Rastreo en el mapa (módulo 9)
-`GET /pedidos/{id}/seguimiento` — la app del cliente lo consulta cada 5–10 s:
+`GET /pedidos/{id}/seguimiento` — solo el cliente dueño y el negocio (otro → **404**).
+La app del cliente lo consulta cada 6 s:
 ```json
 {
-  "estado": "en_camino",
-  "repartidor": { "nombre": "Diego Rodríguez", "vehiculo": "Moto", "placa": "SCZ-1234",
-                  "latitud": "-17.7801200", "longitud": "-63.1902100",
-                  "actualizado_en": "2026-10-03T20:31:05Z" },
-  "negocio":  { "latitud": "-17.7745000", "longitud": "-63.1935000" },
-  "destino":  { "latitud": "-17.8007823", "longitud": "-63.1886937" },
-  "tiempo_estimado_min": 8
+  "pedido_id": 42, "estado": "en_camino",
+  "repartidor": { "nombre": "Diego Rodríguez", "vehiculo": "Moto", "placa": "SCZ-1234" },
+  "ubicacion_repartidor": { "latitud": -17.78012, "longitud": -63.19021,
+                            "actualizado_en": "…", "hace_segundos": 4 },
+  "negocio": { "nombre": "FarmaSuper", "latitud": -17.7696, "longitud": -63.1658 },
+  "destino": { "direccion": "Calle Libertad 123", "latitud": -17.7845, "longitud": -63.1812 },
+  "distancia_km": 2.4, "tiempo_estimado_min": 6, "velocidad_kmh": 25
 }
 ```
-El repartidor envía su posición con `POST /repartidor/ubicacion`
-`{ "pedido_id": 100, "latitud": -17.78012, "longitud": -63.19021 }`.
+- `repartidor` y `ubicacion_repartidor` solo mientras lo lleva (aceptado o en camino);
+  al entregarse o cancelarse vienen `null` (privacidad).
+- Tiempo = distancia que falta (línea recta × `factor_ruta`) ÷ velocidad
+  (`velocidad_promedio_kmh` en `configuracion`, 25 km/h si no existe).
+
+## Parte 3 — Lo que falta ⏳
 
 ### Reseñas del repartidor (módulo 10)
 `PUT /resenas` con `{ "tipo": "repartidor", "repartidor_id": 5, "estrellas": 4 }`

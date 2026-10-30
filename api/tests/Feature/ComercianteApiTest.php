@@ -93,7 +93,8 @@ class ComercianteApiTest extends TestCase
         $this->getJson($url)->assertJsonCount(0);
     }
 
-    public function test_atender_un_pedido_hasta_entregarlo_con_el_pin(): void
+    /** El local lo deja listo; un repartidor de la app lo recoge y lo entrega con el PIN. */
+    public function test_atender_un_pedido_hasta_que_el_repartidor_lo_entrega(): void
     {
         $producto = $this->crearProducto($this->negocio, ['precio' => 25, 'costo' => 15, 'stock' => 10]);
         $pedido = $this->crearPedido($this->negocio, $producto, 2);
@@ -109,16 +110,27 @@ class ComercianteApiTest extends TestCase
         $this->putJson("$url/{$pedido->id}/estado", ['estado' => 'listo'])
             ->assertUnprocessable()->assertJsonValidationErrors('estado');
 
-        foreach (['confirmado', 'preparando', 'listo', 'en_camino'] as $estado) {
+        foreach (['confirmado', 'preparando', 'listo'] as $estado) {
             $this->putJson("$url/{$pedido->id}/estado", ['estado' => $estado])->assertOk()->assertJsonPath('estado', $estado);
         }
+        // Listo: el local ya no lo saca a entregar; espera a un repartidor (o lo cancela).
+        $this->getJson("$url/{$pedido->id}")->assertJsonPath('acciones', ['cancelado'])->assertJsonPath('repartidor', null);
 
-        $this->putJson("$url/{$pedido->id}/estado", ['estado' => 'entregado', 'codigo' => '9999'])
+        // Un repartidor lo acepta, lo recoge y lo entrega con el PIN del cliente.
+        Sanctum::actingAs($this->crearRepartidor());
+        $this->postJson("/api/pedidos/{$pedido->id}/aceptar")->assertOk();
+        $this->putJson("/api/repartidor/pedidos/{$pedido->id}/estado", ['estado' => 'en_camino'])->assertOk();
+        $this->putJson("/api/repartidor/pedidos/{$pedido->id}/estado", ['estado' => 'entregado', 'codigo' => '9999'])
             ->assertUnprocessable()->assertJsonPath('errors.codigo.0', 'El PIN no coincide. Pídeselo de nuevo al cliente.');
-        $this->putJson("$url/{$pedido->id}/estado", ['estado' => 'entregado', 'codigo' => '1234'])
+        $this->putJson("/api/repartidor/pedidos/{$pedido->id}/estado", ['estado' => 'entregado', 'codigo' => '1234'])
             ->assertOk()
             ->assertJsonPath('estado', 'entregado')
-            ->assertJsonPath('estado_pago', 'pagado')
+            ->assertJsonPath('estado_pago', 'pagado');
+
+        Sanctum::actingAs($this->negocio->usuario);
+        $this->getJson("$url/{$pedido->id}")
+            ->assertJsonPath('estado', 'entregado')
+            ->assertJsonPath('repartidor.nombre', 'Diego Repartidor')
             ->assertJsonPath('acciones', []);
 
         // La base anotó la venta y la ganancia (2 × (25 − 15) = 20).

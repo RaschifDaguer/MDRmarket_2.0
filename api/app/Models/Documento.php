@@ -45,6 +45,11 @@ class Documento extends Model
         return $this->belongsTo(Negocio::class)->withTrashed();
     }
 
+    public function vehiculo(): BelongsTo
+    {
+        return $this->belongsTo(Vehiculo::class)->withTrashed();
+    }
+
     public function revisor(): BelongsTo
     {
         return $this->belongsTo(Usuario::class, 'revisado_por');
