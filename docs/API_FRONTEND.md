@@ -522,6 +522,7 @@ Reglas y errores (**422**, en `errors.pedido`):
 | Vehículo chico | *Este pedido necesita un vehículo más grande.* |
 | Soltar después de recogerlo | *Ya lo recogiste: ahora tienes que entregarlo.* |
 | PIN equivocado (en `errors.codigo`) | *El PIN no coincide. Pídeselo de nuevo al cliente.* |
+| 5 PIN equivocados en el mismo pedido (en `errors.codigo`, 15 min bloqueado) | *Demasiados PIN equivocados. Espera N min y confirma el PIN con el cliente.* |
 
 - Un pedido de **otro** repartidor responde **404**.
 - El repartidor ve nombre y teléfono del cliente, **nunca el PIN**.

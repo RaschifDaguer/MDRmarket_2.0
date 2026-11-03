@@ -26,7 +26,7 @@ trabajo que falta es **API (Laravel) + pantallas (Flutter)**.
 cuando está "listo", lo recoge y lo entrega con el PIN. El local no tiene
 delivery propio: llega hasta "listo" y, mientras nadie lo toma, puede cancelarlo.
 
-**Pruebas:** 69 de la API (`php artisan test`, base `mdrmarket_prueba`), incluidas
+**Pruebas:** 70 de la API (`php artisan test`, base `mdrmarket_prueba`), incluidas
 pruebas de ataque (`SeguridadTest`), y 113 de la app con datos falsos, más
 recorridos en vivo contra la API local.
 

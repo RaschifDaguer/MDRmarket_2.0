@@ -33,6 +33,8 @@ comerciante, aparece el botón **"cambiar vista"**.
 
 | Fecha | Qué cambió | Qué significa para ti |
 |---|---|---|
+| 03-nov | **Integrados los módulos 4b, 8 y 9 de Daner** (registro de repartidor, vista repartidor y rastreo en el mapa) | Todo en `main`. Ojo: **el local ya no entrega**; sin un repartidor aprobado y en línea, los pedidos se quedan en "listo" |
+| 03-nov | **Tope al PIN de entrega:** tras 5 PIN equivocados en un pedido, se bloquea 15 minutos | Nadie puede adivinar el PIN probando (son solo 10.000 combinaciones) para marcar como entregado un pedido que no entregó |
 | 30-oct | **El local ya no entrega** (decisión de operaciones): llega hasta "listo"; "en camino" y "entregado" los hace solo el repartidor | En la app del comerciante, un pedido listo muestra "Buscando repartidor…" (puede cancelarlo mientras nadie lo toma) o "Lo lleva…". Ya no hay botón de entregar ni PIN para el local |
 | 30-oct | **Corregido:** al cambiar de cuenta en la misma pestaña se veían los pedidos de la cuenta anterior; y la compra propia de un repartidor no aparecía en su lista sin explicar por qué | Ahora cada cuenta ve solo lo suyo al instante. Su propia compra le aparece con "Es tu propio pedido: lo llevará otro repartidor". También: una dirección guardada sin coordenadas (datos de ejemplo) ya no rompe "¿Dónde lo recibes?" |
 | 30-oct | **Vista repartidor (módulo 8):** interruptor "En línea", pedidos listos que su vehículo puede llevar, Aceptar, "Recogido", "Entregado" con el PIN, "Soltar pedido" y "Mis entregas" | Ya se puede probar el pedido completo con repartidor. El cliente ve quién lo lleva (nombre, vehículo y placa). Rutas en [docs/API_FRONTEND.md](docs/API_FRONTEND.md#repartidor-llevar-pedidos--módulo-8) |
@@ -53,7 +55,7 @@ comerciante, aparece el botón **"cambiar vista"**.
 | 15-oct | Carnet (los dos lados) + selfie = **una sola solicitud** en el panel | El admin ve las 3 fotos juntas y elige qué parte rechazar |
 | 14-oct | **Seguridad**: verificación en dos pasos en el panel, límites de solicitudes, cabeceras, `/docs/api` solo para admins, sesiones de la app que vencen a los 60 días | Ver [api/README.md](api/README.md#seguridad) |
 
-Pruebas al día: **69 de la API** (`php artisan test`, incluidas pruebas de
+Pruebas al día: **70 de la API** (`php artisan test`, incluidas pruebas de
 ataque) y **113 de la app** (`flutter test`).
 
 ---
@@ -257,6 +259,7 @@ entrar de nuevo aparece otra vez el QR.
 | Sección | Para qué |
 |---|---|
 | **Aprobaciones → Negocios** | Ver cada negocio nuevo (foto, ubicación, datos, documentos del dueño) y **aprobarlo** o rechazarlo con motivo. **Un negocio no aparece en el catálogo hasta que se aprueba.** |
+| **Aprobaciones → Repartidores** | Ver a cada repartidor nuevo con su vehículo (tipo, placa, RUAT) y **aprobarlo** o rechazarlo con motivo. **Un repartidor no ve pedidos hasta que se aprueba.** También se puede suspender. |
 | **Aprobaciones → Documentos** | Revisar la identidad de comerciantes y repartidores: **el carnet (los dos lados) y la selfie van juntos en una sola solicitud**, con las fotos lado a lado. Comprueba que la cara de la selfie sea la del carnet. Al rechazar eliges qué parte debe volver a subir; la persona recibe el motivo. |
 | **Operación → Pedidos** | Ver todos los pedidos y cancelar uno si hace falta (devuelve el stock). |
 | **Operación → Usuarios** | Activar o desactivar cuentas y **dar o quitar el permiso de administrador**. |
@@ -277,16 +280,27 @@ documentos son privadas y solo se ven dentro del panel.
 3. **Volverse comerciante:** en Inicio, **"¿Tienes un negocio? → Registrar"**:
    nombre, rubro, ubicación, foto del negocio, y si faltan, carnet (frente y
    reverso) y **una selfie** (abre la cámara delantera). El negocio queda **"en revisión"**.
-4. **Admin:** en el panel, aprueba el negocio y la solicitud de identidad.
-5. **Comerciante:** cambia a la vista comerciante (botón de arriba) →
+4. **Volverse repartidor** (con otra cuenta): en Inicio, **"¿Quieres repartir?"**
+   → tipo de vehículo, placa y RUAT si el tipo los pide, fotos del vehículo,
+   carnet, selfie y licencia. Queda **"en revisión"**.
+5. **Admin:** en el panel, aprueba el negocio, el repartidor
+   (**Aprobaciones → Repartidores**) y las solicitudes de identidad.
+6. **Comerciante:** cambia a la vista comerciante (botón de arriba) →
    **Productos → Agregar producto** (foto, precio, stock) → en **Resumen**, que
    esté **Abierto**.
-6. **Cliente (otra cuenta):** ve el producto en Inicio o en la tienda → carrito →
-   dirección → **hacer pedido**. La app muestra un **PIN de 4 números**.
-7. **Comerciante:** **Pedidos → aceptar → preparando → listo → en camino →
-   entregado** (pide el PIN del cliente).
-8. **Cliente:** califica el negocio y los productos. El comerciante ve sus
-   **Ganancias** y puede responder la reseña.
+7. **Cliente (una tercera cuenta):** ve el producto en Inicio o en la tienda →
+   carrito → dirección → **hacer pedido**. La app muestra un **PIN de 4 números**.
+8. **Comerciante:** **Pedidos → aceptar → preparando → listo**. Desde ahí ve
+   "Buscando repartidor…": **el local no entrega**.
+9. **Repartidor:** en su vista, **En línea** → el pedido aparece en la lista →
+   **Aceptar** → **Recogido** (el cliente ya lo ve moverse en el mapa) →
+   **Entregado** con el PIN que le dicta el cliente. Tras 5 PIN equivocados se
+   bloquea 15 minutos.
+10. **Cliente:** califica el negocio y los productos. El comerciante ve sus
+    **Ganancias** y puede responder la reseña.
+
+> ⚠️ **Sin un repartidor aprobado y en línea, ningún pedido puede terminar de
+> entregarse.** Para una demostración, ten lista una cuenta de repartidor aprobada.
 
 ---
 

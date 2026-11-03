@@ -143,6 +143,29 @@ class RepartidorPedidoTest extends TestCase
         $this->assertSame($primero->id, $pedido->refresh()->repartidor_id);
     }
 
+    public function test_adivinar_el_pin_se_bloquea(): void
+    {
+        $pedido = $this->pedidoListo();
+        Sanctum::actingAs($this->crearRepartidor());
+        $this->postJson("/api/pedidos/{$pedido->id}/aceptar")->assertOk();
+        $url = "/api/repartidor/pedidos/{$pedido->id}/estado";
+        $this->putJson($url, ['estado' => 'en_camino'])->assertOk();
+
+        for ($i = 0; $i < 5; $i++) {
+            $this->putJson($url, ['estado' => 'entregado', 'codigo' => sprintf('%04d', 5000 + $i)])
+                ->assertJsonPath('errors.codigo.0', 'El PIN no coincide. Pídeselo de nuevo al cliente.');
+        }
+
+        // Al sexto intento, ni el PIN correcto pasa: hay que esperar.
+        $this->putJson($url, ['estado' => 'entregado', 'codigo' => '1234'])
+            ->assertUnprocessable()
+            ->assertJsonPath('errors.codigo.0', fn (string $m) => str_starts_with($m, 'Demasiados PIN equivocados.'));
+        $this->assertSame('en_camino', $pedido->refresh()->estado);
+
+        $this->travel(16)->minutes();
+        $this->putJson($url, ['estado' => 'entregado', 'codigo' => '1234'])->assertOk()->assertJsonPath('estado', 'entregado');
+    }
+
     public function test_soltar_antes_de_recogerlo(): void
     {
         $pedido = $this->pedidoListo();

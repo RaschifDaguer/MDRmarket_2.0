@@ -12,6 +12,7 @@ use App\Support\FlujoPedido;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
@@ -23,6 +24,11 @@ use Illuminate\Validation\ValidationException;
  */
 class PedidoController extends Controller
 {
+    /** PIN equivocados permitidos por pedido antes de bloquear la entrega un rato. */
+    private const INTENTOS_PIN = 5;
+
+    private const BLOQUEO_PIN_SEGUNDOS = 15 * 60;
+
     /** PUT /api/repartidor/disponible — en línea o desconectado, con su ubicación (opcional). */
     public function disponible(Request $request): JsonResponse
     {
@@ -152,11 +158,32 @@ class PedidoController extends Controller
             'codigo.digits' => 'El PIN tiene 4 números.',
         ]);
 
-        if ($datos['estado'] === 'entregado' && $datos['codigo'] !== $pedido->codigo_entrega) {
-            throw ValidationException::withMessages(['codigo' => 'El PIN no coincide. Pídeselo de nuevo al cliente.']);
+        if ($datos['estado'] === 'entregado') {
+            $this->revisarPin($pedido, $datos['codigo']);
         }
 
         return new PedidoResource($this->conDetalle(FlujoPedido::cambiar($pedido, $datos['estado'], $request->user(), 'repartidor')));
+    }
+
+    /**
+     * El PIN tiene 4 números (10.000 posibles): tras 5 equivocados en un pedido
+     * se bloquea 15 minutos, para que nadie lo adivine probando y marque como
+     * entregado un pedido que no entregó.
+     */
+    private function revisarPin(Pedido $pedido, string $codigo): void
+    {
+        $clave = 'pin-entrega:'.$pedido->id;
+        if (RateLimiter::tooManyAttempts($clave, self::INTENTOS_PIN)) {
+            $minutos = (int) ceil(RateLimiter::availableIn($clave) / 60);
+            throw ValidationException::withMessages([
+                'codigo' => "Demasiados PIN equivocados. Espera $minutos min y confirma el PIN con el cliente.",
+            ]);
+        }
+        if (! hash_equals((string) $pedido->codigo_entrega, $codigo)) {
+            RateLimiter::hit($clave, self::BLOQUEO_PIN_SEGUNDOS);
+            throw ValidationException::withMessages(['codigo' => 'El PIN no coincide. Pídeselo de nuevo al cliente.']);
+        }
+        RateLimiter::clear($clave);
     }
 
     /** GET /api/repartidor/entregas — pedidos que entregó (más reciente primero), de a 20. */
