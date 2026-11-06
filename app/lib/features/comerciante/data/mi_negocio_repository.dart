@@ -5,6 +5,7 @@ import '../../../core/archivos/archivo_elegido.dart';
 import '../../../core/formato/formato.dart';
 import '../../../core/maps/coordenada.dart';
 import '../../../core/network/api_client.dart';
+import '../../auth/presentation/auth_controller.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/network/pagina.dart';
 import '../../catalogo/domain/resena.dart';
@@ -267,9 +268,10 @@ class MiNegocioRepository {
   }
 }
 
-final miNegocioRepositoryProvider = Provider<MiNegocioRepository>(
-  (ref) => MiNegocioRepository(ref.watch(dioProvider)),
-);
+final miNegocioRepositoryProvider = Provider<MiNegocioRepository>((ref) {
+  ref.watch(usuarioSesionProvider); // otra cuenta: los datos de su negocio se vuelven a pedir
+  return MiNegocioRepository(ref.watch(dioProvider));
+});
 
 /// El negocio con el que trabaja la vista comerciante (por ahora, el primero).
 final negocioActualProvider = FutureProvider<Negocio?>((ref) async {

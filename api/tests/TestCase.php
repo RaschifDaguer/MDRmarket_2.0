@@ -5,7 +5,9 @@ namespace Tests;
 use App\Models\Negocio;
 use App\Models\Pedido;
 use App\Models\Producto;
+use App\Models\Repartidor;
 use App\Models\Usuario;
+use App\Support\FlujoPedido;
 use Filament\Auth\MultiFactor\App\AppAuthentication;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 use Illuminate\Support\Str;
@@ -79,6 +81,41 @@ abstract class TestCase extends BaseTestCase
         ]);
 
         return $pedido->refresh();
+    }
+
+    /**
+     * Repartidor con su vehículo (moto, aprobado y en línea, salvo que se pida
+     * otra cosa). Devuelve su usuario.
+     */
+    protected function crearRepartidor(int $tipo = 1, string $placa = '7777-MDR', string $estado = 'aprobado', bool $disponible = true): Usuario
+    {
+        $usuario = $this->crearUsuario(['nombre' => 'Diego', 'apellido' => 'Repartidor']);
+        $repartidor = Repartidor::create(['usuario_id' => $usuario->id]);
+        $repartidor->forceFill(['estado_verificacion' => $estado, 'disponible' => $disponible])->save();
+        $vehiculo = $repartidor->vehiculos()->create(['tipo_vehiculo_id' => $tipo, 'placa' => $placa, 'ruat' => 'R-1']);
+        $vehiculo->forceFill(['estado_verificacion' => $estado === 'aprobado' ? 'aprobado' : 'pendiente'])->save();
+
+        return $usuario;
+    }
+
+    /**
+     * Lleva un pedido hasta "entregado" como en la vida real (sin pasar por la
+     * API): el negocio lo deja listo y un repartidor lo acepta, lo recoge y lo entrega.
+     */
+    protected function entregarPedido(Pedido $pedido, ?Usuario $repartidor = null): Pedido
+    {
+        $negocio = $pedido->negocio;
+        foreach (['confirmado', 'preparando', 'listo'] as $estado) {
+            $pedido = FlujoPedido::cambiar($pedido, $estado, $negocio->usuario, 'comerciante');
+        }
+        $repartidor ??= $this->crearRepartidor(placa: 'E-'.$pedido->id);
+        $perfil = Repartidor::find($repartidor->id);
+        $pedido = FlujoPedido::aceptar($pedido, $perfil, $perfil->vehiculoAprobado());
+        foreach (['en_camino', 'entregado'] as $estado) {
+            $pedido = FlujoPedido::cambiar($pedido, $estado, $repartidor, 'repartidor');
+        }
+
+        return $pedido;
     }
 
     /** Producto en una subcategoría de Alimentos (101). */

@@ -10,6 +10,7 @@ use Filament\Models\Contracts\FilamentUser;
 use Filament\Models\Contracts\HasName;
 use Filament\Panel;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -61,6 +62,12 @@ class Usuario extends Authenticatable implements FilamentUser, HasAppAuthenticat
     public function negocios(): HasMany
     {
         return $this->hasMany(Negocio::class);
+    }
+
+    /** Perfil de repartidor (null si no se registró como tal). */
+    public function repartidor(): HasOne
+    {
+        return $this->hasOne(Repartidor::class);
     }
 
     public function documentos(): HasMany

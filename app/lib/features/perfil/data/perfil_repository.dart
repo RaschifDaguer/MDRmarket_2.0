@@ -5,6 +5,7 @@ import '../../../core/archivos/archivo_elegido.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_exception.dart';
 import '../../auth/domain/usuario.dart';
+import '../../auth/presentation/auth_controller.dart';
 import '../domain/faltante.dart';
 
 /// Datos personales, lo que falta para cada rol y subida de documentos.
@@ -50,9 +51,10 @@ class PerfilRepository {
   }
 }
 
-final perfilRepositoryProvider = Provider<PerfilRepository>(
-  (ref) => PerfilRepository(ref.watch(dioProvider)),
-);
+final perfilRepositoryProvider = Provider<PerfilRepository>((ref) {
+  ref.watch(usuarioSesionProvider); // otra cuenta: lo que le falta se vuelve a pedir
+  return PerfilRepository(ref.watch(dioProvider));
+});
 
 /// Lo que le falta al usuario para un rol. Invalidar después de subir algo.
 final faltantesProvider = FutureProvider.family<List<Faltante>, String>(

@@ -185,7 +185,7 @@ class PedidoController extends Controller
     /** refresh(): estado, total y fechas los pone la base al guardar. */
     private function conDetalle(Pedido $pedido): Pedido
     {
-        return $pedido->refresh()->load(['negocio', 'comprador', 'items.producto.imagenPrincipal', 'historial']);
+        return $pedido->refresh()->load(['negocio', 'comprador', 'items.producto.imagenPrincipal', 'historial', 'repartidor', 'vehiculo.tipo']);
     }
 
     /** Aprobado, sin sanción y abierto; si no, 422 en "negocio_id". */

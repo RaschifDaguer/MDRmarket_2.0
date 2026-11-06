@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/archivos/archivo_elegido.dart';
 import '../../../core/maps/coordenada.dart';
 import '../../../core/network/api_client.dart';
+import '../../auth/presentation/auth_controller.dart';
 import '../../../core/network/api_exception.dart';
 import '../domain/negocio.dart';
 
@@ -73,9 +74,10 @@ class NegocioRepository {
   }
 }
 
-final negocioRepositoryProvider = Provider<NegocioRepository>(
-  (ref) => NegocioRepository(ref.watch(dioProvider)),
-);
+final negocioRepositoryProvider = Provider<NegocioRepository>((ref) {
+  ref.watch(usuarioSesionProvider); // otra cuenta: sus negocios se vuelven a pedir
+  return NegocioRepository(ref.watch(dioProvider));
+});
 
 /// Negocios del usuario conectado. Invalidar después de registrar uno.
 final misNegociosProvider = FutureProvider<List<Negocio>>(

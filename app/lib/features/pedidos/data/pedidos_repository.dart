@@ -5,9 +5,11 @@ import '../../../core/maps/coordenada.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/network/pagina.dart';
+import '../../auth/presentation/auth_controller.dart';
 import '../../carrito/domain/carrito.dart';
 import '../domain/direccion.dart';
 import '../domain/pedido.dart';
+import '../domain/seguimiento.dart';
 
 /// Dónde entregar: una dirección guardada o una nueva (texto + punto en el mapa).
 typedef DestinoPedido = ({int? direccionId, String? direccion, String? referencia, Coordenada? ubicacion});
@@ -62,6 +64,12 @@ class PedidosRepository {
         return Pedido.fromJson(r.data as Map<String, dynamic>);
       });
 
+  /// Dónde va el pedido: posición del repartidor y tiempo estimado (rastreo).
+  Future<Seguimiento> seguimiento(int id) => _llamar(() async {
+        final r = await _dio.get('/pedidos/$id/seguimiento');
+        return Seguimiento.fromJson(r.data as Map<String, dynamic>);
+      });
+
   Future<Pedido> cancelar(int id, {String? motivo}) => _llamar(() async {
         final r = await _dio.post('/pedidos/$id/cancelar', data: {'motivo': ?motivo});
         return Pedido.fromJson(r.data as Map<String, dynamic>);
@@ -81,9 +89,15 @@ class PedidosRepository {
 
   // ----- Direcciones -----
 
+  /// Direcciones guardadas. Las que no tienen coordenadas (datos viejos o de
+  /// ejemplo) no sirven para calcular el envío: se omiten en vez de romper la lista.
   Future<List<Direccion>> direcciones() => _llamar(() async {
         final r = await _dio.get('/direcciones');
-        return (r.data as List).map((d) => Direccion.fromJson(d as Map<String, dynamic>)).toList();
+        return (r.data as List)
+            .cast<Map<String, dynamic>>()
+            .where((d) => d['latitud'] is num && d['longitud'] is num)
+            .map(Direccion.fromJson)
+            .toList();
       });
 
   Future<Direccion> guardarDireccion({
@@ -118,9 +132,10 @@ class PedidosRepository {
   }
 }
 
-final pedidosRepositoryProvider = Provider<PedidosRepository>(
-  (ref) => PedidosRepository(ref.watch(dioProvider)),
-);
+final pedidosRepositoryProvider = Provider<PedidosRepository>((ref) {
+  ref.watch(usuarioSesionProvider); // otra cuenta: sus pedidos se vuelven a pedir
+  return PedidosRepository(ref.watch(dioProvider));
+});
 
 /// Primera página de mis pedidos. Invalidar después de pedir o cancelar.
 final misPedidosProvider = FutureProvider<Pagina<Pedido>>(
@@ -129,6 +144,11 @@ final misPedidosProvider = FutureProvider<Pagina<Pedido>>(
 
 final pedidoProvider = FutureProvider.family<Pedido, int>(
   (ref, id) => ref.watch(pedidosRepositoryProvider).pedido(id),
+);
+
+/// Rastreo de un pedido. La pantalla lo vuelve a pedir cada pocos segundos.
+final seguimientoProvider = FutureProvider.family<Seguimiento, int>(
+  (ref, id) => ref.watch(pedidosRepositoryProvider).seguimiento(id),
 );
 
 final direccionesProvider = FutureProvider<List<Direccion>>(

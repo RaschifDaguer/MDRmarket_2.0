@@ -10,10 +10,10 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
- * Pedido para la app. Lo pueden ver el comprador y el dueño del negocio, y
- * cada uno recibe solo lo que le corresponde:
+ * Pedido para la app. Lo pueden ver el comprador, el dueño del negocio y el
+ * repartidor que lo lleva, y cada uno recibe solo lo que le corresponde:
  * - comprador: el PIN de entrega y sus reseñas (cuando ya lo recibió);
- * - negocio: nombre y teléfono del cliente.
+ * - negocio y repartidor: nombre y teléfono del cliente (nunca el PIN).
  * `acciones` = estados a los que puede pasarlo quien pregunta.
  *
  * @mixin Pedido
@@ -24,7 +24,11 @@ class PedidoResource extends JsonResource
     {
         $usuarioId = (int) $request->user()?->id;
         $esComprador = (int) $this->comprador_id === $usuarioId;
-        $rol = $esComprador ? 'cliente' : 'comerciante';
+        $rol = match (true) {
+            $esComprador => 'cliente',
+            $this->repartidor_id !== null && (int) $this->repartidor_id === $usuarioId => 'repartidor',
+            default => 'comerciante',
+        };
         $detalle = $this->relationLoaded('items');
 
         return [
@@ -43,6 +47,16 @@ class PedidoResource extends JsonResource
                 'nombre' => $this->comprador->nombre_completo,
                 'telefono' => $this->comprador->telefono,
             ]),
+            // Quién lo lleva (lo ven el cliente, el negocio y el propio repartidor).
+            'repartidor' => $this->whenLoaded('repartidor', fn () => $this->repartidor ? [
+                'nombre' => $this->repartidor->nombre_completo,
+                'telefono' => $this->repartidor->telefono,
+                'vehiculo' => $this->vehiculo?->tipo?->nombre,
+                'placa' => $this->vehiculo?->placa,
+                'color' => $this->vehiculo?->color,
+            ] : null),
+            // Tamaño de vehículo que necesita: Liviano, Mediano o Grande.
+            'tamano' => $this->whenLoaded('categoriaVehiculo', fn () => $this->categoriaVehiculo?->nombre),
             'direccion_entrega' => $this->direccion_entrega,
             'referencia_entrega' => $this->referencia_entrega,
             'latitud_entrega' => $this->latitud_entrega,
@@ -80,6 +94,7 @@ class PedidoResource extends JsonResource
                 fn () => $this->misResenas($usuarioId)),
             'created_at' => $this->created_at,
             'confirmado_en' => $this->confirmado_en,
+            'recogido_en' => $this->recogido_en,
             'entregado_en' => $this->entregado_en,
             'cancelado_en' => $this->cancelado_en,
         ];

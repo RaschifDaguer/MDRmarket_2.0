@@ -1,4 +1,4 @@
-# Publica la versión web de la app en el servidor de Railway, en /app/:
+﻿# Publica la versión web de la app en el servidor de Railway, en /app/:
 #   https://api-mdrmarket-production.up.railway.app/app/
 #
 # Uso (desde la carpeta app/, en PowerShell):
@@ -33,3 +33,4 @@ if ($LASTEXITCODE -ge 8) { throw 'No se pudo copiar la app web a api/public/app.
 
 Write-Host "Listo: app web copiada en api/public/app."
 Write-Host 'Ahora: git add api/public/app ; git commit -m "App web: nueva versión" ; git push'
+exit 0  # robocopy deja 1 cuando copió archivos: eso es éxito

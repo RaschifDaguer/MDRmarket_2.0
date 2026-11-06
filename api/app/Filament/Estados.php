@@ -15,6 +15,19 @@ class Estados
         'suspendido' => 'Suspendido',
     ];
 
+    public const REPARTIDOR = [
+        'pendiente' => 'En revisión',
+        'aprobado' => 'Activo',
+        'rechazado' => 'Rechazado',
+        'suspendido' => 'Suspendido',
+    ];
+
+    public const VEHICULO = [
+        'pendiente' => 'En revisión',
+        'aprobado' => 'Aprobado',
+        'rechazado' => 'Rechazado',
+    ];
+
     public const DOCUMENTO = [
         'pendiente' => 'Por revisar',
         'aprobado' => 'Aprobado',

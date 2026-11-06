@@ -187,7 +187,8 @@ void main() {
     await cerrarApp(tester);
   });
 
-  testWidgets('pedido en camino: se entrega solo con el PIN correcto', (tester) async {
+  // El local no entrega: lo deja listo y un repartidor de la app lo lleva.
+  testWidgets('pedido listo sin repartidor: "Buscando repartidor…" y solo cancelar', (tester) async {
     final miNegocio = MiNegocioFalso();
     await abrirApp(tester, miNegocio: miNegocio);
 
@@ -198,23 +199,32 @@ void main() {
     expect(find.text('Lucía Rojas'), findsOneWidget);
     expect(find.text('Nota: Sin sal'), findsOneWidget);
 
-    Future<void> entregarCon(String pin) async {
-      await tester.tap(find.byKey(const Key('accion-entregado')));
-      await tester.pump(const Duration(milliseconds: 300));
-      await tester.enterText(find.byKey(const Key('campo-pin')), pin);
-      await tester.tap(find.text('Confirmar'));
-      await esperar(tester);
-    }
-
-    await entregarCon('1111');
-    expect(find.text('El PIN no coincide. Pídeselo de nuevo al cliente.'), findsOneWidget);
-    expect(miNegocio.cambios, isEmpty);
-
-    await tester.pump(const Duration(seconds: 5)); // se va el aviso
-    await entregarCon('4821');
-    expect(miNegocio.cambios, [EstadoPedido.entregado]);
-    expect(miNegocio.pinRecibido, '4821');
+    expect(find.byKey(const Key('buscando-repartidor')), findsOneWidget);
+    expect(find.text('Buscando repartidor…'), findsOneWidget);
+    // Sin botones para sacarlo ni entregarlo, ni PIN; puede cancelarlo.
+    expect(find.byKey(const Key('accion-en_camino')), findsNothing);
     expect(find.byKey(const Key('accion-entregado')), findsNothing);
+    expect(find.byKey(const Key('campo-pin')), findsNothing);
+    expect(find.byKey(const Key('accion-cancelado')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await cerrarApp(tester);
+  });
+
+  testWidgets('pedido que tomó un repartidor: "Lo lleva…" y sin botones', (tester) async {
+    final miNegocio = MiNegocioFalso()
+      ..pedidoMostrado = pedidoDeEjemplo(paraNegocio: true, estado: EstadoPedido.enCamino, conRepartidor: true);
+    await abrirApp(tester, miNegocio: miNegocio);
+
+    await tester.tap(find.text('Pedidos'));
+    await esperar(tester);
+    await tester.tap(find.byKey(const Key('pedido-negocio-42')));
+    await esperar(tester);
+
+    expect(find.text('Lo lleva Diego Rodríguez'), findsOneWidget);
+    expect(find.textContaining('Moto · 1234-ABC'), findsOneWidget);
+    expect(find.text('Buscando repartidor…'), findsNothing);
+    expect(find.byKey(const Key('accion-entregado')), findsNothing);
+    expect(find.byKey(const Key('accion-cancelado')), findsNothing);
     expect(tester.takeException(), isNull);
     await cerrarApp(tester);
   });

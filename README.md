@@ -30,11 +30,18 @@ comerciante, aparece el botón **"cambiar vista"**.
 
 ## Cambios recientes
 
-**Octubre 2026**
+**Octubre y noviembre 2026**
 
 | Fecha | Qué cambió | Qué significa para ti |
 |---|---|---|
-| 06-nov | **App web publicada** en https://api-mdrmarket-production.up.railway.app/app/ | Se abre desde cualquier dispositivo, sin instalar nada. Se vuelve a publicar con `app/publicar_web.ps1` ([cómo](#publicar-la-app-web)) |
+| 06-nov | **Publicados en el servidor los módulos 4b, 8 y 9 de Daner** (registro de repartidor, vista repartidor y rastreo en el mapa) | Ya funcionan en la app web y en el panel. Ojo: **el local ya no entrega**; sin un repartidor aprobado y en línea, los pedidos se quedan en "listo" |
+| 06-nov | **App web publicada** en https://api-mdrmarket-production.up.railway.app/app/ | Se abre desde cualquier dispositivo, sin instalar nada, e incluye la vista repartidor. Se vuelve a publicar con `app/publicar_web.ps1` ([cómo](#publicar-la-app-web)) |
+| 03-nov | **Tope al PIN de entrega:** tras 5 PIN equivocados en un pedido, se bloquea 15 minutos | Nadie puede adivinar el PIN probando (son solo 10.000 combinaciones) para marcar como entregado un pedido que no entregó |
+| 30-oct | **El local ya no entrega** (decisión de operaciones): llega hasta "listo"; "en camino" y "entregado" los hace solo el repartidor | En la app del comerciante, un pedido listo muestra "Buscando repartidor…" (puede cancelarlo mientras nadie lo toma) o "Lo lleva…". Ya no hay botón de entregar ni PIN para el local |
+| 30-oct | **Corregido:** al cambiar de cuenta en la misma pestaña se veían los pedidos de la cuenta anterior; y la compra propia de un repartidor no aparecía en su lista sin explicar por qué | Ahora cada cuenta ve solo lo suyo al instante. Su propia compra le aparece con "Es tu propio pedido: lo llevará otro repartidor". También: una dirección guardada sin coordenadas (datos de ejemplo) ya no rompe "¿Dónde lo recibes?" |
+| 30-oct | **Vista repartidor (módulo 8):** interruptor "En línea", pedidos listos que su vehículo puede llevar, Aceptar, "Recogido", "Entregado" con el PIN, "Soltar pedido" y "Mis entregas" | Ya se puede probar el pedido completo con repartidor. El cliente ve quién lo lleva (nombre, vehículo y placa). Rutas en [docs/API_FRONTEND.md](docs/API_FRONTEND.md#repartidor-llevar-pedidos--módulo-8) |
+| 30-oct | **Registro de repartidor en la app (módulo 4b):** tarjeta "¿Quieres repartir?" en el inicio del cliente, pantalla "Quiero ser repartidor" (tarjetas por tipo de vehículo; placa y RUAT solo si los pide) y, en la vista repartidor, "Te falta subir…" con el botón Subir | Se puede probar todo el registro de punta a punta. Si te rechazan, la app muestra el motivo y el botón "Volver a enviar". Por ahora, un solo vehículo por repartidor |
+| 30-oct | **Registro de repartidor (módulo 4b), parte del backend:** `GET /api/tipos-vehiculo`, `POST /api/repartidor`, `POST /api/vehiculos` y la sección **Aprobaciones → Repartidores** del panel | La API ya permite registrarse como repartidor con su vehículo; placa y RUAT solo si el tipo los pide (la bicicleta no). Campos y ejemplos en [docs/API_FRONTEND.md](docs/API_FRONTEND.md#registro-de-repartidor--módulo-4b) |
 | 29-oct | **Disco permanente activo** en Railway (Volume en `/var/www/html/storage/app`) | Las fotos de negocios, productos y documentos **ya no se borran** al actualizar el servidor. Comprobado: una foto de prueba sobrevivió a un redespliegue. Las que se perdieron antes hay que volver a subirlas |
 | 29-oct | `GET /api` muestra también **dónde se guardan las fotos** | Debe decir `"fotos": "disco permanente"`. Si dice *disco temporal*, el Volume se desconectó |
 | 29-oct | **`test@example.com` ya no es administrador** | Era una cuenta de prueba sin verificación en dos pasos. Los admins ahora son cuentas reales |
@@ -50,8 +57,8 @@ comerciante, aparece el botón **"cambiar vista"**.
 | 15-oct | Carnet (los dos lados) + selfie = **una sola solicitud** en el panel | El admin ve las 3 fotos juntas y elige qué parte rechazar |
 | 14-oct | **Seguridad**: verificación en dos pasos en el panel, límites de solicitudes, cabeceras, `/docs/api` solo para admins, sesiones de la app que vencen a los 60 días | Ver [api/README.md](api/README.md#seguridad) |
 
-Pruebas al día: **44 de la API** (`php artisan test`, incluidas pruebas de
-ataque) y **71 de la app** (`flutter test`).
+Pruebas al día: **71 de la API** (`php artisan test`, incluidas pruebas de
+ataque) y **113 de la app** (`flutter test`).
 
 ---
 
@@ -275,6 +282,7 @@ entrar de nuevo aparece otra vez el QR.
 | Sección | Para qué |
 |---|---|
 | **Aprobaciones → Negocios** | Ver cada negocio nuevo (foto, ubicación, datos, documentos del dueño) y **aprobarlo** o rechazarlo con motivo. **Un negocio no aparece en el catálogo hasta que se aprueba.** |
+| **Aprobaciones → Repartidores** | Ver a cada repartidor nuevo con su vehículo (tipo, placa, RUAT) y **aprobarlo** o rechazarlo con motivo. **Un repartidor no ve pedidos hasta que se aprueba.** También se puede suspender. |
 | **Aprobaciones → Documentos** | Revisar la identidad de comerciantes y repartidores: **el carnet (los dos lados) y la selfie van juntos en una sola solicitud**, con las fotos lado a lado. Comprueba que la cara de la selfie sea la del carnet. Al rechazar eliges qué parte debe volver a subir; la persona recibe el motivo. |
 | **Operación → Pedidos** | Ver todos los pedidos y cancelar uno si hace falta (devuelve el stock). |
 | **Operación → Usuarios** | Activar o desactivar cuentas y **dar o quitar el permiso de administrador**. |
@@ -295,16 +303,27 @@ documentos son privadas y solo se ven dentro del panel.
 3. **Volverse comerciante:** en Inicio, **"¿Tienes un negocio? → Registrar"**:
    nombre, rubro, ubicación, foto del negocio, y si faltan, carnet (frente y
    reverso) y **una selfie** (abre la cámara delantera). El negocio queda **"en revisión"**.
-4. **Admin:** en el panel, aprueba el negocio y la solicitud de identidad.
-5. **Comerciante:** cambia a la vista comerciante (botón de arriba) →
+4. **Volverse repartidor** (con otra cuenta): en Inicio, **"¿Quieres repartir?"**
+   → tipo de vehículo, placa y RUAT si el tipo los pide, fotos del vehículo,
+   carnet, selfie y licencia. Queda **"en revisión"**.
+5. **Admin:** en el panel, aprueba el negocio, el repartidor
+   (**Aprobaciones → Repartidores**) y las solicitudes de identidad.
+6. **Comerciante:** cambia a la vista comerciante (botón de arriba) →
    **Productos → Agregar producto** (foto, precio, stock) → en **Resumen**, que
    esté **Abierto**.
-6. **Cliente (otra cuenta):** ve el producto en Inicio o en la tienda → carrito →
-   dirección → **hacer pedido**. La app muestra un **PIN de 4 números**.
-7. **Comerciante:** **Pedidos → aceptar → preparando → listo → en camino →
-   entregado** (pide el PIN del cliente).
-8. **Cliente:** califica el negocio y los productos. El comerciante ve sus
-   **Ganancias** y puede responder la reseña.
+7. **Cliente (una tercera cuenta):** ve el producto en Inicio o en la tienda →
+   carrito → dirección → **hacer pedido**. La app muestra un **PIN de 4 números**.
+8. **Comerciante:** **Pedidos → aceptar → preparando → listo**. Desde ahí ve
+   "Buscando repartidor…": **el local no entrega**.
+9. **Repartidor:** en su vista, **En línea** → el pedido aparece en la lista →
+   **Aceptar** → **Recogido** (el cliente ya lo ve moverse en el mapa) →
+   **Entregado** con el PIN que le dicta el cliente. Tras 5 PIN equivocados se
+   bloquea 15 minutos.
+10. **Cliente:** califica el negocio y los productos. El comerciante ve sus
+    **Ganancias** y puede responder la reseña.
+
+> ⚠️ **Sin un repartidor aprobado y en línea, ningún pedido puede terminar de
+> entregarse.** Para una demostración, ten lista una cuenta de repartidor aprobada.
 
 ---
 
@@ -339,15 +358,15 @@ documentos son privadas y solo se ven dentro del panel.
 | 3 | **App:** pantallas de arranque, inicio de sesión, registro e inicio por vista, con el botón "cambiar vista" | ✅ Hecho |
 | — | **Servidor en internet:** API en Railway + base en Aiven, con despliegue automático | ✅ Hecho |
 | 4a | Registro de comerciante (negocio, mapa/GPS, foto, carnet y selfie) | ✅ Hecho |
-| 4b | Registro de repartidor (vehículo y documentos) | ⏳ Siguiente |
+| 4b | Registro de repartidor (vehículo y documentos) | ✅ Hecho (API, panel y app; un solo vehículo por ahora) |
 | 5 | Catálogo con categorías, búsqueda, ofertas y páginas de tienda | ✅ Hecho |
 | 6 | Carrito, direcciones, costo del envío y pedido (con PIN de entrega) | ✅ Hecho |
 | 7 | Vista comerciante: productos, pedidos entrantes, compras y gastos, perfil y horario | ✅ Hecho |
-| 8 | Vista repartidor: pedidos disponibles, aceptar y entregar | ⏳ (mientras tanto, el negocio entrega con su propio delivery y el PIN del cliente) |
-| 9 | **Rastreo del pedido en el mapa** (GPS del repartidor en vivo) | ⏳ |
+| 8 | Vista repartidor: en línea, pedidos disponibles, aceptar, recoger, entregar con PIN y mis entregas | ✅ Hecho (todo pedido lo lleva un repartidor de la app; el local no entrega) |
+| 9 | **Rastreo del pedido en el mapa** (GPS del repartidor en vivo) | ✅ Hecho (consulta cada pocos segundos; falta probar el mapa con Playwright) |
 | 10 | Reseñas (✅ producto y negocio, con respuesta del negocio); reportes y sanciones en la app ⏳ | Parcial |
 | 11 | Ganancias del comerciante (por período con gráfico y por producto) | ✅ Hecho |
-| 12 | Panel de administrador web (Filament) en `/admin`: aprobar negocios e identidades (carnet + selfie), pedidos, usuarios, tarifas; verificación en dos pasos | ✅ Hecho |
+| 12 | Panel de administrador web (Filament) en `/admin`: aprobar negocios, repartidores e identidades (carnet + selfie), pedidos, usuarios, tarifas; verificación en dos pasos | ✅ Hecho |
 | 13 | Notificaciones, recuperar contraseña y publicación (APK / Play Store / iOS) | ⏳ |
 
 El detalle de cada módulo pendiente, con qué construir y cómo probarlo, está en
@@ -618,7 +637,17 @@ En la PC del dueño, `C:\Raschif\laragon\www\mdrmarket_v2_api` es un enlace a
 | GET | `/api/negocios` | ✔ | Mis negocios |
 | POST | `/api/negocios` | ✔ | Registrar mi negocio (con foto; queda en revisión) |
 | GET | `/api/documentos` | ✔ | Mis documentos subidos y su estado |
-| POST | `/api/documentos` | ✔ | Subir la foto de un documento (carnet, licencia…) |
+| POST | `/api/documentos` | ✔ | Subir la foto de un documento (carnet, licencia, fotos del vehículo con `vehiculo_id`…) |
+| GET | `/api/tipos-vehiculo` | ✔ | Moto, bicicleta, auto, camioneta, camión: categoría y si piden placa, RUAT y licencia |
+| GET | `/api/repartidor` | ✔ | Mi perfil de repartidor, con el vehículo y el motivo si me rechazaron |
+| POST | `/api/repartidor` | ✔ | Registrarme como repartidor (queda en revisión) o volver a enviar si me rechazaron |
+| POST | `/api/vehiculos` | ✔ | Registrar mi vehículo (uno solo; placa y RUAT si el tipo los pide; placa única) |
+| PUT | `/api/repartidor/disponible` | ✔ repartidor | En línea o desconectado (con su ubicación) |
+| GET | `/api/repartidor/pedidos-disponibles` | ✔ repartidor | Pedidos listos que su vehículo puede llevar, del más cercano al más lejano |
+| GET | `/api/repartidor/pedido-actual` | ✔ repartidor | El pedido que lleva ahora |
+| POST | `/api/pedidos/{id}/aceptar`, `/soltar` | ✔ repartidor | Tomar un pedido (gana el primero) o soltarlo antes de recogerlo |
+| PUT | `/api/repartidor/pedidos/{id}/estado` | ✔ repartidor | "en_camino" (recogido) o "entregado" con el PIN |
+| GET | `/api/repartidor/entregas` | ✔ repartidor | Historial de entregas con lo ganado en envíos |
 | GET | `/api/archivos/{ruta}` | — | Ver una foto pública (negocios, productos) |
 | GET | `/api/productos`, `/api/productos/{id}` | — | Catálogo (filtros: categoría, negocio, texto, ofertas, orden) y detalle |
 | GET | `/api/tiendas`, `/api/tiendas/{id}` | — | Negocios aprobados y página de cada uno |
@@ -673,9 +702,12 @@ curl https://api-mdrmarket-production.up.railway.app/api/me -H "Accept: applicat
   catálogo (con la oferta vigente), respeta el pedido mínimo y la cobertura.
   Estados: pendiente → aceptado → preparando → listo → en camino → entregado
   (o rechazado / cancelado). El cliente cancela solo mientras está pendiente.
-- **Entrega:** mientras no exista el módulo del repartidor, **el negocio
-  entrega con su propio delivery** y marca "entregado" con el **PIN de 4
-  números** que solo ve el cliente.
+- **Entrega:** un pedido "listo" lo acepta un **repartidor** (aprobado, sin
+  sanción, en línea y con un vehículo del tamaño necesario), que lo recoge y lo
+  marca "entregado" con el **PIN de 4 números** que solo ve el cliente. Lleva un
+  pedido a la vez y puede soltarlo antes de recogerlo. **El local no entrega**
+  (no tiene delivery propio): lleva el pedido hasta "listo" y ve "Buscando
+  repartidor…" o quién lo lleva; mientras nadie lo toma, puede cancelarlo.
 - **Aprobación:** un negocio nuevo queda "en revisión" hasta que un
   administrador lo aprueba en `/admin`; recién ahí aparece en el catálogo.
 - **Horario:** todo se guarda en **UTC**; los reportes se muestran en hora de
