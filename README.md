@@ -19,6 +19,7 @@ comerciante, aparece el botón **"cambiar vista"**.
 
 | Qué | Enlace | Acceso |
 |---|---|---|
+| **App web** (desde cualquier celular o computadora) | https://api-mdrmarket-production.up.railway.app/app/ | Pública: entras con tu cuenta de la app. Sin mapa de Google hasta tener una clave restringida (se usa el botón de GPS) |
 | **API publicada** | https://api-mdrmarket-production.up.railway.app/api | Pública. Abrirla muestra si el servidor y la base están funcionando |
 | **Panel de administrador** | https://api-mdrmarket-production.up.railway.app/admin | Solo cuentas administradoras, con verificación en dos pasos ([cómo entrar](#-crear-tu-cuenta-y-hacerte-administrador)) |
 | **Railway** (servidor de la API: logs, variables, despliegues) | https://railway.com/project/2f0bb79b-64b4-4c55-9e58-2bd9222020f3 | Pedir que te agreguen al proyecto `confident-hope` |
@@ -33,6 +34,7 @@ comerciante, aparece el botón **"cambiar vista"**.
 
 | Fecha | Qué cambió | Qué significa para ti |
 |---|---|---|
+| 06-nov | **App web publicada** en https://api-mdrmarket-production.up.railway.app/app/ | Se abre desde cualquier dispositivo, sin instalar nada. Se vuelve a publicar con `app/publicar_web.ps1` ([cómo](#publicar-la-app-web)) |
 | 29-oct | **Disco permanente activo** en Railway (Volume en `/var/www/html/storage/app`) | Las fotos de negocios, productos y documentos **ya no se borran** al actualizar el servidor. Comprobado: una foto de prueba sobrevivió a un redespliegue. Las que se perdieron antes hay que volver a subirlas |
 | 29-oct | `GET /api` muestra también **dónde se guardan las fotos** | Debe decir `"fotos": "disco permanente"`. Si dice *disco temporal*, el Volume se desconectó |
 | 29-oct | **`test@example.com` ya no es administrador** | Era una cuenta de prueba sin verificación en dos pasos. Los admins ahora son cuentas reales |
@@ -147,6 +149,27 @@ Luego abre un **Pull Request** a `main` en GitHub para que Raschif lo revise.
 Los cambios que solo tocan `app/` **no** cambian nada del servidor. Si encuentras
 un error que no vas a arreglar tú, abre un **Issue** con qué hiciste, qué
 esperabas, qué pasó, una captura y el dispositivo (Chrome, emulador o celular).
+
+### Publicar la app web
+
+La versión web vive en el mismo servidor, en
+**https://api-mdrmarket-production.up.railway.app/app/**: Apache sirve los
+archivos de `api/public/app`. Cuando cambies pantallas y quieras que se vean ahí:
+
+```powershell
+cd app
+.\publicar_web.ps1                  # arma la app con la API del servidor y la copia a api/public/app
+git add api/public/app
+git commit -m "App web: nueva versión"
+git push                            # Railway la publica en 3–5 minutos
+```
+
+- La app web **usa los mismos datos reales** que la app del celular y el panel (Aiven).
+- **Mapa de Google:** la clave queda dentro del código que descarga cualquier
+  visitante. Úsala solo restringida en Google Cloud a "Sitios web" con
+  `https://api-mdrmarket-production.up.railway.app/*` y a la "Maps JavaScript
+  API": `.\publicar_web.ps1 -ClaveMaps "AIza…"`. Sin clave, la app usa el botón de GPS.
+- Si después de publicar se sigue viendo la versión anterior, recarga con **Ctrl + F5**.
 
 ---
 

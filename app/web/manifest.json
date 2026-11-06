@@ -1,11 +1,11 @@
 {
-    "name": "mdrmarket",
-    "short_name": "mdrmarket",
+    "name": "MDR Market",
+    "short_name": "MDR Market",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#E1F5EE",
+    "theme_color": "#0F6E56",
+    "description": "Delivery en Santa Cruz de la Sierra: compra, vende y reparte en una sola app.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

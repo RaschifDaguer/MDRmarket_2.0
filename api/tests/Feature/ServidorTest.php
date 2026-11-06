@@ -35,6 +35,17 @@ class ServidorTest extends TestCase
         $this->getJson('/api')->assertOk()->assertJsonPath('base_de_datos', fn ($v) => str_starts_with($v, 'sin conexión'));
     }
 
+    public function test_la_app_web_esta_publicada_en_app(): void
+    {
+        // La sirve Apache directo desde public/app (ver app/publicar_web.ps1).
+        $index = public_path('app/index.html');
+        $this->assertFileExists($index);
+        $this->assertStringContainsString('<base href="/app/">', file_get_contents($index));
+        $this->assertFileExists(public_path('app/main.dart.js'));
+        // Nunca con una clave de Google sin restringir adentro (el repo es público).
+        $this->assertDoesNotMatchRegularExpression('/AIza[0-9A-Za-z_\-]{35}/', file_get_contents(public_path('app/main.dart.js')));
+    }
+
     public function test_las_fotos_no_gastan_el_limite_general(): void
     {
         Storage::fake('public');

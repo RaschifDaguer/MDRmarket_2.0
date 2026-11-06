@@ -20,6 +20,10 @@
         DirectorySlash Off
     </IfModule>
 
+    # App web (Flutter) en /app/ (se arma con app/publicar_web.ps1). "/app" sin
+    # la "/" final muestra la misma página, sin redirigir (por lo del puerto 8080).
+    RewriteRule ^app/?$ app/index.html [L]
+
     # Send Requests To Front Controller...
     RewriteCond %{REQUEST_FILENAME} !-d
     RewriteCond %{REQUEST_FILENAME} !-f

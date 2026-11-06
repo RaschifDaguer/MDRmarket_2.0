@@ -1,0 +1,35 @@
+{
+    "name": "MDR Market",
+    "short_name": "MDR Market",
+    "start_url": ".",
+    "display": "standalone",
+    "background_color": "#E1F5EE",
+    "theme_color": "#0F6E56",
+    "description": "Delivery en Santa Cruz de la Sierra: compra, vende y reparte en una sola app.",
+    "orientation": "portrait-primary",
+    "prefer_related_applications": false,
+    "icons": [
+        {
+            "src": "icons/Icon-192.png",
+            "sizes": "192x192",
+            "type": "image/png"
+        },
+        {
+            "src": "icons/Icon-512.png",
+            "sizes": "512x512",
+            "type": "image/png"
+        },
+        {
+            "src": "icons/Icon-maskable-192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "maskable"
+        },
+        {
+            "src": "icons/Icon-maskable-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "maskable"
+        }
+    ]
+}
