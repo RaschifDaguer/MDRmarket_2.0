@@ -42,8 +42,12 @@ class ServidorTest extends TestCase
         $this->assertFileExists($index);
         $this->assertStringContainsString('<base href="/app/">', file_get_contents($index));
         $this->assertFileExists(public_path('app/main.dart.js'));
+        $codigo = file_get_contents(public_path('app/main.dart.js'));
         // Nunca con una clave de Google sin restringir adentro (el repo es público).
-        $this->assertDoesNotMatchRegularExpression('/AIza[0-9A-Za-z_\-]{35}/', file_get_contents(public_path('app/main.dart.js')));
+        $this->assertDoesNotMatchRegularExpression('/AIza[0-9A-Za-z_\-]{35}/', $codigo);
+        // Usa la API del mismo servidor desde donde se abre (Railway o la
+        // universidad), no una dirección fija.
+        $this->assertFalse(str_contains($codigo, 'up.railway.app'), 'La app web tiene fija la dirección de Railway: rearmarla con app/publicar_web.ps1.');
     }
 
     public function test_las_fotos_no_gastan_el_limite_general(): void

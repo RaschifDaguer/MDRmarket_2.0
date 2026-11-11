@@ -28,6 +28,21 @@ return [
     'privado_disk' => env('PRIVADO_DISK', 'local'),
 
     /*
+    | Multimedia de cada usuario (fotos, videos, audios, PDF): POST /api/multimedia.
+    | - max_mb:     tamaño máximo de UN archivo. Cloudflare (servidor de la
+    |               universidad) no deja pasar más de 100 MB por solicitud.
+    | - cuota_mb:   cuánto puede guardar en total cada usuario.
+    | - reserva_mb: espacio libre que siempre se deja en el disco del servidor
+    |               (es compartido con otros proyectos): si queda menos, no se
+    |               aceptan más archivos.
+    */
+    'multimedia' => [
+        'max_mb' => (int) env('MULTIMEDIA_MAX_MB', 90),
+        'cuota_mb' => (int) env('MULTIMEDIA_CUOTA_MB', 300),
+        'reserva_mb' => (int) env('MULTIMEDIA_RESERVA_MB', 3072),
+    ],
+
+    /*
     |--------------------------------------------------------------------------
     | Filesystem Disks
     |--------------------------------------------------------------------------

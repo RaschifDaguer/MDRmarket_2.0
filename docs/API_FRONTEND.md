@@ -223,8 +223,39 @@ carnet (los dos lados) y la selfie de una persona se revisan como una sola solic
 Mis documentos con su `estado` (`pendiente`, `aprobado`, `rechazado`) y `observacion`.
 
 ### `GET /archivos/{ruta}`
-Devuelve una foto pública (logo del negocio, productos). No hace falta armar
-esta URL: la API ya la manda completa en `logo_url`.
+Devuelve una foto o archivo multimedia público (logo del negocio, productos,
+videos de `/multimedia`). No hace falta armar esta URL: la API ya la manda
+completa (`logo_url`, `url`). Responde por partes (`Range`): un video se puede
+adelantar sin descargarlo entero.
+
+### Multimedia: fotos, videos, audios y PDF 🔒
+Archivos de cada usuario, para usarlos donde la app los necesite (ej. un video
+de un producto). Son **públicos para quien tenga la URL**, que lleva un nombre
+al azar imposible de adivinar; para documentos privados (carnet, licencia) se
+usa `POST /documentos`.
+
+- **`POST /multimedia`** — **`multipart/form-data`** con `archivo`. Formatos:
+  - fotos: jpg, png, webp, gif, heic, avif, bmp, tiff;
+  - videos: mp4, mov, webm, 3gp, mkv, avi, mpeg;
+  - audios: mp3, m4a, aac, wav, ogg, opus, amr, flac;
+  - documentos: pdf.
+
+  Hasta **90 MB** por archivo y **300 MB** por usuario. Respuesta **201**:
+  ```json
+  { "data": { "nombre": "Xk3…40 letras….mp4", "tipo": "video",
+      "url": "https://…/api/archivos/multimedia/u12/Xk3….mp4",
+      "tamano_bytes": 5242880, "fecha": "2026-11-11T15:00:00+00:00" } }
+  ```
+  - El formato se reconoce por el **contenido**, no por el nombre: un programa renombrado a `.mp4` se rechaza (**422**).
+  - HTML, SVG y programas nunca se aceptan.
+  - **422** también si se pasa del tamaño o de la cuota.
+  - **507** si el disco del servidor se está llenando.
+  - Usa el límite de subidas: 15 por minuto y 200 por día.
+- **`GET /multimedia`** — mis archivos (el más nuevo primero), con
+  `usado_mb`, `cuota_mb`, `max_mb` y la lista de `formatos` aceptados.
+- **`DELETE /multimedia/{nombre}`** — borra uno de los míos. Si es de otro o no existe: **404**.
+
+Las direcciones de entrega (texto + GPS) se guardan con `/direcciones` (más abajo).
 
 ### Registro de repartidor 🔒 (módulo 4b)
 

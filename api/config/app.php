@@ -55,6 +55,14 @@ return [
     'url' => env('APP_URL', 'http://localhost'),
 
     /*
+    | MDR Market: cabecera con la IP real de quien llama (para los límites de
+    | solicitudes). La pone el proxy de entrada y reemplaza la que mande el
+    | cliente: en Railway es X-Real-IP; detrás de un túnel de Cloudflare
+    | (servidor de la universidad) es CF-Connecting-IP. Ver AppServiceProvider::ipCliente.
+    */
+    'ip_cabecera' => env('IP_CABECERA', 'X-Real-IP'),
+
+    /*
     |--------------------------------------------------------------------------
     | Application Timezone
     |--------------------------------------------------------------------------

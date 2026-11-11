@@ -4,14 +4,20 @@
 # de seguridad nueva de PHP 8.3, subir este número (https://www.php.net).
 FROM php:8.3.36-apache
 
+# Para reconocer (y limpiar) las imágenes de este proyecto en un servidor compartido.
+LABEL proyecto=mdrmarket
+
 RUN apt-get update \
     && apt-get install -y --no-install-recommends git unzip libzip-dev libicu-dev \
     && docker-php-ext-install pdo_mysql zip intl opcache \
     && a2enmod rewrite \
     && rm -rf /var/lib/apt/lists/*
 
-# Fotos de celular: el límite por defecto de PHP (2 MB) es muy chico.
-RUN printf 'upload_max_filesize=10M\npost_max_size=12M\n' > /usr/local/etc/php/conf.d/subidas.ini
+# Fotos y videos de celular: el límite por defecto de PHP (2 MB) es muy chico.
+# Hasta 100 MB por solicitud (Cloudflare, delante del servidor de la
+# universidad, no deja pasar más); la API pone el límite real de cada cosa
+# (fotos 5 MB, multimedia 90 MB). 5 minutos para recibir un archivo grande.
+RUN printf 'upload_max_filesize=100M\npost_max_size=100M\nmax_input_time=300\n' > /usr/local/etc/php/conf.d/subidas.ini
 
 # No revelar versiones de PHP ni de Apache (ayudan a buscar fallas conocidas).
 # session.upload_progress apagado: PHP lo recomendó el 23-oct-2026

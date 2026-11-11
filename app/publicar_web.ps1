@@ -1,12 +1,16 @@
-﻿# Publica la versión web de la app en el servidor de Railway, en /app/:
-#   https://api-mdrmarket-production.up.railway.app/app/
+﻿# Publica la versión web de la app dentro del servidor de la API, en /app/
+# (Railway: https://api-mdrmarket-production.up.railway.app/app/, y el
+# servidor de la universidad: ver servidor/README.md).
 #
 # Uso (desde la carpeta app/, en PowerShell):
 #   .\publicar_web.ps1
-#   .\publicar_web.ps1 -ClaveMaps "AIza..."   # con mapa: SOLO una clave restringida a ese dominio
+#   .\publicar_web.ps1 -ClaveMaps "AIza..."   # con mapa: SOLO una clave restringida a esos dominios
 #
-# Arma la app con la API del servidor y la copia a api/public/app. Después hay
-# que subir el cambio (git add, commit y push a main): Railway la publica sola.
+# Arma la app y la copia a api/public/app. Usa la API del mismo servidor desde
+# donde se abre (API_URL=mismo-servidor, ver lib/core/config/env.dart): no hay
+# que volver a armarla si cambia el dominio. Después hay que subir el cambio
+# (git add, commit y push); Railway la publica sola y en la universidad se
+# actualiza con servidor/actualizar.sh.
 param(
     [string]$ClaveMaps = ''
 )
@@ -16,11 +20,12 @@ Set-Location $PSScriptRoot
 $opciones = @(
     'build', 'web', '--release', '--no-wasm-dry-run',
     '--base-href', '/app/',
-    '--dart-define=API_URL=https://api-mdrmarket-production.up.railway.app/api'
+    '--dart-define=API_URL=mismo-servidor'
 )
 # La clave queda dentro del código que descarga cualquier visitante (así
-# funciona Google Maps en la web): usa una restringida a "Sitios web" con
-# https://api-mdrmarket-production.up.railway.app/* y solo "Maps JavaScript API".
+# funciona Google Maps en la web): usa una restringida a "Sitios web" con los
+# dominios donde se publica (ej. https://api-mdrmarket-production.up.railway.app/*)
+# y solo "Maps JavaScript API".
 if ($ClaveMaps) { $opciones += "--dart-define=GOOGLE_MAPS_KEY=$ClaveMaps" }
 
 flutter @opciones

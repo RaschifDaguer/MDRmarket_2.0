@@ -1,0 +1,5 @@
+# Claves del servidor y copias de la base: nunca a git (el repo es público).
+.env
+respaldos/
+*.sql
+*.sql.gz

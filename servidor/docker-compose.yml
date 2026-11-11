@@ -1,0 +1,119 @@
+# MDR Market en el servidor de la universidad (todo en uno: base + API + panel
+# + app web). Ver servidor/README.md.
+#
+#   cd ~/mdrmarket/servidor
+#   docker compose up -d --build        # levantar o actualizar
+#   docker compose --profile temporal up -d tunel   # dirección pública temporal
+#
+# El servidor es COMPARTIDO con otros grupos: todo lleva el prefijo
+# "mdrmarket", la base no se publica en ningún puerto y la API solo escucha
+# en 127.0.0.1:8090 (le llega el túnel de Cloudflare, no la red de afuera).
+name: mdrmarket
+
+x-registro: &registro
+  # Que los registros (logs) no llenen el disco: 3 archivos de 10 MB como máximo.
+  driver: json-file
+  options: { max-size: "10m", max-file: "3" }
+
+services:
+  db:
+    image: mysql:8.4.13
+    restart: unless-stopped
+    environment:
+      TZ: UTC
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?falta DB_ROOT_PASSWORD en .env}
+      MYSQL_DATABASE: mdrmarket_new
+      MYSQL_USER: mdr
+      MYSQL_PASSWORD: ${DB_PASSWORD:?falta DB_PASSWORD en .env}
+    # Poca memoria (el servidor tiene 1 CPU y la RAM se comparte), sin
+    # registro binario (no hay réplicas) y UTF-8 completo (emojis incluidos).
+    command:
+      - --performance-schema=OFF
+      - --innodb-buffer-pool-size=192M
+      - --max-connections=40
+      - --skip-name-resolve
+      - --disable-log-bin
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    volumes:
+      - mysql:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$$MYSQL_ROOT_PASSWORD\" --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+    mem_limit: 768m
+    logging: *registro
+
+  api:
+    build: ../api
+    image: mdrmarket-api
+    restart: unless-stopped
+    depends_on:
+      db: { condition: service_healthy }
+    environment:
+      APP_NAME: MDR Market
+      APP_ENV: production
+      APP_DEBUG: "false"
+      APP_KEY: ${APP_KEY:?falta APP_KEY en .env}
+      APP_URL: ${APP_URL:-http://localhost:8090}
+      APP_LOCALE: es
+      APP_FALLBACK_LOCALE: en
+      LOG_CHANNEL: stderr
+      LOG_LEVEL: warning
+      DB_CONNECTION: mysql
+      DB_HOST: db
+      DB_PORT: "3306"
+      DB_DATABASE: mdrmarket_new
+      DB_USERNAME: mdr
+      DB_PASSWORD: ${DB_PASSWORD}
+      SESSION_DRIVER: database
+      QUEUE_CONNECTION: database
+      MEDIA_DISK: public
+      PRIVADO_DISK: local
+      # Detrás del túnel de Cloudflare la IP real llega en CF-Connecting-IP.
+      IP_CABECERA: CF-Connecting-IP
+      MULTIMEDIA_MAX_MB: ${MULTIMEDIA_MAX_MB:-90}
+      MULTIMEDIA_CUOTA_MB: ${MULTIMEDIA_CUOTA_MB:-300}
+      MULTIMEDIA_RESERVA_MB: ${MULTIMEDIA_RESERVA_MB:-3072}
+      PORT: "8080"
+    ports:
+      - "127.0.0.1:8090:8080"
+    volumes:
+      # Fotos, videos y documentos que suben los usuarios: sobreviven a cada actualización.
+      - archivos:/var/www/html/storage/app
+    mem_limit: 1g
+    logging: *registro
+
+  # Respaldo diario de la base (08:00 UTC = 04:00 en Bolivia) en ./respaldos.
+  respaldo:
+    image: mysql:8.4.13
+    restart: unless-stopped
+    depends_on:
+      db: { condition: service_healthy }
+    environment:
+      MYSQL_PWD: ${DB_ROOT_PASSWORD}
+      DIAS_A_GUARDAR: "14"
+    entrypoint: ["bash", "/respaldo.sh"]
+    volumes:
+      - ./respaldo.sh:/respaldo.sh:ro
+      - ./respaldos:/respaldos
+    mem_limit: 256m
+    logging: *registro
+
+  # Dirección pública TEMPORAL (https://algo-al-azar.trycloudflare.com) mientras
+  # no exista la definitiva: cambia cada vez que se reinicia. Ver la dirección
+  # con ./direccion_temporal.sh. Cuando el administrador cree la definitiva:
+  #   docker compose --profile temporal rm -sf tunel
+  tunel:
+    image: cloudflare/cloudflared:2026.10.7
+    profiles: [temporal]
+    restart: unless-stopped
+    command: tunnel --no-autoupdate --url http://api:8080
+    depends_on: [api]
+    mem_limit: 128m
+    logging: *registro
+
+volumes:
+  mysql:
+  archivos:

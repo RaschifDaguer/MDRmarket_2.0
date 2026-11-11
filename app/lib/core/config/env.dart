@@ -12,8 +12,16 @@ class Env {
   ///
   /// Para un celular real en la misma red Wi-Fi, usar la IP de la PC:
   ///   flutter run --dart-define=API_URL=http://192.168.1.50:8001/api
+  ///
+  /// App web publicada dentro del servidor de la API (en /app/, ver
+  /// publicar_web.ps1): `API_URL=mismo-servidor` usa la API del mismo sitio
+  /// desde donde se abrió, así sirve igual en Railway, en el servidor de la
+  /// universidad o con cualquier dominio nuevo, sin volver a armarla.
   static String get apiUrl {
     const desdeComando = String.fromEnvironment('API_URL');
+    if (desdeComando == 'mismo-servidor' && kIsWeb) {
+      return '${Uri.base.origin}/api';
+    }
     if (desdeComando.isNotEmpty) return desdeComando;
     if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
       return 'http://10.0.2.2:8001/api';

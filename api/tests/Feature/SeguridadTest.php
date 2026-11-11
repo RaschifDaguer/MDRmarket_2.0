@@ -4,8 +4,10 @@ namespace Tests\Feature;
 
 use App\Filament\Auth\AutenticadorApp;
 use App\Http\Controllers\Api\PedidoController;
+use App\Providers\AppServiceProvider;
 use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
+use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
@@ -33,6 +35,7 @@ class SeguridadTest extends TestCase
             ['PUT', '/api/repartidor/disponible'], ['GET', '/api/repartidor/pedidos-disponibles'], ['GET', '/api/repartidor/pedido-actual'],
             ['POST', '/api/pedidos/1/aceptar'], ['POST', '/api/pedidos/1/soltar'], ['PUT', '/api/repartidor/pedidos/1/estado'],
             ['GET', '/api/repartidor/entregas'], ['POST', '/api/repartidor/ubicacion'], ['GET', '/api/pedidos/1/seguimiento'],
+            ['GET', '/api/multimedia'], ['POST', '/api/multimedia'], ['DELETE', '/api/multimedia/x.mp4'],
         ] as [$metodo, $ruta]) {
             $this->json($metodo, $ruta)
                 ->assertUnauthorized()
@@ -136,6 +139,21 @@ class SeguridadTest extends TestCase
 
         // A quien no tiene sesión en el panel se lo manda al ingreso, sin error.
         $this->get('/login')->assertRedirect('/admin/login');
+    }
+
+    public function test_la_ip_real_sale_solo_de_la_cabecera_del_proxy(): void
+    {
+        $pedir = fn (array $cabeceras) => AppServiceProvider::ipCliente(
+            Request::create('/api', server: ['REMOTE_ADDR' => '172.18.0.5', ...$cabeceras])
+        );
+
+        // Railway (por defecto): X-Real-IP.
+        $this->assertSame('8.8.8.8', $pedir(['HTTP_X_REAL_IP' => '8.8.8.8']));
+
+        // Detrás de Cloudflare: la de Cloudflare; un X-Real-IP inventado no cuenta.
+        config(['app.ip_cabecera' => 'CF-Connecting-IP']);
+        $this->assertSame('1.1.1.1', $pedir(['HTTP_CF_CONNECTING_IP' => '1.1.1.1', 'HTTP_X_REAL_IP' => '9.9.9.9']));
+        $this->assertSame('172.18.0.5', $pedir(['HTTP_X_REAL_IP' => '9.9.9.9']));
     }
 
     public function test_probar_contrasenas_se_bloquea(): void

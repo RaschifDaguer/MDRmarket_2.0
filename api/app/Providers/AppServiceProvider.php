@@ -99,13 +99,14 @@ class AppServiceProvider extends ServiceProvider
     }
 
     /**
-     * IP real de quien llama. En Railway la pone el proxy de entrada en
-     * X-Real-IP (la que mande el cliente se reemplaza); en la PC no existe y
-     * se usa la conexión directa.
+     * IP real de quien llama. La pone el proxy de entrada en la cabecera de
+     * config('app.ip_cabecera') y reemplaza la que mande el cliente: X-Real-IP
+     * en Railway, CF-Connecting-IP detrás del túnel de Cloudflare. En la PC no
+     * existe y se usa la conexión directa.
      */
     public static function ipCliente(Request $request): string
     {
-        $real = $request->header('X-Real-IP');
+        $real = $request->header(config('app.ip_cabecera', 'X-Real-IP'));
 
         return filter_var($real, FILTER_VALIDATE_IP) ? $real : (string) $request->ip();
     }

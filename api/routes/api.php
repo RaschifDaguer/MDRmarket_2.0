@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\CatalogoController;
 use App\Http\Controllers\Api\Comerciante;
 use App\Http\Controllers\Api\DireccionController;
 use App\Http\Controllers\Api\DocumentoController;
+use App\Http\Controllers\Api\MultimediaController;
 use App\Http\Controllers\Api\NegocioController;
 use App\Http\Controllers\Api\PedidoController;
 use App\Http\Controllers\Api\PerfilController;
@@ -86,16 +87,18 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('repartidor/pedidos-disponibles', [Repartidor\PedidoController::class, 'disponibles']);
     Route::get('repartidor/pedido-actual', [Repartidor\PedidoController::class, 'actual']);
     Route::get('repartidor/entregas', [Repartidor\PedidoController::class, 'entregas']);
+    Route::get('multimedia', [MultimediaController::class, 'index']);
     // Rastreo en el mapa: la app lo consulta cada pocos segundos (límite general).
     Route::get('pedidos/{pedido}/seguimiento', [RastreoController::class, 'seguimiento']);
 
     // Hacer un pedido: límite propio (evita pedidos falsos en masa).
     Route::post('pedidos', [PedidoController::class, 'store'])->middleware('throttle:pedidos');
 
-    // Subir fotos.
+    // Subir fotos y archivos multimedia (videos, audios, PDF).
     Route::middleware('throttle:subidas')->group(function () {
         Route::post('documentos', [DocumentoController::class, 'store']);
         Route::post('negocios', [NegocioController::class, 'store']);
+        Route::post('multimedia', [MultimediaController::class, 'store']);
     });
 
     // Guardar o cambiar datos.
@@ -110,6 +113,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('resenas', [ResenaController::class, 'guardar']);
         Route::post('repartidor', [RepartidorController::class, 'store']);
         Route::post('vehiculos', [RepartidorController::class, 'vehiculo']);
+        Route::delete('multimedia/{nombre}', [MultimediaController::class, 'destroy']);
 
         // Repartidor: en línea, aceptar, soltar, recoger y entregar.
         Route::put('repartidor/disponible', [Repartidor\PedidoController::class, 'disponible']);
