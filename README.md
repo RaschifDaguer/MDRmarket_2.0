@@ -24,6 +24,7 @@ comerciante, aparece el botón **"cambiar vista"**.
 | **Panel de administrador** | https://api-mdrmarket-production.up.railway.app/admin | Solo cuentas administradoras, con verificación en dos pasos ([cómo entrar](#-crear-tu-cuenta-y-hacerte-administrador)) |
 | **Railway** (servidor de la API: logs, variables, despliegues) | https://railway.com/project/2f0bb79b-64b4-4c55-9e58-2bd9222020f3 | Pedir que te agreguen al proyecto `confident-hope` |
 | **Aiven** (base de datos de producción) | https://console.aiven.io → proyecto **`mdrmarket`** → servicio **`mdrmarket-db`** | Pedir invitación a la organización |
+| **Servidor de la universidad** (reemplazará a Railway + Aiven) | Por ahora, dirección temporal `*.trycloudflare.com` (cambia al reiniciar). Definitiva pendiente: `mdrmarket.sistemasunifranz.site` | Por SSH; guía en [servidor/README.md](servidor/README.md) |
 | **Repo de código** | https://github.com/RaschifDaguer/MDRmarket_2.0 | Público para leer; colaborador para subir cambios |
 | **Repo de la base (Docker)** | https://github.com/RaschifDaguer/MDRmarket_2.0_docker | Ídem |
 | **Google Cloud** (clave de Maps, para los módulos de mapa) | https://console.cloud.google.com/apis/credentials | Pedir al dueño |
@@ -34,6 +35,9 @@ comerciante, aparece el botón **"cambiar vista"**.
 
 | Fecha | Qué cambió | Qué significa para ti |
 |---|---|---|
+| 11-nov | **MDR Market corre también en el servidor de la universidad** (Docker: base, API, panel, app web y respaldo diario) | Va a reemplazar a Railway y Aiven cuando exista la dirección definitiva y se pasen los datos reales. Railway y Aiven siguen funcionando hasta entonces ([guía](servidor/README.md)) |
+| 11-nov | **Multimedia**: `POST /api/multimedia` guarda fotos, videos, audios y PDF (hasta 90 MB por archivo, 300 MB por usuario) | Disponible en la API para usarla desde la app donde haga falta (ej. videos de productos). Ver [docs/API_FRONTEND.md](docs/API_FRONTEND.md) |
+| 11-nov | **App web sin dirección fija**: usa la API del mismo sitio desde donde se abre | Sirve igual en Railway y en la universidad sin volver a armarla |
 | 06-nov | **Publicados en el servidor los módulos 4b, 8 y 9 de Daner** (registro de repartidor, vista repartidor y rastreo en el mapa) | Ya funcionan en la app web y en el panel. Ojo: **el local ya no entrega**; sin un repartidor aprobado y en línea, los pedidos se quedan en "listo" |
 | 06-nov | **App web publicada** en https://api-mdrmarket-production.up.railway.app/app/ | Se abre desde cualquier dispositivo, sin instalar nada, e incluye la vista repartidor. Se vuelve a publicar con `app/publicar_web.ps1` ([cómo](#publicar-la-app-web)) |
 | 03-nov | **Tope al PIN de entrega:** tras 5 PIN equivocados en un pedido, se bloquea 15 minutos | Nadie puede adivinar el PIN probando (son solo 10.000 combinaciones) para marcar como entregado un pedido que no entregó |
