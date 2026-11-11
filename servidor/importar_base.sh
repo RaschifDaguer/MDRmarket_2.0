@@ -23,13 +23,15 @@ leer() {
   esac
 }
 
+# (Los comandos que no necesitan entrada llevan </dev/null: "docker compose
+# exec" lee la entrada estándar y se comería lo que venga después.)
 echo "1/3 Respaldo de la base actual (en ./respaldos)..."
-docker compose exec -T respaldo bash /respaldo.sh ahora || echo "   (no se pudo; la base quizás estaba vacía)"
+docker compose exec -T respaldo bash /respaldo.sh ahora </dev/null || echo "   (no se pudo; la base quizás estaba vacía)"
 
 echo "2/3 Borrando y creando la base mdrmarket_new..."
 sql -e "DROP DATABASE IF EXISTS mdrmarket_new;
         CREATE DATABASE mdrmarket_new CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-        GRANT ALL PRIVILEGES ON mdrmarket_new.* TO 'mdr'@'%';"
+        GRANT ALL PRIVILEGES ON mdrmarket_new.* TO 'mdr'@'%';" </dev/null
 
 echo "3/3 Importando $archivo..."
 # Sin DEFINER: en Aiven los triggers, vistas y procedimientos están a nombre
@@ -40,5 +42,5 @@ sql -N mdrmarket_new -e "
   SELECT CONCAT('Tablas y vistas: ', COUNT(*)) FROM information_schema.tables WHERE table_schema = 'mdrmarket_new';
   SELECT CONCAT('Triggers: ', COUNT(*)) FROM information_schema.triggers WHERE trigger_schema = 'mdrmarket_new';
   SELECT CONCAT('Procedimientos y funciones: ', COUNT(*)) FROM information_schema.routines WHERE routine_schema = 'mdrmarket_new';
-  SELECT CONCAT('Usuarios: ', COUNT(*)) FROM usuario;"
+  SELECT CONCAT('Usuarios: ', COUNT(*)) FROM usuario;" </dev/null
 echo "Listo."
