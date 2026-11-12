@@ -61,10 +61,32 @@ flutter build apk --release --dart-define-from-file=dart_defines.local.json
 Requisitos de la clave en Google Cloud:
 - **Restricción "Apps para Android":**
   - paquete `bo.mdrmarket.app`;
-  - huella **SHA-1 del certificado con que se firma el APK**. Cada PC tiene el
-    suyo: quien arme el APK tiene que agregar su SHA-1 a la clave, o el mapa
-    no carga. Para ver la huella: `keytool -list -v -keystore %USERPROFILE%\.android\debug.keystore -alias androiddebugkey -storepass android`.
+  - huella SHA-1 **de la llave del proyecto** (ver abajo):
+    `B9:CC:55:F4:60:9D:2F:1B:8C:11:6E:B8:B0:A5:47:BB:42:4B:14:3D`.
 - **API:** solo **Maps SDK for Android**.
+
+### Llave de firma del proyecto (una sola huella SHA-1)
+
+El APK se firma siempre con la **misma llave**, se arme en la PC que sea. Por
+eso Google tiene registrada una sola huella. Sirve para la versión de prueba
+(`flutter run`) y para la final.
+
+| Archivo | Dónde | ¿Va a git? |
+|---|---|---|
+| `mdrmarket-release.jks` (la llave) | Fuera del proyecto, ej. `C:\Raschif\llaves\` | **Nunca** |
+| `android/key.properties` (dónde está la llave y sus claves) | En `app/android/` | **Nunca** (está en `android/.gitignore`) |
+
+- **Para que otra persona arme el APK:** pásale **por privado** esos dos
+  archivos y que ajuste en `key.properties` la ruta `storeFile`. Sin ellos, el
+  APK se firma con la llave de depuración de su PC y el mapa no carga.
+- **Respáldalos** (por ejemplo en un pendrive o en Drive privado). Si se
+  pierden, no se puede publicar una actualización encima de la app ya
+  instalada: hay que desinstalarla y crear una llave nueva.
+- **Ver la huella:** `keytool -list -v -keystore C:\Raschif\llaves\mdrmarket-release.jks -alias mdrmarket`.
+- **Memoria de la PC:** Gradle viene configurado para usar hasta 8 GB. En una
+  PC con poca RAM, se limita solo para esa PC en
+  `%USERPROFILE%\.gradle\gradle.properties`, por ejemplo
+  `org.gradle.jvmargs=-Xmx2g -XX:MaxMetaspaceSize=768m`.
 - **Facturación:** el proyecto necesita una cuenta de facturación vinculada,
   aunque el uso sea gratis.
 
