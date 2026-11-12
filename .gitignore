@@ -13,3 +13,12 @@ replay_pid*.log
 *.pem
 .env*
 !.env.example
+
+# Archivos de claves que se dejan a mano en el proyecto (contraseña de Aiven,
+# APP_KEY de Railway, clave de Google…). NUNCA a git: el repo es público.
+password.txt
+appkey.txt
+app_key.txt
+apigoogle.txt
+*clave*.txt
+*secret*.txt
