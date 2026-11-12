@@ -162,7 +162,12 @@ class DetalleMontos extends StatelessWidget {
                 const SizedBox(width: AppEspacios.xs),
                 Text(pedido.metodoPagoTexto, style: textos.bodySmall),
                 const Spacer(),
-                if (pedido.estadoPago == 'pagado') Text('Pagado', style: textos.bodySmall?.copyWith(color: c.primary)),
+                if (pedido.estadoPagoTexto case final estadoPago?)
+                  Text(
+                    estadoPago,
+                    key: const Key('estado-pago'),
+                    style: textos.bodySmall?.copyWith(color: pedido.estadoPago == 'pagado' ? c.primary : c.tertiary),
+                  ),
               ],
             ),
           ],

@@ -40,6 +40,7 @@ class Pedido extends Model
         'comision_plataforma',
         'metodo_pago',
         'estado_pago',
+        'referencia_pago',
         'codigo_entrega',
         'distancia_km',
         'tiempo_estimado_min',

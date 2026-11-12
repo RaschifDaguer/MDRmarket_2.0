@@ -152,6 +152,33 @@ class _PedidoScreenState extends ConsumerState<PedidoScreen> {
                     ],
                   ),
                 ),
+                // Con QR y todavía sin pagar: el negocio espera el pago para aceptarlo.
+                if (p.esperandoPagoQr && p.pagoQr != null) ...[
+                  const SizedBox(height: AppEspacios.m),
+                  Card(
+                    key: const Key('falta-pagar-qr'),
+                    color: c.tertiaryContainer,
+                    child: Padding(
+                      padding: const EdgeInsets.all(AppEspacios.m),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Text('Falta pagar ${Formato.bs(p.total)} con QR',
+                              style: textos.titleSmall?.copyWith(color: c.onTertiaryContainer)),
+                          Text('El negocio aceptará tu pedido cuando esté pagado.',
+                              style: textos.bodySmall?.copyWith(color: c.onTertiaryContainer)),
+                          const SizedBox(height: AppEspacios.s),
+                          FilledButton.icon(
+                            key: const Key('pagar-qr'),
+                            onPressed: () => context.push('/pedido/${p.id}/pagar-qr'),
+                            icon: const Icon(Icons.qr_code_2),
+                            label: const Text('Pagar con QR'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: AppEspacios.m),
                 Card(child: Padding(padding: const EdgeInsets.all(AppEspacios.m), child: LineaAvance(pedido: p))),
                 // Rastreo en el mapa mientras el repartidor lo lleva (se actualiza solo).

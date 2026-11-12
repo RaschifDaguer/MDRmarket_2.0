@@ -89,9 +89,14 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
           );
       ref.read(carritoProvider.notifier).vaciar();
       ref.invalidate(misPedidosProvider);
-      mensajero.showSnackBar(const SnackBar(content: Text('¡Pedido enviado! Te avisaremos cuando el negocio lo acepte.')));
       router.go('/inicio');
       router.push('/pedido/${pedido.id}');
+      if (_metodoPago == 'qr') {
+        // Con QR se paga ahora: el negocio lo acepta recién cuando está pagado.
+        router.push('/pedido/${pedido.id}/pagar-qr');
+      } else {
+        mensajero.showSnackBar(const SnackBar(content: Text('¡Pedido enviado! Te avisaremos cuando el negocio lo acepte.')));
+      }
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() {
@@ -178,20 +183,21 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
           RadioGroup<String>(
             groupValue: _metodoPago,
             onChanged: (v) => setState(() => _metodoPago = v ?? 'efectivo'),
+            // Solo efectivo o QR (el cobro con QR es de prueba: no mueve dinero real).
             child: const Column(
               children: [
-                RadioListTile(value: 'efectivo', title: Text('Efectivo al recibir'), secondary: Icon(Icons.money)),
                 RadioListTile(
-                  value: 'qr',
-                  title: Text('Pago con QR'),
-                  subtitle: Text('El negocio te pasará su QR'),
-                  secondary: Icon(Icons.qr_code_2),
+                  key: Key('pago-efectivo'),
+                  value: 'efectivo',
+                  title: Text('Efectivo al recibir'),
+                  secondary: Icon(Icons.money),
                 ),
                 RadioListTile(
-                  value: 'transferencia',
-                  title: Text('Transferencia'),
-                  subtitle: Text('El negocio te pasará su cuenta'),
-                  secondary: Icon(Icons.account_balance_outlined),
+                  key: Key('pago-qr'),
+                  value: 'qr',
+                  title: Text('Pago con QR'),
+                  subtitle: Text('Al confirmar te mostramos el QR para pagar'),
+                  secondary: Icon(Icons.qr_code_2),
                 ),
               ],
             ),

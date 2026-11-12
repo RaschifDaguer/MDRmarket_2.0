@@ -5,6 +5,7 @@ namespace App\Http\Resources;
 use App\Models\Pedido;
 use App\Models\Resena;
 use App\Support\Archivos;
+use App\Support\CobroQr;
 use App\Support\FlujoPedido;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -69,6 +70,11 @@ class PedidoResource extends JsonResource
             'total' => $this->total,
             'metodo_pago' => $this->metodo_pago,
             'estado_pago' => $this->estado_pago,
+            // Cobro con QR (simulado): solo el comprador recibe el contenido del QR para pagarlo.
+            'pago_qr' => $this->when($esComprador && $this->metodo_pago === 'qr' && $this->referencia_pago !== null, fn () => [
+                'referencia' => $this->referencia_pago,
+                'contenido' => CobroQr::contenido($this->resource),
+            ]),
             // El PIN lo da el cliente al recibir: solo lo ve él.
             'codigo_entrega' => $this->when($esComprador, $this->codigo_entrega),
             'distancia_km' => $this->distancia_km,

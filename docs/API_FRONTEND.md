@@ -430,7 +430,8 @@ Fuera de cobertura → **422** en `latitud`. Tarifas: hasta 3 km 3 Bs · 6 km 5 
 }
 ```
 - En vez de `direccion_id` se puede mandar `direccion`, `referencia`, `latitud` y `longitud`.
-- `metodo_pago`: `efectivo`, `qr` o `transferencia`.
+- `metodo_pago`: **`efectivo`** (se paga al recibir) o **`qr`** (cobro simulado, ver abajo).
+  Tarjeta y transferencia ya no se aceptan (**422** "Elige pagar en efectivo o con QR.").
 - El precio de cada producto lo pone la API (con la oferta vigente).
 - **422** con el motivo: negocio cerrado o no disponible, producto agotado
   ("Solo quedan 2 de «…»" en `items.0.cantidad`), pedido mínimo (`items`),
@@ -465,6 +466,33 @@ Respuesta **201** (igual que `GET /pedidos/{id}`):
 
 `GET /pedidos` — mis pedidos (de a 20, con `total_items`).
 `POST /pedidos/{id}/cancelar` `{ "motivo": "…" }` — solo mientras está `pendiente`.
+
+#### Pago con QR (simulado: no se cobra dinero real)
+Sigue los mismos pasos que un cobro de verdad, pero sin banco:
+
+1. **Se pide con `metodo_pago: "qr"`.** El comprador recibe además
+   `"pago_qr": { "referencia": "QR-…", "contenido": "https://…/pago-qr/QR-…" }`, con
+   `estado_pago: "pendiente"`. La app dibuja un QR con `contenido`.
+2. **Se paga de una de dos formas:**
+   - Escaneando el QR con otro celular: abre la "pasarela" de prueba, que
+     muestra el monto y un botón **Pagar**.
+   - Desde la app: **`POST /pedidos/{id}/pago-qr`** ("Simular pago"). Solo el
+     comprador; con otro usuario responde **404**.
+3. **Al procesarse el cobro:**
+   - `estado_pago` pasa a `pagado`;
+   - el cliente recibe la notificación **"Cobro realizado"**;
+   - el negocio recibe "Pedido #N pagado con QR".
+
+   Se puede llamar dos veces sin cobrar doble.
+4. **El negocio acepta recién con el pago hecho.** Mientras el pedido con QR no
+   está pagado:
+   - sus `acciones` son solo `["rechazado"]`;
+   - aceptarlo da **422**: "El cliente todavía no pagó con QR…".
+
+   Después, el pedido sigue igual que uno en efectivo, y el repartidor no cobra nada.
+5. **Si se cancela o rechaza un pedido ya pagado,** `estado_pago` queda
+   `reembolsado` y el cliente recibe "Te devolvimos tu pago".
+6. **Un pedido cancelado ya no se puede pagar** (**422** en `pago`).
 
 | `estado` | Texto en la app | Lo cambia |
 |---|---|---|

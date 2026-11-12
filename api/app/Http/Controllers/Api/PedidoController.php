@@ -9,6 +9,7 @@ use App\Models\Negocio;
 use App\Models\Notificacion;
 use App\Models\Pedido;
 use App\Models\Producto;
+use App\Support\CobroQr;
 use App\Support\Envio;
 use App\Support\FlujoPedido;
 use Illuminate\Http\JsonResponse;
@@ -60,7 +61,8 @@ class PedidoController extends Controller
             'latitud' => ['required_without:direccion_id', 'nullable', 'numeric', 'between:-90,90'],
             'longitud' => ['required_without:direccion_id', 'nullable', 'numeric', 'between:-180,180'],
             'notas' => ['nullable', 'string', 'max:500'],
-            'metodo_pago' => ['required', Rule::in(['efectivo', 'qr', 'transferencia'])],
+            // Solo efectivo (al recibir) o QR (simulado, ver CobroQr). Sin tarjeta ni transferencia.
+            'metodo_pago' => ['required', Rule::in(['efectivo', 'qr'])],
             'items' => ['required', 'array', 'min:1', 'max:50'],
             'items.*.producto_id' => ['required', 'integer', 'distinct'],
             'items.*.cantidad' => ['required', 'integer', 'min:1', 'max:99'],
@@ -69,6 +71,7 @@ class PedidoController extends Controller
             'items.required' => 'Tu carrito está vacío.',
             'direccion.required_without' => 'Elige o escribe la dirección de entrega.',
             'latitud.required_without' => 'Marca la dirección de entrega en el mapa.',
+            'metodo_pago.in' => 'Elige pagar en efectivo o con QR.',
         ]);
 
         $usuario = $request->user();
@@ -123,6 +126,8 @@ class PedidoController extends Controller
                 'tarifa_servicio' => $envio['tarifa_servicio'],
                 'comision_plataforma' => round($subtotal * $comisionPct / 100, 2),
                 'metodo_pago' => $datos['metodo_pago'],
+                // Con QR: la referencia del cobro (va dentro del QR que muestra la app).
+                'referencia_pago' => $datos['metodo_pago'] === 'qr' ? CobroQr::nuevaReferencia() : null,
                 'codigo_entrega' => str_pad((string) random_int(0, 9999), 4, '0', STR_PAD_LEFT),
                 'distancia_km' => $envio['distancia_km'],
                 'tiempo_estimado_min' => $negocio->tiempo_preparacion_min,
@@ -180,6 +185,17 @@ class PedidoController extends Controller
         $pedido = FlujoPedido::cambiar($pedido, 'cancelado', $request->user(), 'cliente', $motivo);
 
         return new PedidoResource($this->conDetalle($pedido));
+    }
+
+    /**
+     * POST /api/pedidos/{pedido}/pago-qr — "Simular pago" desde la app: procesa
+     * el cobro con QR como si el banco lo hubiera confirmado (ver CobroQr).
+     */
+    public function pagarQr(Request $request, Pedido $pedido): PedidoResource
+    {
+        abort_unless((int) $pedido->comprador_id === (int) $request->user()->id, 404);
+
+        return new PedidoResource($this->conDetalle(CobroQr::procesar($pedido)));
     }
 
     /** refresh(): estado, total y fechas los pone la base al guardar. */

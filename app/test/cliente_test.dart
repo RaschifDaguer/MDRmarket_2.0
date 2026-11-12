@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mdrmarket/app.dart';
+import 'package:mdrmarket/core/router/app_router.dart';
 import 'package:mdrmarket/features/carrito/presentation/carrito_controller.dart';
 import 'package:mdrmarket/features/catalogo/presentation/catalogo_view.dart';
 import 'package:mdrmarket/features/pedidos/domain/pedido.dart';
@@ -93,6 +94,56 @@ void main() {
     expect(find.text('4821'), findsOneWidget);
     final contenedor = ProviderScope.containerOf(tester.element(find.byType(PedidoScreen)));
     expect(contenedor.read(carritoProvider), isNull);
+    expect(tester.takeException(), isNull);
+    await cerrar(tester);
+  });
+
+  testWidgets('pagar con QR: solo efectivo o QR, se simula el cobro y sigue al pedido', (tester) async {
+    final pedidos = PedidosFalso();
+    await abrirApp(tester, overridesFalsos(usuario: cliente, pedidos: pedidos));
+    ProviderScope.containerOf(tester.element(find.byType(MdrMarketApp))).read(carritoProvider.notifier).agregar(pollo, 1);
+    final router = ProviderScope.containerOf(tester.element(find.byType(MdrMarketApp))).read(routerProvider);
+    router.push('/checkout');
+    await esperar(tester);
+
+    // Solo dos formas de pago: ni tarjeta ni transferencia.
+    expect(find.byKey(const Key('pago-efectivo')), findsOneWidget);
+    expect(find.byKey(const Key('pago-qr')), findsOneWidget);
+    expect(find.text('Transferencia'), findsNothing);
+    expect(find.textContaining('Tarjeta'), findsNothing);
+
+    await tester.tap(find.byKey(const Key('pago-qr')));
+    await tester.pump();
+    await tester.tap(find.textContaining('Hacer pedido'));
+    await esperar(tester);
+    expect(pedidos.creado!.metodoPago, 'qr');
+
+    // Se abre el cobro: el QR y el aviso de que es de prueba.
+    expect(find.byKey(const Key('qr-pago')), findsOneWidget);
+    expect(find.text('Pago de prueba: no se cobra dinero real'), findsOneWidget);
+    await tester.ensureVisible(find.byKey(const Key('simular-pago')));
+    await tester.tap(find.byKey(const Key('simular-pago')));
+    await esperar(tester);
+
+    expect(pedidos.pagosQr, 1);
+    expect(find.byKey(const Key('cobro-realizado')), findsOneWidget);
+    expect(find.textContaining('Cobro realizado'), findsWidgets);
+
+    // Continúa al pedido, ya pagado.
+    await tester.tap(find.text('Ver mi pedido'));
+    await esperar(tester);
+    expect(find.byType(PedidoScreen), findsOneWidget);
+    expect(find.byKey(const Key('falta-pagar-qr')), findsNothing);
+    expect(tester.takeException(), isNull);
+    await cerrar(tester);
+  });
+
+  testWidgets('el pedido con QR sin pagar ofrece pagarlo', (tester) async {
+    final pedidos = PedidosFalso(pedidoActual: pedidoDeEjemplo(metodoPago: 'qr', acciones: const [EstadoPedido.cancelado]));
+    await abrirConFalsos(tester, const PedidoScreen(pedidoId: 42), overrides: overridesFalsos(usuario: cliente, pedidos: pedidos));
+
+    expect(find.byKey(const Key('falta-pagar-qr')), findsOneWidget);
+    expect(find.byKey(const Key('pagar-qr')), findsOneWidget);
     expect(tester.takeException(), isNull);
     await cerrar(tester);
   });

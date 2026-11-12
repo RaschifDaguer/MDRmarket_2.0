@@ -75,6 +75,12 @@ class PedidosRepository {
         return Pedido.fromJson(r.data as Map<String, dynamic>);
       });
 
+  /// "Simular pago": procesa el cobro con QR (de prueba, no mueve dinero real).
+  Future<Pedido> pagarQr(int id) => _llamar(() async {
+        final r = await _dio.post('/pedidos/$id/pago-qr');
+        return Pedido.fromJson(r.data as Map<String, dynamic>);
+      });
+
   /// Crea o edita la reseña del usuario (una por producto o negocio).
   Future<void> calificar({int? productoId, int? negocioId, required int estrellas, String? comentario}) =>
       _llamar(() async {

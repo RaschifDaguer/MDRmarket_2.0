@@ -101,6 +101,7 @@ class Pedido {
     this.longitudEntrega,
     this.notas,
     this.estadoPago = 'pendiente',
+    this.pagoQr,
     this.codigoEntrega,
     this.distanciaKm,
     this.motivoCancelacion,
@@ -140,7 +141,13 @@ class Pedido {
   final double tarifaServicio;
   final double total;
   final String metodoPago;
+
+  /// pendiente, pagado o reembolsado (devuelto al cancelar un pedido pagado con QR).
   final String estadoPago;
+
+  /// Lo que va dentro del QR de cobro (simulado). Solo lo recibe el comprador
+  /// de un pedido con QR: es la dirección de la pasarela de prueba.
+  final String? pagoQr;
 
   /// PIN de 4 números. Solo lo ve el comprador.
   final String? codigoEntrega;
@@ -177,11 +184,24 @@ class Pedido {
 
   int get unidades => totalItems ?? items.fold(0, (t, i) => t + i.cantidad);
 
+  /// Hoy solo se paga en efectivo o con QR; transferencia y tarjeta quedan
+  /// para mostrar pedidos antiguos.
   String get metodoPagoTexto => switch (metodoPago) {
         'qr' => 'Pago con QR',
         'transferencia' => 'Transferencia',
         'tarjeta' => 'Tarjeta',
         _ => 'Efectivo al recibir',
+      };
+
+  /// Pedido con QR que todavía no se pagó (y sigue activo): el negocio lo
+  /// acepta recién cuando se pague.
+  bool get esperandoPagoQr => metodoPago == 'qr' && estadoPago == 'pendiente' && !estado.fallido;
+
+  /// Cómo va el pago, para mostrarlo junto al método (null si no hay nada que decir).
+  String? get estadoPagoTexto => switch (estadoPago) {
+        'pagado' => 'Pagado',
+        'reembolsado' => 'Devuelto',
+        _ => esperandoPagoQr ? 'Esperando el pago' : null,
       };
 
   /// Cuándo pasó a [e] (null si todavía no).
@@ -214,6 +234,7 @@ class Pedido {
       total: Formato.numero(json['total']),
       metodoPago: (json['metodo_pago'] as String?) ?? 'efectivo',
       estadoPago: (json['estado_pago'] as String?) ?? 'pendiente',
+      pagoQr: (json['pago_qr'] as Map?)?['contenido'] as String?,
       codigoEntrega: json['codigo_entrega'] as String?,
       distanciaKm: (json['distancia_km'] as num?)?.toDouble(),
       motivoCancelacion: json['motivo_cancelacion'] as String?,

@@ -25,6 +25,11 @@ use UnitEnum;
 /** Todos los pedidos: para seguirlos y, si hace falta, cancelarlos. */
 class PedidoResource extends Resource
 {
+    /** Cómo se muestra el método de pago (tarjeta y transferencia solo en pedidos antiguos). */
+    public const PAGOS = ['efectivo' => 'Efectivo', 'qr' => 'QR', 'transferencia' => 'Transferencia', 'tarjeta' => 'Tarjeta'];
+
+    public const ESTADOS_PAGO = ['pendiente' => 'Pendiente', 'pagado' => 'Pagado', 'fallido' => 'Fallido', 'reembolsado' => 'Devuelto'];
+
     protected static ?string $model = Pedido::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedShoppingBag;
@@ -59,7 +64,7 @@ class PedidoResource extends Resource
                     ->formatStateUsing(fn (string $state) => Estados::PEDIDO[$state] ?? $state)
                     ->color(fn (string $state) => Estados::color($state)),
                 TextColumn::make('total')->money('BOB')->alignEnd(),
-                TextColumn::make('metodo_pago')->label('Pago')->formatStateUsing(fn (string $state) => ucfirst($state)),
+                TextColumn::make('metodo_pago')->label('Pago')->formatStateUsing(fn (string $state) => static::PAGOS[$state] ?? ucfirst($state)),
                 TextColumn::make('created_at')
                     ->label('Fecha')
                     ->dateTime('d/m/Y H:i')
@@ -105,8 +110,11 @@ class PedidoResource extends Resource
                     TextEntry::make('direccion_entrega')->label('Entregar en')->columnSpanFull(),
                     TextEntry::make('referencia_entrega')->label('Referencia')->placeholder('—'),
                     TextEntry::make('notas')->placeholder('—'),
-                    TextEntry::make('metodo_pago')->label('Pago')->formatStateUsing(fn (string $state) => ucfirst($state)),
-                    TextEntry::make('estado_pago')->label('Estado del pago'),
+                    TextEntry::make('metodo_pago')->label('Pago')->formatStateUsing(fn (string $state) => static::PAGOS[$state] ?? ucfirst($state)),
+                    TextEntry::make('estado_pago')->label('Estado del pago')
+                        ->formatStateUsing(fn (string $state) => static::ESTADOS_PAGO[$state] ?? $state),
+                    TextEntry::make('referencia_pago')->label('Referencia del cobro QR')
+                        ->visible(fn ($state) => filled($state))->copyable(),
                     TextEntry::make('motivo_cancelacion')->label('Motivo de cancelación')
                         ->visible(fn ($state) => filled($state))->columnSpanFull(),
                 ]),

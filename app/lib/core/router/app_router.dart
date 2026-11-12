@@ -19,6 +19,7 @@ import '../../features/comerciante/presentation/registrar_negocio_screen.dart';
 import '../../features/comerciante/presentation/registros_screen.dart';
 import '../../features/inicio/presentation/inicio_screen.dart';
 import '../../features/pedidos/presentation/checkout_screen.dart';
+import '../../features/pedidos/presentation/pago_qr_screen.dart';
 import '../../features/pedidos/presentation/pedido_screen.dart';
 import '../../features/repartidor/presentation/pedido_actual_screen.dart';
 import '../../features/repartidor/presentation/registrar_repartidor_screen.dart';
@@ -68,6 +69,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/carrito', builder: (_, _) => const CarritoScreen()),
       GoRoute(path: '/checkout', builder: (_, _) => const CheckoutScreen()),
       GoRoute(path: '/pedido/:id', builder: (_, s) => PedidoScreen(pedidoId: _id(s))),
+      GoRoute(path: '/pedido/:id/pagar-qr', builder: (_, s) => PagoQrScreen(pedidoId: _id(s))),
 
       // Comerciante (su negocio)
       GoRoute(

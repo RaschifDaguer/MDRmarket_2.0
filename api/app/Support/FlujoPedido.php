@@ -58,6 +58,8 @@ class FlujoPedido
         $siguientes = self::PERMITIDOS[$rol][$pedido->estado] ?? [];
 
         return match (true) {
+            // Con QR: el negocio lo acepta recién cuando el cliente pagó (ver CobroQr).
+            $rol === 'comerciante' && $pedido->estado === 'pendiente' && CobroQr::esperandoPago($pedido) => array_values(array_diff($siguientes, ['confirmado'])),
             // Ya lo tomó un repartidor (va a buscarlo): el negocio ya no lo puede cancelar.
             $rol === 'comerciante' && $pedido->repartidor_id !== null => [],
             // El repartidor solo mueve los pedidos que aceptó.
@@ -76,6 +78,12 @@ class FlujoPedido
             // Pudo soltarlo (o tomarlo otro) justo antes: solo lo mueve quien lo lleva.
             if ($rol === 'repartidor' && (int) $pedido->repartidor_id !== (int) $quien->id) {
                 throw ValidationException::withMessages(['estado' => 'Este pedido ya no está a tu cargo.']);
+            }
+
+            if ($nuevo === 'confirmado' && CobroQr::esperandoPago($pedido)) {
+                throw ValidationException::withMessages([
+                    'estado' => 'El cliente todavía no pagó con QR. Podrás aceptarlo cuando pague.',
+                ]);
             }
 
             if (! in_array($nuevo, self::siguientes($pedido, $rol), true)) {
@@ -101,10 +109,20 @@ class FlujoPedido
                 ],
                 default => null,
             };
+            // Ya lo había pagado con QR: se le devuelve (simulado, como el cobro).
+            $devolver = in_array($nuevo, ['cancelado', 'rechazado'], true)
+                && $pedido->metodo_pago === 'qr' && $pedido->estado_pago === 'pagado';
+            if ($devolver) {
+                $cambios['estado_pago'] = 'reembolsado';
+            }
             $pedido->forceFill($cambios)->save();
             $pedido->registrarEstado($anterior, $nuevo, $quien->id, $rol, $motivo);
 
             self::avisar($pedido, $nuevo, $rol);
+            if ($devolver) {
+                Notificacion::avisar($pedido->comprador_id, 'pago_devuelto', 'Te devolvimos tu pago',
+                    'Bs '.number_format((float) $pedido->total, 2)." del pedido #{$pedido->id} (pago con QR).", $pedido->id);
+            }
 
             return $pedido->refresh();
         });

@@ -170,6 +170,17 @@ class _TarjetaPedidoNegocio extends StatelessWidget {
                     Text(Formato.bs(pedido.total), style: textos.titleSmall),
                   ],
                 ),
+                if (pedido.esperandoPagoQr)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Row(
+                      children: [
+                        Icon(Icons.qr_code_2, size: 16, color: c.tertiary),
+                        const SizedBox(width: 4),
+                        Text('Esperando el pago con QR', style: textos.bodySmall?.copyWith(color: c.tertiary)),
+                      ],
+                    ),
+                  ),
               ],
             ),
           ),

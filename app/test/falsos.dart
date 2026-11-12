@@ -136,6 +136,8 @@ Pedido pedidoDeEjemplo({
   bool paraNegocio = false,
   List<EstadoPedido>? acciones,
   bool conRepartidor = false,
+  String metodoPago = 'efectivo',
+  String estadoPago = 'pendiente',
 }) {
   return Pedido(
     repartidorNombre: conRepartidor ? 'Diego Rodríguez' : null,
@@ -153,7 +155,10 @@ Pedido pedidoDeEjemplo({
     costoEnvio: 5,
     tarifaServicio: 0,
     total: 73,
-    metodoPago: 'efectivo',
+    metodoPago: metodoPago,
+    estadoPago: estadoPago,
+    // El contenido del QR solo lo recibe el comprador.
+    pagoQr: metodoPago == 'qr' && !paraNegocio ? 'https://mdrmarket.test/pago-qr/QR-${'a' * 32}' : null,
     codigoEntrega: paraNegocio ? null : '4821',
     distanciaKm: 2.4,
     items: const [
@@ -221,7 +226,16 @@ class PedidosFalso extends PedidosRepository {
   @override
   Future<Pedido> crear(Carrito carrito, DestinoPedido destino, {required String metodoPago, String? notas}) async {
     creado = (carrito: carrito, destino: destino, metodoPago: metodoPago);
-    return pedidoActual = pedidoDeEjemplo(acciones: const [EstadoPedido.cancelado]);
+    return pedidoActual = pedidoDeEjemplo(acciones: const [EstadoPedido.cancelado], metodoPago: metodoPago);
+  }
+
+  /// Veces que se tocó "Simular pago" (cobro con QR de prueba).
+  int pagosQr = 0;
+
+  @override
+  Future<Pedido> pagarQr(int id) async {
+    pagosQr++;
+    return pedidoActual = pedidoDeEjemplo(acciones: const [EstadoPedido.cancelado], metodoPago: 'qr', estadoPago: 'pagado');
   }
 
   @override

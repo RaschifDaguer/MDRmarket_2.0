@@ -110,6 +110,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('direcciones/{direccion}', [DireccionController::class, 'destroy']);
         Route::post('envio/cotizar', [PedidoController::class, 'cotizar']);
         Route::post('pedidos/{pedido}/cancelar', [PedidoController::class, 'cancelar']);
+        // "Simular pago" con QR desde la app (cobro de prueba, ver CobroQr).
+        Route::post('pedidos/{pedido}/pago-qr', [PedidoController::class, 'pagarQr']);
         Route::put('resenas', [ResenaController::class, 'guardar']);
         Route::post('repartidor', [RepartidorController::class, 'store']);
         Route::post('vehiculos', [RepartidorController::class, 'vehiculo']);

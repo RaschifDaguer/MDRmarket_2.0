@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\DocumentoArchivoController;
+use App\Http\Controllers\PagoQrController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -13,3 +14,9 @@ Route::redirect('login', '/admin/login')->name('login');
 // Fotos privadas de documentos: solo para administradores con sesión abierta.
 Route::get('panel/documentos/{documento}/archivo', DocumentoArchivoController::class)
     ->name('panel.documento.archivo');
+
+// Pasarela de pago de PRUEBA: la abre el QR de un pedido (ver App\Support\CobroQr).
+Route::middleware('throttle:escritura')->group(function () {
+    Route::get('pago-qr/{referencia}', [PagoQrController::class, 'ver'])->name('pago-qr.ver');
+    Route::post('pago-qr/{referencia}', [PagoQrController::class, 'pagar'])->name('pago-qr.pagar');
+});

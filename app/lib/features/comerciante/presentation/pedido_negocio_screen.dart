@@ -157,6 +157,19 @@ class _DetalleState extends ConsumerState<_Detalle> {
               padding: const EdgeInsets.all(AppEspacios.m),
               children: [
                 if (_estadoReparto(context, p) case final aviso?) ...[aviso, const SizedBox(height: AppEspacios.m)],
+                // Con QR: se acepta recién cuando el cliente pagó (la API no deja antes).
+                if (p.esperandoPagoQr) ...[
+                  Card(
+                    key: const Key('esperando-pago-qr'),
+                    color: Theme.of(context).colorScheme.tertiaryContainer,
+                    child: const ListTile(
+                      leading: Icon(Icons.qr_code_2),
+                      title: Text('Esperando el pago con QR'),
+                      subtitle: Text('Podrás aceptarlo cuando el cliente pague. Te llegará un aviso.'),
+                    ),
+                  ),
+                  const SizedBox(height: AppEspacios.m),
+                ],
                 Card(
                   child: Padding(
                     padding: const EdgeInsets.all(AppEspacios.m),
