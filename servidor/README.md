@@ -10,7 +10,13 @@ y Aiven (base de datos):
 - las fotos, videos y documentos que suben los usuarios.
 
 El servidor es Ubuntu, tiene 1 CPU y unos 4 GB de RAM libres, y es
-**compartido con otros grupos**.
+**compartido con otros grupos**. Cómo identificarlo:
+- máquina **CoproInv**, IP interna `192.168.46.112`;
+- túnel de Cloudflare `489b791d-7044-47ad-b8e6-db2676e88eee` (`softwareii.sistemasunifranz.site`).
+
+**Dónde está:** en la cuenta **`remoto1`**, carpeta **`/home/remoto1/mdrmarket`**
+(el repositorio). La configuración del servidor está en `servidor/`. Se movió
+ahí desde `remoto` el 12-nov-2026.
 
 ## Qué corre
 
@@ -42,7 +48,14 @@ Host ssh-software
   ProxyCommand cloudflared access ssh --hostname %h
 ```
 
-Luego `ssh ssh-software` y `cd ~/mdrmarket/servidor`.
+Luego `ssh ssh-software` y `cd /home/remoto1/mdrmarket/servidor`.
+
+**Permisos:**
+- La carpeta es de `remoto1`. Desde otra cuenta se entra con `sudo`
+  (por ejemplo `sudo -i`, y después `cd`).
+- `remoto1` no está en el grupo `docker`, así que los comandos de abajo van con
+  **`sudo`** delante. Si el administrador agrega `remoto1` al grupo `docker`, ya
+  no hace falta.
 
 ## Dirección pública
 
@@ -51,27 +64,27 @@ Luego `ssh ssh-software` y `cd ~/mdrmarket/servidor`.
   - Valores: `mdrmarket.sistemasunifranz.site` → tipo `HTTP` → `localhost:8090`.
 
   Después:
-  1. Poner `APP_URL=https://mdrmarket.sistemasunifranz.site` en `.env` y correr `docker compose up -d api`.
-  2. Apagar el túnel temporal: `docker compose --profile temporal rm -sf tunel`.
+  1. Poner `APP_URL=https://mdrmarket.sistemasunifranz.site` en `.env` y correr `sudo docker compose up -d api`.
+  2. Apagar el túnel temporal: `sudo docker compose --profile temporal rm -sf tunel`.
   3. Armar el APK con `--dart-define=API_URL=https://mdrmarket.sistemasunifranz.site/api`.
 
      La app web no hace falta rearmarla: usa la API del mismo sitio desde donde se abre.
 - **Temporal** (para probar o mostrar, sin pedir nada a nadie):
-  - Encender: `docker compose --profile temporal up -d tunel`.
-  - Ver la dirección: `./direccion_temporal.sh`.
+  - Encender: `sudo docker compose --profile temporal up -d tunel`.
+  - Ver la dirección: `sudo ./direccion_temporal.sh`.
   - Cambia cada vez que el servidor se reinicia, así que no sirve para el APK.
 
 ## Tareas comunes
 
-| Para… | Comando (en `~/mdrmarket/servidor`) |
+| Para… | Comando (en `/home/remoto1/mdrmarket/servidor`) |
 |---|---|
-| Ver el estado | `docker compose ps` y `curl -s http://127.0.0.1:8090/api` |
-| Ver errores de la API | `docker compose logs --tail 100 api` |
-| Actualizar a lo último de GitHub | `./actualizar.sh` (no toca la base ni los archivos) |
-| Respaldar ahora | `docker compose exec respaldo bash /respaldo.sh ahora` |
-| Bajar un respaldo a la PC | `scp ssh-software:mdrmarket/servidor/respaldos/ARCHIVO .` |
-| Restaurar un respaldo | `./importar_base.sh respaldos/ARCHIVO.sql.gz` (**reemplaza** la base) |
-| Consola de MySQL | `docker compose exec db sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" mdrmarket_new'` |
+| Ver el estado | `sudo docker compose ps` y `curl -s http://127.0.0.1:8090/api` |
+| Ver errores de la API | `sudo docker compose logs --tail 100 api` |
+| Actualizar a lo último de GitHub | `sudo ./actualizar.sh` (no toca la base ni los archivos) |
+| Respaldar ahora | `sudo docker compose exec respaldo bash /respaldo.sh ahora` |
+| Bajar un respaldo a la PC | Copiarlo primero a un lugar que se pueda leer (ej. `sudo cp respaldos/ARCHIVO /tmp/ && sudo chmod 644 /tmp/ARCHIVO`), bajarlo con `scp ssh-software:/tmp/ARCHIVO .` y después borrarlo de `/tmp` |
+| Restaurar un respaldo | `sudo ./importar_base.sh respaldos/ARCHIVO.sql.gz` (**reemplaza** la base) |
+| Consola de MySQL | `sudo docker compose exec db sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" mdrmarket_new'` |
 | Reiniciar la verificación en dos pasos de un admin | En la consola: `UPDATE usuario SET app_authentication_secret = NULL, app_authentication_recovery_codes = NULL WHERE email = '…';` |
 
 ## Pasar los datos desde Aiven
@@ -85,8 +98,12 @@ Pasos:
 1. **En la PC**, respaldar Aiven con `mysqldump` de Laragon:
    - opciones: `--single-transaction --routines --triggers --events --set-gtid-purged=OFF --no-tablespaces`;
    - la clave va en un `--defaults-extra-file` temporal, nunca en el repo.
-2. Copiarlo al servidor: `scp aiven.sql ssh-software:mdrmarket/servidor/`.
-3. `./importar_base.sh aiven.sql` y borrar el `.sql` (tiene datos personales).
+2. Copiarlo al servidor: `scp aiven.sql ssh-software:/tmp/`.
+3. Importarlo y borrar el `.sql`, porque tiene datos personales:
+   ```
+   sudo ./importar_base.sh /tmp/aiven.sql
+   sudo rm /tmp/aiven.sql
+   ```
 
 La `APP_KEY` del `.env` tiene que ser **la misma de Railway**. Con ella se
 cifró la verificación en dos pasos del panel; con otra clave, los admins
