@@ -137,7 +137,7 @@ recorridos en vivo contra la API local.
 - [x] PHP 8.3.36 en el servidor (corrige "PHP2Shell") y contraseña de Aiven cambiada (28-oct-2026).
 - [x] Clave de Google Maps en la app: archivo local `app/dart_defines.local.json` (no se sube).
 - [ ] Restringir la clave de Google Maps en Google Cloud (por dominio web y por paquete `bo.mdrmarket.app`).
-- [ ] Configurar la clave de Google Maps para Android/iOS (al compilar para celular).
+- [x] Configurar la clave de Google Maps para Android (12-nov: AndroidManifest + build.gradle.kts, ver app/README.md). iOS pendiente.
 - [ ] Distancia real por calles con Google Directions (hoy: línea recta × `factor_ruta`).
 - [x] Pruebas automáticas de la API (`php artisan test`) por cada módulo.
 - [ ] Integración continua en GitHub Actions: `flutter analyze` + `flutter test` + pruebas de la API en cada PR.

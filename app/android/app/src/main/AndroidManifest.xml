@@ -1,5 +1,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- GPS: botón "usar mi ubicación", mapa y rastreo del repartidor.
+         Android pide permiso al usuario la primera vez (geolocator). -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 
     <!-- usesCleartextTraffic: permite hablar con la API local por http://
          mientras desarrollamos. Quitarlo cuando la API esté en https. -->
@@ -30,6 +34,12 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <!-- Clave de Google Maps para Android: la pone Gradle desde GOOGLE_MAPS_KEY
+             (dart_defines.local.json), ver android/app/build.gradle.kts.
+             Restringida en Google Cloud al paquete bo.mdrmarket.app + su SHA-1. -->
+        <meta-data
+            android:name="com.google.android.geo.API_KEY"
+            android:value="${mapsApiKey}" />
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

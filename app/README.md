@@ -45,6 +45,32 @@ La clave de Google Maps **nunca** va en el código (el repo es público):
 Sin clave la app funciona igual: en lugar del mapa muestra solo el botón
 "Usar mi ubicación" (GPS).
 
+### Con el mapa de Google (APK de Android)
+
+La misma `GOOGLE_MAPS_KEY` de `dart_defines.local.json` entra al APK al
+armarlo:
+- `android/app/build.gradle.kts` la lee de los `--dart-define`;
+- y la pone en el `AndroidManifest.xml` (`com.google.android.geo.API_KEY`).
+
+Nunca queda escrita en el código.
+
+```
+flutter build apk --release --dart-define-from-file=dart_defines.local.json
+```
+
+Requisitos de la clave en Google Cloud:
+- **Restricción "Apps para Android":**
+  - paquete `bo.mdrmarket.app`;
+  - huella **SHA-1 del certificado con que se firma el APK**. Cada PC tiene el
+    suyo: quien arme el APK tiene que agregar su SHA-1 a la clave, o el mapa
+    no carga. Para ver la huella: `keytool -list -v -keystore %USERPROFILE%\.android\debug.keystore -alias androiddebugkey -storepass android`.
+- **API:** solo **Maps SDK for Android**.
+- **Facturación:** el proyecto necesita una cuenta de facturación vinculada,
+  aunque el uso sea gratis.
+
+La app web usa **otra** clave, restringida a "Sitios web" y a la
+**Maps JavaScript API**: una clave solo admite un tipo de restricción.
+
 ## Estructura
 
 ```

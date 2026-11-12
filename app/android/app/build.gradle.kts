@@ -4,6 +4,20 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+// Valores de --dart-define / --dart-define-from-file (ej. dart_defines.local.json).
+// Flutter se los pasa a Gradle en la propiedad "dart-defines", cada uno en base64.
+// De ahí sale la clave de Google Maps para Android: NUNCA se escribe en el
+// código (el repo es público).
+val dartDefines: Map<String, String> = (project.findProperty("dart-defines") as String?)
+    ?.split(",")
+    ?.mapNotNull { entrada ->
+        val texto = String(java.util.Base64.getDecoder().decode(entrada), Charsets.UTF_8)
+        val igual = texto.indexOf('=')
+        if (igual > 0) texto.substring(0, igual) to texto.substring(igual + 1) else null
+    }
+    ?.toMap()
+    ?: emptyMap()
+
 android {
     namespace = "bo.mdrmarket.mdrmarket"
     compileSdk = flutter.compileSdkVersion
@@ -23,6 +37,8 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        // Va al AndroidManifest (com.google.android.geo.API_KEY). Vacía = sin mapa.
+        manifestPlaceholders["mapsApiKey"] = dartDefines["GOOGLE_MAPS_KEY"] ?: ""
     }
 
     buildTypes {
