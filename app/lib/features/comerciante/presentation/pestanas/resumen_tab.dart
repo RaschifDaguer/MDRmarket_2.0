@@ -41,6 +41,8 @@ class ResumenTab extends ConsumerWidget {
         extra: [
           _TarjetaNegocio(negocio),
           if (faltantes.isNotEmpty) _TarjetaFaltantes(faltantes, activo: negocio.estado == EstadoNegocio.aprobado),
+          if (resumen != null && resumen.productosSinStock > 0)
+            _AvisoStock(cantidad: resumen.productosSinStock, nombres: resumen.productosAgotados, alRenovar: () => alIrA(1)),
           if (resumen != null)
             _Numeros(
               celdas: [
@@ -265,6 +267,61 @@ class _TarjetaFaltantes extends ConsumerWidget {
     } on ApiException catch (e) {
       mensajero.showSnackBar(SnackBar(content: Text(e.errorDe(campo) ?? e.mensaje)));
     }
+  }
+}
+
+/// "Stock insuficiente": productos que se agotaron y hay que renovar.
+class _AvisoStock extends StatelessWidget {
+  const _AvisoStock({required this.cantidad, required this.nombres, required this.alRenovar});
+
+  final int cantidad;
+  final List<String> nombres;
+  final VoidCallback alRenovar;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = Theme.of(context).colorScheme;
+    final textos = Theme.of(context).textTheme;
+    final varios = cantidad == 1 ? 'producto se agotó' : 'productos se agotaron';
+    return Card(
+      key: const Key('aviso-stock'),
+      color: c.errorContainer,
+      child: Padding(
+        padding: const EdgeInsets.all(AppEspacios.m),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.production_quantity_limits, color: c.onErrorContainer),
+                const SizedBox(width: AppEspacios.s),
+                Expanded(
+                  child: Text('Stock insuficiente: $cantidad $varios',
+                      style: textos.titleSmall?.copyWith(color: c.onErrorContainer)),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppEspacios.xs),
+            Text(
+              '${nombres.join(', ')}${cantidad > nombres.length ? '…' : ''}. '
+              'Los clientes los ven como «Agotado». Renuévalos para seguir vendiendo.',
+              style: textos.bodySmall?.copyWith(color: c.onErrorContainer),
+            ),
+            const SizedBox(height: AppEspacios.s),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: FilledButton.icon(
+                key: const Key('ir-a-renovar'),
+                style: FilledButton.styleFrom(minimumSize: const Size(0, 40), backgroundColor: c.error, foregroundColor: c.onError),
+                onPressed: alRenovar,
+                icon: const Icon(Icons.add_box_outlined, size: 18),
+                label: const Text('Renovar productos'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 

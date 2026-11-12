@@ -52,6 +52,8 @@ class ResumenNegocio {
     required this.mes,
     required this.productosActivos,
     required this.productosSinStock,
+    this.productosAgotados = const [],
+    this.unidadesEnStock = 0,
     this.rating,
     this.totalResenas = 0,
   });
@@ -62,6 +64,12 @@ class ResumenNegocio {
   final Montos mes;
   final int productosActivos;
   final int productosSinStock;
+
+  /// Nombres de los productos agotados (hasta 5), para el aviso de renovarlos.
+  final List<String> productosAgotados;
+
+  /// Suma del stock de todos sus productos.
+  final int unidadesEnStock;
   final double? rating;
   final int totalResenas;
 
@@ -72,6 +80,8 @@ class ResumenNegocio {
         mes: Montos.fromJson(json['mes'] as Map<String, dynamic>),
         productosActivos: (json['productos_activos'] as num).toInt(),
         productosSinStock: (json['productos_sin_stock'] as num).toInt(),
+        productosAgotados: ((json['productos_agotados'] as List?) ?? const []).cast<String>(),
+        unidadesEnStock: (json['unidades_en_stock'] as num?)?.toInt() ?? 0,
         rating: (json['rating_promedio'] as num?)?.toDouble(),
         totalResenas: (json['total_resenas'] as num?)?.toInt() ?? 0,
       );

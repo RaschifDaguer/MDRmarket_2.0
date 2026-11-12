@@ -7,8 +7,9 @@ use Illuminate\Validation\Rule;
 
 /**
  * Crear o editar un producto (multipart, por la foto). Siempre llega el
- * formulario completo. Sin `controlar_stock`, el producto no lleva stock
- * (ej. comida hecha al momento).
+ * formulario completo. El stock es obligatorio: al publicarlo, al menos 1
+ * unidad; al editarlo, 0 o más. Cuando se agota, el negocio recibe el aviso
+ * de renovarlo (ver PedidoController::store y ProductoController::stock).
  */
 class ProductoRequest extends FormRequest
 {
@@ -38,8 +39,8 @@ class ProductoRequest extends FormRequest
             'precio_oferta' => ['nullable', 'numeric', 'min:0', 'lt:precio'],
             'oferta_inicio' => ['nullable', 'date'],
             'oferta_fin' => ['nullable', 'date', 'after:now', ...($this->filled('oferta_inicio') ? ['after:oferta_inicio'] : [])],
-            'controlar_stock' => ['sometimes', 'boolean'],
-            'stock' => ['nullable', 'required_if_accepted:controlar_stock', 'integer', 'min:0', 'max:100000'],
+            // Ya no hay productos "sin control de stock": siempre se dice cuántos hay.
+            'stock' => ['required', 'integer', 'min:'.($this->route('producto') ? 0 : 1), 'max:100000'],
             'disponible' => ['sometimes', 'boolean'],
             // Vehículo mínimo para llevarlo: 1 liviano (moto), 2 mediano (auto), 3 grande (camión).
             'categoria_vehiculo_id' => ['nullable', 'integer', 'in:1,2,3'],
@@ -67,7 +68,8 @@ class ProductoRequest extends FormRequest
             'categoria_id.exists' => 'Elige una categoría de la lista.',
             'precio_oferta.lt' => 'El precio de oferta tiene que ser menor al precio normal.',
             'oferta_fin.after' => 'La oferta tiene que terminar después de empezar (y en el futuro).',
-            'stock.required_if_accepted' => 'Escribe cuántos tienes, o desactiva "Controlar stock".',
+            'stock.required' => 'Escribe cuántas unidades tienes para vender.',
+            'stock.min' => $this->route('producto') ? 'El stock no puede ser negativo.' : 'Publica al menos 1 unidad.',
             'foto.max' => 'La foto no puede pesar más de 5 MB.',
         ];
     }
@@ -75,10 +77,7 @@ class ProductoRequest extends FormRequest
     /** Datos listos para guardar en `producto`. */
     public function datosProducto(): array
     {
-        $datos = $this->safe()->except(['foto', 'controlar_stock']);
-        if (! $this->boolean('controlar_stock')) {
-            $datos['stock'] = null;
-        }
+        $datos = $this->safe()->except(['foto']);
         $datos['categoria_vehiculo_id'] ??= 1;
         $datos['disponible'] = $this->boolean('disponible', true);
 

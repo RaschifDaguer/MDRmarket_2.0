@@ -33,6 +33,10 @@ class ReporteController extends Controller
             'mes' => $this->totales($this->filas($negocio, $inicioMes, $hoy, 'anio')),
             'productos_activos' => (clone $productos)->where('disponible', true)->count(),
             'productos_sin_stock' => (clone $productos)->where('disponible', true)->where('stock', 0)->count(),
+            // Para el aviso "Stock insuficiente: renueva…" (hasta 5 nombres).
+            'productos_agotados' => (clone $productos)->where('disponible', true)->where('stock', 0)
+                ->orderBy('nombre')->limit(5)->pluck('nombre'),
+            'unidades_en_stock' => (int) (clone $productos)->sum('stock'),
             'rating_promedio' => $negocio->rating_promedio,
             'total_resenas' => (int) $negocio->total_resenas,
         ]);

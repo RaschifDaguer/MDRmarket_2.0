@@ -51,7 +51,6 @@ class _FormularioState extends ConsumerState<_Formulario> {
   late bool _enOferta = p?.precioOferta != null;
   // Una oferta que ya venció no se vuelve a mandar (la API pide una fecha futura).
   late DateTime? _ofertaFin = (p?.ofertaFin?.isAfter(DateTime.now()) ?? false) ? p!.ofertaFin : null;
-  late bool _controlarStock = p == null || p!.stock != null;
   late bool _disponible = p?.disponible ?? true;
   late int _tamano = p?.tamano ?? 1;
   ArchivoElegido? _foto;
@@ -88,7 +87,7 @@ class _FormularioState extends ConsumerState<_Formulario> {
       costo: _numero(_costo.text),
       precioOferta: _enOferta ? _numero(_precioOferta.text) : null,
       ofertaFin: _enOferta ? _ofertaFin : null,
-      stock: _controlarStock ? int.parse(_stock.text.trim()) : null,
+      stock: int.parse(_stock.text.trim()),
       disponible: _disponible,
       tamano: _tamano,
     );
@@ -291,25 +290,31 @@ class _FormularioState extends ConsumerState<_Formulario> {
             ],
             const SizedBox(height: AppEspacios.s),
             const TituloSeccion('Stock y envío', Icons.local_shipping_outlined),
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              value: _controlarStock,
-              onChanged: (v) => setState(() => _controlarStock = v),
-              title: const Text('Controlar stock'),
-              subtitle: const Text('Apágalo para lo que se prepara al momento (ej. comida).'),
-            ),
-            if (_controlarStock)
-              TextFormField(
-                key: const Key('campo-stock'),
-                controller: _stock,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: '¿Cuántos tienes?', suffixText: 'unidades'),
-                forceErrorText: _errores['stock'],
-                validator: (v) {
-                  final n = int.tryParse(v?.trim() ?? '');
-                  return (n == null || n < 0) ? 'Escribe cuántos tienes (0 o más)' : null;
-                },
+            // Siempre se pide el stock: al publicar, al menos 1 unidad. Cuando
+            // se acaba, el cliente lo ve "Agotado" y aquí se renueva.
+            if (p?.sinStock ?? false)
+              const Padding(
+                key: Key('aviso-agotado'),
+                padding: EdgeInsets.only(bottom: AppEspacios.s),
+                child: AvisoError('Se agotó: súbele el stock para volver a venderlo.'),
               ),
+            TextFormField(
+              key: const Key('campo-stock'),
+              controller: _stock,
+              keyboardType: TextInputType.number,
+              decoration: InputDecoration(
+                labelText: p == null ? '¿Cuántas unidades vas a publicar?' : 'Unidades en stock',
+                helperText: 'Cuando se acaben, te avisamos para que lo renueves.',
+                suffixText: 'unidades',
+              ),
+              forceErrorText: _errores['stock'],
+              validator: (v) {
+                final n = int.tryParse(v?.trim() ?? '');
+                if (n == null) return 'Escribe cuántas unidades tienes';
+                if (p == null && n < 1) return 'Publica al menos 1 unidad';
+                return n < 0 ? 'No puede ser negativo' : null;
+              },
+            ),
             const SizedBox(height: AppEspacios.m),
             Text('¿En qué se puede llevar?', style: Theme.of(context).textTheme.bodyMedium),
             const SizedBox(height: AppEspacios.s),

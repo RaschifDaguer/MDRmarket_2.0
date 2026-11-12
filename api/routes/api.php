@@ -148,6 +148,7 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::patch('abierto', [NegocioController::class, 'abierto']);
             Route::put('horario', [NegocioController::class, 'horario']);
             Route::patch('productos/{producto}/disponible', [Comerciante\ProductoController::class, 'disponible']);
+            Route::patch('productos/{producto}/stock', [Comerciante\ProductoController::class, 'stock']);
             Route::delete('productos/{producto}', [Comerciante\ProductoController::class, 'destroy']);
             Route::put('pedidos/{pedido}/estado', [Comerciante\PedidoController::class, 'estado']);
             Route::post('registros', [Comerciante\RegistroController::class, 'store']);

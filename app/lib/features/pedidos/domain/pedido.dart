@@ -7,7 +7,8 @@ import '../../../core/formato/formato.dart';
 enum EstadoPedido {
   pendiente('Esperando al negocio', 'Pendiente', Icons.hourglass_top),
   confirmado('Aceptado', 'Aceptar', Icons.thumb_up_alt_outlined),
-  preparando('Preparando', 'Empezar a preparar', Icons.soup_kitchen_outlined),
+  // Una caja guardándose (no solo comida: hay farmacias, tecnología, etc.).
+  preparando('Preparando', 'Empezar a preparar', Icons.archive_outlined),
   listo('Listo', 'Marcar como listo', Icons.inventory_2_outlined),
   enCamino('En camino', 'Salió a entregar', Icons.delivery_dining_outlined),
   entregado('Entregado', 'Entregar (pedir PIN)', Icons.check_circle_outline),

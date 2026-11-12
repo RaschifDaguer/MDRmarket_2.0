@@ -381,7 +381,9 @@ motivo (`GET /repartidor`) y volver a enviar (`POST /repartidor`).
 }
 ```
 - Con `en_oferta: true`: `precio` tachado, `precio_final` grande y la etiqueta `-{descuento_pct}%`.
-- `stock: null` = sin control de stock (siempre disponible). `stock: 0` = agotado.
+- **Stock:**
+  - `stock: 0` = **agotado**. El producto **se sigue mostrando** con la etiqueta "Agotado", pero no se puede pedir (**422** "«…» se agotó.").
+  - `stock: null` solo queda en productos antiguos: se toma como "siempre disponible".
 - `rating_promedio: null` = todavía sin reseñas ("Nuevo").
 
 `GET /productos/{id}` — lo mismo más `imagenes` (lista de URLs), `resenas`
@@ -520,10 +522,11 @@ Antes de recibir un pedido → **422** "Solo puedes reseñar después de recibir
 | `POST /negocios/{id}` | Editar perfil (multipart; `foto` opcional). Campos de `POST /negocios` + `tiempo_preparacion_min`, `pedido_minimo` |
 | `PATCH …/abierto` `{abierto}` | Abrir o cerrar ahora (cerrado no recibe pedidos) |
 | `PUT …/horario` | `{"horarios": [{"dia_semana": 1, "hora_apertura": "08:00", "hora_cierre": "20:00"}]}` (1 = lunes) |
-| `GET …/resumen` | Pedidos nuevos y en curso, montos de hoy y del mes, productos activos y sin stock |
+| `GET …/resumen` | Pedidos nuevos y en curso, montos de hoy y del mes, productos activos, `productos_sin_stock`, `productos_agotados` (hasta 5 nombres, para el aviso "Stock insuficiente") y `unidades_en_stock` |
 | `GET …/productos` | Mis productos (también los ocultos), con `costo`, `stock`, `disponible`, `categoria_vehiculo_id` |
-| `POST …/productos` | Nuevo (multipart): `nombre`, `categoria_id` (**subcategoría**), `precio`, `costo`, `precio_oferta`, `oferta_fin`, `controlar_stock` (1/0), `stock`, `disponible` (1/0), `categoria_vehiculo_id` (1 moto · 2 auto · 3 camión), `foto` |
-| `POST …/productos/{p}` | Editar (multipart, mismos campos) |
+| `POST …/productos` | Nuevo (multipart): `nombre`, `categoria_id` (**subcategoría**), `precio`, `costo`, `precio_oferta`, `oferta_fin`, **`stock` (obligatorio, al menos 1)**, `disponible` (1/0), `categoria_vehiculo_id` (1 moto · 2 auto · 3 camión), `foto` |
+| `POST …/productos/{p}` | Editar (multipart, mismos campos; `stock` obligatorio, 0 o más) |
+| `PATCH …/productos/{p}/stock` `{stock}` | **Renovar stock**: cuántas unidades hay ahora, sin editar lo demás |
 | `PATCH …/productos/{p}/disponible` | Mostrar u ocultar |
 | `DELETE …/productos/{p}` | Eliminar |
 | `GET …/pedidos?grupo=nuevos\|en_curso\|terminados` | Pedidos que llegan |

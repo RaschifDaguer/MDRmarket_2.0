@@ -39,7 +39,7 @@ class DatosProducto {
   final double? precioOferta;
   final DateTime? ofertaFin;
 
-  /// null = sin control de stock.
+  /// Unidades para vender (obligatorio: al publicar, al menos 1).
   final int? stock;
   final bool disponible;
 
@@ -140,9 +140,8 @@ class MiNegocioRepository {
           'costo': numero(datos.costo),
           'precio_oferta': numero(datos.precioOferta),
           'oferta_fin': datos.ofertaFin == null ? '' : '${Formato.fechaApi(datos.ofertaFin!)} 23:59:59',
-          // Laravel acepta 1/0 como booleano (no "true"/"false").
-          'controlar_stock': datos.stock == null ? '0' : '1',
           'stock': datos.stock?.toString() ?? '',
+          // Laravel acepta 1/0 como booleano (no "true"/"false").
           'disponible': datos.disponible ? '1' : '0',
           'categoria_vehiculo_id': datos.tamano,
           if (foto != null) 'foto': MultipartFile.fromBytes(foto.bytes, filename: foto.nombre),
@@ -152,6 +151,12 @@ class MiNegocioRepository {
 
   Future<MiProducto> disponible(int negocioId, int productoId, bool disponible) => _llamar(() async {
         final r = await _dio.patch('/negocios/$negocioId/productos/$productoId/disponible', data: {'disponible': disponible});
+        return MiProducto.fromJson(r.data as Map<String, dynamic>);
+      });
+
+  /// "Renovar stock": cuántas unidades hay ahora (sin editar lo demás).
+  Future<MiProducto> renovarStock(int negocioId, int productoId, int stock) => _llamar(() async {
+        final r = await _dio.patch('/negocios/$negocioId/productos/$productoId/stock', data: {'stock': stock});
         return MiProducto.fromJson(r.data as Map<String, dynamic>);
       });
 

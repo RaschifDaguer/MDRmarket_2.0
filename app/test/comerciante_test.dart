@@ -135,6 +135,10 @@ void main() {
         );
         expect(find.text('¡Tu negocio está activo!'), findsOneWidget);
         expect(find.text('Para activar tu negocio te falta'), findsNothing);
+        // Se agotó un producto: aviso de stock insuficiente para renovarlo.
+        await tester.scrollUntilVisible(find.byKey(const Key('aviso-stock')), 300, scrollable: find.byType(Scrollable).first);
+        expect(find.text('Stock insuficiente: 1 producto se agotó'), findsOneWidget);
+        expect(find.textContaining('Papas fritas'), findsOneWidget);
         await tester.scrollUntilVisible(find.text('Pedidos nuevos'), 300, scrollable: find.byType(Scrollable).first);
         expect(find.text('Bs 350,00'), findsOneWidget); // ventas de hoy
         expect(tester.takeException(), isNull);
@@ -150,14 +154,33 @@ void main() {
     });
   }
 
-  testWidgets('productos: la lista y el formulario revisa los datos', (tester) async {
-    await abrirApp(tester);
+  testWidgets('productos: inventario, renovar stock y el formulario revisa los datos', (tester) async {
+    final miNegocio = MiNegocioFalso();
+    await abrirApp(tester, miNegocio: miNegocio);
 
     await tester.tap(find.text('Productos'));
     await esperar(tester);
     expect(find.text('Pollo a la broaster'), findsOneWidget);
-    expect(find.text('Sin stock'), findsOneWidget);
     expect(find.text('Oculto'), findsOneWidget);
+
+    // Cuántos productos, cuántas unidades y cuántos agotados.
+    final inventario = find.byKey(const Key('inventario'));
+    expect(find.descendant(of: inventario, matching: find.text('3')), findsOneWidget); // productos
+    expect(find.descendant(of: inventario, matching: find.text('8')), findsOneWidget); // unidades
+    expect(find.descendant(of: inventario, matching: find.text('agotado')), findsOneWidget);
+    expect(find.text('Agotado · stock insuficiente'), findsOneWidget);
+    expect(find.text('8 unidades en stock'), findsOneWidget);
+
+    // Renovar el stock del agotado (Papas fritas).
+    await tester.tap(find.byKey(const Key('renovar-11')));
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.tap(find.byKey(const Key('guardar-renovar')));
+    await tester.pump();
+    expect(find.text('Escribe 1 o más'), findsOneWidget);
+    await tester.enterText(find.byKey(const Key('campo-renovar')), '25');
+    await tester.tap(find.byKey(const Key('guardar-renovar')));
+    await esperar(tester);
+    expect(miNegocio.renovados, [(11, 25)]);
 
     await tester.tap(find.byKey(const Key('nuevo-producto')));
     await esperar(tester);
@@ -183,6 +206,12 @@ void main() {
     await tester.tap(find.widgetWithText(FilledButton, 'Agregar producto'));
     await tester.pump(const Duration(seconds: 1));
     expect(find.text('Tiene que ser menor al precio normal'), findsOneWidget);
+
+    // El stock es obligatorio al publicar (ya no hay "Controlar stock").
+    await tester.scrollUntilVisible(find.byKey(const Key('campo-stock')), 200, scrollable: formulario);
+    expect(find.text('Controlar stock'), findsNothing);
+    expect(find.text('¿Cuántas unidades vas a publicar?'), findsOneWidget);
+    expect(find.text('Escribe cuántas unidades tienes'), findsOneWidget);
     expect(tester.takeException(), isNull);
     await cerrarApp(tester);
   });

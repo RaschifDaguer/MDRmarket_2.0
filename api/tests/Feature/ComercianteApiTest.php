@@ -59,7 +59,6 @@ class ComercianteApiTest extends TestCase
             'categoria_id' => 101,
             'precio' => '35',
             'costo' => '20',
-            'controlar_stock' => '1',
             'stock' => '15',
             'foto' => UploadedFile::fake()->image('hamburguesa.jpg', 600, 600),
         ];
@@ -77,13 +76,21 @@ class ComercianteApiTest extends TestCase
         $this->post($url, [...$formulario, 'precio_oferta' => '40'], ['Accept' => 'application/json'])
             ->assertUnprocessable()->assertJsonValidationErrors('precio_oferta');
 
-        // Editar: oferta y sin control de stock (comida al momento).
+        // El stock es obligatorio: al publicar, al menos 1 unidad.
+        foreach (['', '0'] as $stock) {
+            $this->post($url, [...$formulario, 'stock' => $stock], ['Accept' => 'application/json'])
+                ->assertUnprocessable()->assertJsonValidationErrors('stock');
+        }
+
+        // Editar: oferta y stock (al editar puede quedar en 0, pero no vacío).
         $id = $creado->json('id');
-        $this->post("$url/$id", [...$formulario, 'precio_oferta' => '30', 'controlar_stock' => '0', 'stock' => ''], ['Accept' => 'application/json'])
+        $this->post("$url/$id", [...$formulario, 'stock' => ''], ['Accept' => 'application/json'])
+            ->assertUnprocessable()->assertJsonPath('errors.stock.0', 'Escribe cuántas unidades tienes para vender.');
+        $this->post("$url/$id", [...$formulario, 'precio_oferta' => '30', 'stock' => '0'], ['Accept' => 'application/json'])
             ->assertOk()
             ->assertJsonPath('precio_oferta', '30.00')
             ->assertJsonPath('en_oferta', true)
-            ->assertJsonPath('stock', null);
+            ->assertJsonPath('stock', 0);
 
         $this->patchJson("$url/$id/disponible", ['disponible' => false])->assertOk()->assertJsonPath('disponible', false);
         $this->getJson('/api/productos?negocio='.$this->negocio->id)->assertJsonCount(0, 'data'); // oculto en el catálogo

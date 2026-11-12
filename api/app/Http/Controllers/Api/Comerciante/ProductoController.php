@@ -68,6 +68,20 @@ class ProductoController extends Controller
         return new MiProductoResource($this->cargar($producto));
     }
 
+    /**
+     * PATCH /{producto}/stock — "Renovar stock": cuántas unidades hay ahora,
+     * sin editar lo demás (ej. cuando se agotó y llegó mercadería).
+     */
+    public function stock(Request $request, Negocio $negocio, Producto $producto): MiProductoResource
+    {
+        $producto->update($request->validate(
+            ['stock' => ['required', 'integer', 'min:0', 'max:100000']],
+            ['stock.required' => 'Escribe cuántas unidades tienes ahora.'],
+        ));
+
+        return new MiProductoResource($this->cargar($producto));
+    }
+
     /** DELETE /{producto} — sale del catálogo; los pedidos viejos lo siguen mostrando. */
     public function destroy(Negocio $negocio, Producto $producto): JsonResponse
     {

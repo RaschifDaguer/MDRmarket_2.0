@@ -281,9 +281,20 @@ class MiNegocioFalso extends MiNegocioRepository {
         mes: _montos,
         productosActivos: 8,
         productosSinStock: 1,
+        productosAgotados: ['Papas fritas'],
+        unidadesEnStock: 8,
         rating: 4.5,
         totalResenas: 3,
       );
+
+  /// Renovaciones de stock: (producto, unidades).
+  final renovados = <(int, int)>[];
+
+  @override
+  Future<MiProducto> renovarStock(int negocioId, int productoId, int stock) async {
+    renovados.add((productoId, stock));
+    return MiProducto(id: productoId, nombre: 'Papas fritas', precio: 12, stock: stock, categoriaId: 101);
+  }
 
   @override
   Future<List<MiProducto>> productos(int negocioId) async => const [

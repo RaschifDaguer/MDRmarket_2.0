@@ -153,6 +153,13 @@ class PedidoController extends Controller
         Notificacion::avisar($negocio->usuario_id, 'pedido_nuevo', "¡Nuevo pedido #{$pedido->id}!",
             $items->sum('cantidad').' producto(s) · Bs '.number_format($subtotal, 2), $pedido->id);
 
+        // Con este pedido se acabó el stock de algún producto: aviso al negocio
+        // para que lo renueve (el cliente lo sigue viendo, como "Agotado").
+        Producto::whereIn('id', $items->pluck('producto_id'))->where('stock', 0)->get(['id', 'nombre'])
+            ->each(fn (Producto $agotado) => Notificacion::avisar($negocio->usuario_id, 'stock_agotado',
+                "Stock insuficiente: «{$agotado->nombre}» se agotó",
+                'Renueva el producto (sube su stock) para seguir vendiéndolo.', $pedido->id));
+
         return (new PedidoResource($this->conDetalle($pedido)))->response()->setStatusCode(201);
     }
 
