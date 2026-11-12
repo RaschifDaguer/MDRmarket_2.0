@@ -24,7 +24,7 @@ comerciante, aparece el botón **"cambiar vista"**.
 | **Panel de administrador** | https://api-mdrmarket-production.up.railway.app/admin | Solo cuentas administradoras, con verificación en dos pasos ([cómo entrar](#-crear-tu-cuenta-y-hacerte-administrador)) |
 | **Railway** (servidor de la API: logs, variables, despliegues) | https://railway.com/project/2f0bb79b-64b4-4c55-9e58-2bd9222020f3 | Pedir que te agreguen al proyecto `confident-hope` |
 | **Aiven** (base de datos de producción) | https://console.aiven.io → proyecto **`mdrmarket`** → servicio **`mdrmarket-db`** | Pedir invitación a la organización |
-| **Servidor de la universidad** (reemplazará a Railway + Aiven) | Por ahora, dirección temporal `*.trycloudflare.com` (cambia al reiniciar). Definitiva pendiente: `mdrmarket.sistemasunifranz.site` | Por SSH; guía en [servidor/README.md](servidor/README.md) |
+| **Servidor de la universidad** (reemplazará a Railway + Aiven) | Por ahora, dirección temporal `*.trycloudflare.com` (cambia al reiniciar). Definitiva pendiente: `mdrmarket.sistemasunifranz.site` | Por SSH: [cómo conectarte y publicar tus cambios](#-servidor-de-la-universidad-conectarte-y-publicar-tus-cambios) · manejo en [servidor/README.md](servidor/README.md) |
 | **Repo de código** | https://github.com/RaschifDaguer/MDRmarket_2.0 | Público para leer; colaborador para subir cambios |
 | **Repo de la base (Docker)** | https://github.com/RaschifDaguer/MDRmarket_2.0_docker | Ídem |
 | **Google Cloud** (clave de Maps, para los módulos de mapa) | https://console.cloud.google.com/apis/credentials | Pedir al dueño |
@@ -215,6 +215,134 @@ llega a `main` dentro de `api/` **se publica solo en el servidor real**:
    **nunca** van al repositorio ni a grupos de chat.
 7. **Para estas cosas necesitas a Raschif**, porque requieren acceso al servidor:
    variables de Railway, encender o cambiar Aiven y aplicar cambios de la base.
+
+---
+
+## 💻 Servidor de la universidad: conectarte y publicar tus cambios
+
+MDR Market también corre en el servidor que nos dio la universidad, y va a
+reemplazar a Railway y Aiven. Aquí está lo necesario para entrar y publicar lo
+que hagas. La guía completa de manejo del servidor está en
+[servidor/README.md](servidor/README.md).
+
+### 1. Lo que necesitas (una sola vez)
+
+1. **La contraseña de la cuenta `remoto`.** Pídesela a Raschif **por privado**
+   (nunca va al repo ni a grupos de chat). Es la misma que pide `sudo`.
+2. **cloudflared.** El servidor se alcanza por un túnel de Cloudflare. En
+   PowerShell:
+   ```
+   winget install --id Cloudflare.cloudflared
+   ```
+   Si no tienes `winget`, baja `cloudflared-windows-amd64.exe` de
+   https://github.com/cloudflare/cloudflared/releases y renómbralo `cloudflared.exe`.
+3. **Configura SSH.** Crea o edita `C:\Users\TU_USUARIO\.ssh\config` y agrega:
+   ```
+   Host ssh-software
+     HostName softwareii.sistemasunifranz.site
+     User remoto
+     ProxyCommand cloudflared access ssh --hostname %h
+   ```
+   Si `cloudflared` no está en el PATH, pon la ruta completa al `.exe` en
+   `ProxyCommand`.
+4. **Pruébalo:** `ssh ssh-software`. La primera vez escribe `yes` para aceptar
+   la huella del servidor, y luego pon la contraseña.
+
+### 2. Dónde está nuestro apartado
+
+- **Carpeta:** `/home/remoto1/mdrmarket`. Es el repositorio, en la rama
+  `servidor-universidad`; la configuración del servidor está en `servidor/`.
+- **Permisos:** la carpeta es de la cuenta `remoto1`. Entras como `remoto` y
+  pasas a administrador con `sudo -i` (pide la misma contraseña). Para volver,
+  `exit`.
+- **Contenedores:**
+  - `mdrmarket-db-1`: base de datos;
+  - `mdrmarket-api-1`: API, panel y app web;
+  - `mdrmarket-respaldo-1`: respaldo diario;
+  - `mdrmarket-tunel-1`: dirección temporal.
+- **El servidor es compartido con otros grupos.** Toca solo lo que empieza con
+  `mdrmarket`.
+
+### 3. Publicar tus cambios
+
+**No edites el código dentro del servidor.** Haz los cambios en tu PC, súbelos
+a GitHub, y el servidor los descarga.
+
+1. **En tu PC, trabaja en una rama creada desde `servidor-universidad`**, que
+   es la que usa el servidor:
+   ```
+   git fetch origin
+   git switch -c mi-cambio origin/servidor-universidad
+   ```
+2. **Prueba antes de subir:**
+   - API: `php artisan test`.
+   - App: `flutter test`.
+   - Si cambiaste la app y quieres que se vea en la versión web, corre
+     `app\publicar_web.ps1` y sube también `api/public/app`.
+3. **Sube tu rama** (`git push -u origin mi-cambio`) y abre un **Pull Request
+   hacia `servidor-universidad`**, todavía no hacia `main`. Cuando se una…
+4. **…publícalo en el servidor:**
+   ```
+   ssh ssh-software
+   sudo -i
+   cd /home/remoto1/mdrmarket/servidor
+   ./actualizar.sh
+   ```
+   `actualizar.sh` trae lo último de GitHub y vuelve a armar la API (1 a 3
+   minutos). **No toca la base ni las fotos.**
+5. **Revisa que funcione:**
+   - `curl -s http://127.0.0.1:8090/api`: tiene que decir `"base_de_datos":"conectada"`.
+   - La app web, en la dirección pública. La temporal se ve con
+     `./direccion_temporal.sh`.
+
+### 4. Comandos útiles
+
+Siempre después de `sudo -i` y `cd /home/remoto1/mdrmarket/servidor`:
+
+| Para… | Comando |
+|---|---|
+| Ver si todo está encendido | `docker compose ps` |
+| Ver errores de la API | `docker compose logs --tail 100 api` |
+| Respaldar la base ahora | `docker compose exec respaldo bash /respaldo.sh ahora` |
+| Consola de MySQL | `docker compose exec db sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" mdrmarket_new'` |
+| Ver la dirección pública temporal | `./direccion_temporal.sh` |
+
+### 5. Cambios en la base de datos
+
+1. **Haz primero un respaldo** (ver la tabla de arriba).
+2. **Aplica el archivo SQL** del cambio:
+   ```
+   # en tu PC
+   scp cambio.sql ssh-software:/tmp/
+   # en el servidor (después de sudo -i y cd …/servidor)
+   docker compose exec -T db sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" mdrmarket_new' < /tmp/cambio.sql
+   rm /tmp/cambio.sql
+   ```
+3. **Deja el mismo cambio en el
+   [repo de la base](https://github.com/RaschifDaguer/MDRmarket_2.0_docker)**
+   (carpeta `cambios/` y script maestro).
+
+**Nunca uses `./importar_base.sh` con el script maestro:** reemplaza toda la
+base y borra los datos reales.
+
+### 6. Lo que nunca hay que hacer
+
+- `docker compose down -v`: el `-v` **borra la base y todas las fotos**.
+- Tocar los contenedores o carpetas de otros grupos (`proyecto-warnes`,
+  `parasitos-app`…) o usar sus puertos (80, 3306, 5173 y 8081).
+- Cambiar la contraseña de `remoto`: la usan otros grupos.
+- Subir a GitHub o a grupos de chat contraseñas, `.env`, `key.properties`, el
+  `.jks` o la clave de Google.
+
+### 7. Si vas a armar el APK
+
+Pídele a Raschif **por privado**:
+- la llave del proyecto: `mdrmarket-release.jks` y `key.properties`;
+- `dart_defines.local.json`, con la clave de Google Maps.
+
+Con la llave del proyecto el mapa funciona en cualquier PC sin registrar nada
+nuevo en Google. Detalles en
+[app/README.md](app/README.md#llave-de-firma-del-proyecto-una-sola-huella-sha-1).
 
 ---
 

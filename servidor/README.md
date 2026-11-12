@@ -48,14 +48,20 @@ Host ssh-software
   ProxyCommand cloudflared access ssh --hostname %h
 ```
 
-Luego `ssh ssh-software` y `cd /home/remoto1/mdrmarket/servidor`.
+Luego:
+```
+ssh ssh-software
+sudo -i
+cd /home/remoto1/mdrmarket/servidor
+```
 
 **Permisos:**
-- La carpeta es de `remoto1`. Desde otra cuenta se entra con `sudo`
-  (por ejemplo `sudo -i`, y después `cd`).
-- `remoto1` no está en el grupo `docker`, así que los comandos de abajo van con
-  **`sudo`** delante. Si el administrador agrega `remoto1` al grupo `docker`, ya
-  no hace falta.
+- La carpeta es de `remoto1`. Desde `remoto` no se puede abrir sin pasar
+  antes a administrador con `sudo -i`, que pide la misma contraseña.
+- Ya como administrador, los comandos de abajo funcionan con o sin el `sudo`
+  de adelante.
+- `remoto1` no está en el grupo `docker`. Si el administrador la agrega, desde
+  esa cuenta ya no hace falta `sudo`.
 
 ## Dirección pública
 
