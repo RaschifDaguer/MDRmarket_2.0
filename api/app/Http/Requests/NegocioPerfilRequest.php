@@ -54,7 +54,7 @@ class NegocioPerfilRequest extends FormRequest
             'razon_social' => 'nombre para facturas',
             'latitud' => 'ubicación',
             'longitud' => 'ubicación',
-            'tiempo_preparacion_min' => 'tiempo de preparación',
+            'tiempo_preparacion_min' => 'tiempo para alistar un pedido',
             'pedido_minimo' => 'pedido mínimo',
             'foto' => 'foto del negocio',
         ];
