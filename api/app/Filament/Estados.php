@@ -37,7 +37,7 @@ class Estados
     public const PEDIDO = [
         'pendiente' => 'Esperando al negocio',
         'confirmado' => 'Aceptado',
-        'preparando' => 'Preparando',
+        'preparando' => 'Alistando',
         'listo' => 'Listo',
         'en_camino' => 'En camino',
         'entregado' => 'Entregado',

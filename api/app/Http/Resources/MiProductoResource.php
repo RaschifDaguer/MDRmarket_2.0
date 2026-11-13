@@ -32,7 +32,7 @@ class MiProductoResource extends JsonResource
             'oferta_inicio' => $this->oferta_inicio,
             'oferta_fin' => $this->oferta_fin,
             'en_oferta' => $this->enOferta(),
-            // null = sin control de stock (ej. comida hecha al momento)
+            // null = sin control de stock (ej. algo hecho a pedido)
             'stock' => $this->stock,
             'disponible' => (bool) $this->disponible,
             // Vehículo mínimo para llevarlo: 1 moto, 2 auto, 3 camión.

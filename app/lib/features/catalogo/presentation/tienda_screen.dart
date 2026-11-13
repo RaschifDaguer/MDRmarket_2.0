@@ -139,7 +139,7 @@ class _Cabecera extends StatelessWidget {
             children: [
               if (tienda.direccion != null) _Dato(icono: Icons.place_outlined, texto: tienda.direccion!),
               if (tienda.tiempoPreparacionMin != null)
-                _Dato(icono: Icons.timer_outlined, texto: 'Prepara en ~${tienda.tiempoPreparacionMin} min'),
+                _Dato(icono: Icons.timer_outlined, texto: 'Listo en ~${tienda.tiempoPreparacionMin} min'),
               if (tienda.pedidoMinimo > 0)
                 _Dato(icono: Icons.shopping_basket_outlined, texto: 'Pedido mínimo ${Formato.bs(tienda.pedidoMinimo)}'),
               if (tienda.telefono != null) _Dato(icono: Icons.phone_outlined, texto: tienda.telefono!),

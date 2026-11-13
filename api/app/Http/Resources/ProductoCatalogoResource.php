@@ -22,7 +22,7 @@ class ProductoCatalogoResource extends JsonResource
             'precio_final' => $this->precio_final,
             'en_oferta' => (bool) $this->en_oferta,
             'descuento_pct' => (int) $this->descuento_pct,
-            // null = sin control de stock (ej. comida hecha al momento)
+            // null = sin control de stock (ej. algo hecho a pedido)
             'stock' => $this->stock === null ? null : (int) $this->stock,
             'rating_promedio' => $this->rating_promedio === null ? null : (float) $this->rating_promedio,
             'total_resenas' => (int) $this->total_resenas,

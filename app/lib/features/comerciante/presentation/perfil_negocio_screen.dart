@@ -14,7 +14,7 @@ import '../domain/negocio.dart';
 import 'con_negocio.dart';
 
 /// Editar el perfil del negocio: foto, nombre, rubro, ubicación, pedido
-/// mínimo, tiempo de preparación y datos para facturas.
+/// mínimo, tiempo para alistar un pedido y datos para facturas.
 class PerfilNegocioScreen extends StatelessWidget {
   const PerfilNegocioScreen({super.key});
 
@@ -190,7 +190,7 @@ class _PerfilState extends ConsumerState<_Perfil> {
                   child: TextFormField(
                     controller: _tiempo,
                     keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(labelText: 'Tiempo de preparación', suffixText: 'min'),
+                    decoration: const InputDecoration(labelText: 'Tiempo para alistar un pedido', suffixText: 'min'),
                     forceErrorText: _errores['tiempo_preparacion_min'],
                   ),
                 ),

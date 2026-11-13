@@ -13,7 +13,7 @@ import '../domain/negocio.dart';
 import 'con_negocio.dart';
 
 /// Un pedido que llegó al negocio: cliente, dirección, productos y los
-/// botones para avanzarlo (aceptar, preparar, listo). Lo recoge y lo entrega
+/// botones para avanzarlo (aceptar, alistar, listo). Lo recoge y lo entrega
 /// un repartidor de la app: aquí se ve "Buscando repartidor…" o quién lo lleva.
 class PedidoNegocioScreen extends StatelessWidget {
   const PedidoNegocioScreen({super.key, required this.pedidoId});
