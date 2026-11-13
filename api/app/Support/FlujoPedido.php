@@ -188,7 +188,7 @@ class FlujoPedido
         return [
             'pendiente' => 'esperando al negocio',
             'confirmado' => 'aceptado',
-            'preparando' => 'en preparación',
+            'preparando' => 'alistándose',
             'listo' => 'listo',
             'en_camino' => 'en camino',
             'entregado' => 'entregado',
@@ -209,7 +209,7 @@ class FlujoPedido
 
         $titulos = [
             'confirmado' => 'El negocio aceptó tu pedido',
-            'preparando' => 'Están preparando tu pedido',
+            'preparando' => 'Están alistando tu pedido',
             'listo' => 'Tu pedido está listo',
             'en_camino' => 'Tu pedido va en camino',
             'entregado' => 'Pedido entregado. ¡Califícalo!',

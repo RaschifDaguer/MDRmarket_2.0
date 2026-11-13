@@ -27,7 +27,7 @@ const _flotantes = [
   _Flotante(Icons.pets_outlined, Alignment(0.96, -0.05), 20, 0.35, 5.2),
   _Flotante(Icons.phone_iphone_outlined, Alignment(-0.96, 0.10), 22, 0.45, 0.7),
   _Flotante(Icons.local_pharmacy_outlined, Alignment(0.80, -0.75), 24, 0.55, 1.3),
-  _Flotante(Icons.fastfood_outlined, Alignment(-0.62, 0.78), 26, 0.70, 2.1),
+  _Flotante(Icons.handyman_outlined, Alignment(-0.62, 0.78), 26, 0.70, 2.1),
   _Flotante(Icons.shopping_cart_outlined, Alignment(0.40, 0.95), 22, 0.60, 3.0),
   _Flotante(Icons.shopping_bag_outlined, Alignment(-0.82, -0.62), 30, 0.90, 0.0),
   _Flotante(Icons.headphones_outlined, Alignment(0.74, 0.58), 30, 1.00, 3.4),

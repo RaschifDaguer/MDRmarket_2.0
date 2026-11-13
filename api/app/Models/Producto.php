@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
  * Producto de un negocio. Siempre va en una subcategoría (lo exige
- * trg_producto_bi). `stock` NULL = sin control de stock (comida al momento).
+ * trg_producto_bi). `stock` NULL = sin control de stock (hecho a pedido).
  * El stock lo descuenta la base al pedir y lo suma al registrar una compra.
  */
 class Producto extends Model
