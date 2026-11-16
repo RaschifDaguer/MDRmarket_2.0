@@ -7,6 +7,7 @@ use App\Models\Negocio;
 use App\Models\Notificacion;
 use App\Models\Pedido;
 use App\Models\Producto;
+use App\Models\RegistroComercio;
 use App\Models\Repartidor;
 use App\Models\Usuario;
 use App\Support\CobroQr;
@@ -17,6 +18,7 @@ use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use Laravel\Sanctum\Sanctum;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -45,6 +47,7 @@ class ReglaPedidosTest extends TestCase
         // Plazos de la regla (los de la base de producción).
         $this->plazo('minutos_para_aceptar', 1);
         $this->plazo('minutos_listo_sin_repartidor', 30);
+        $this->plazo('minutos_para_pagar_qr', 10);
     }
 
     // ---------- La tienda: aceptar o rechazar, y después ya no cancelar ----------
@@ -142,7 +145,7 @@ class ReglaPedidosTest extends TestCase
             ->where('titulo', "El pedido #{$pedido->id} se rechazó solo")->exists());
 
         // Pasar otra vez no cambia nada (no se rechaza dos veces).
-        $this->assertSame(['rechazados' => 0, 'cancelados' => 0], VencimientoPedidos::ejecutar());
+        $this->assertSame(['rechazados' => 0, 'sin_pago' => 0, 'cancelados' => 0], VencimientoPedidos::ejecutar());
     }
 
     public function test_si_la_tienda_acepta_a_tiempo_no_se_rechaza(): void
@@ -185,8 +188,9 @@ class ReglaPedidosTest extends TestCase
         $pedido = $this->crearPedido($this->negocio, $this->producto);
         $pedido->forceFill(['metodo_pago' => 'qr', 'referencia_pago' => CobroQr::nuevaReferencia()])->save();
 
-        // Sin pagar, la tienda no puede aceptarlo: el plazo todavía no corre.
-        $this->travel(10)->minutes();
+        // Sin pagar, la tienda no puede aceptarlo: su plazo todavía no corre
+        // (y el cliente tiene 10 minutos para pagar).
+        $this->travel(5)->minutes();
         $this->vencer();
         $this->assertSame('pendiente', $pedido->refresh()->estado);
 
@@ -201,6 +205,91 @@ class ReglaPedidosTest extends TestCase
         $this->assertSame('rechazado', $pedido->estado);
         $this->assertSame('reembolsado', $pedido->estado_pago);
         $this->assertTrue(Notificacion::where('usuario_id', $pedido->comprador_id)->where('tipo', 'pago_devuelto')->exists());
+    }
+
+    // ---------- El cliente no paga el QR: se cancela solo ----------
+
+    public function test_qr_sin_pagar_se_cancela_solo_a_los_10_minutos_y_libera_el_stock(): void
+    {
+        $pedido = $this->pedidoQr(cantidad: 3);
+        $this->assertSame(7, $this->producto->refresh()->stock);
+
+        $this->travel(9)->minutes();
+        $this->vencer();
+        $this->assertSame('pendiente', $pedido->refresh()->estado);
+
+        $this->travel(61)->seconds();
+        $this->vencer();
+        $pedido->refresh();
+        $this->assertSame('cancelado', $pedido->estado);
+        $this->assertSame(VencimientoPedidos::MOTIVO_SIN_PAGO, $pedido->motivo_cancelacion);
+        // No se cobró nada: no hay nada que reembolsar.
+        $this->assertSame('pendiente', $pedido->estado_pago);
+        $this->assertSame('sistema', $pedido->historial()->get()->last()->rol);
+        $this->assertSame(10, $this->producto->refresh()->stock);
+
+        // Se enteran el cliente (con el motivo) y la tienda.
+        $this->assertTrue(Notificacion::where('usuario_id', $pedido->comprador_id)->where('pedido_id', $pedido->id)
+            ->where('tipo', 'pedido_cancelado')->where('cuerpo', VencimientoPedidos::MOTIVO_SIN_PAGO)->exists());
+        $this->assertTrue(Notificacion::where('usuario_id', $this->negocio->usuario_id)->where('pedido_id', $pedido->id)
+            ->where('titulo', "El pedido #{$pedido->id} se canceló solo")->where('cuerpo', VencimientoPedidos::MOTIVO_SIN_PAGO)->exists());
+        $this->assertFalse(Notificacion::where('pedido_id', $pedido->id)->where('tipo', 'pago_devuelto')->exists());
+
+        // Ya cancelado, no se puede pagar.
+        Sanctum::actingAs($pedido->comprador);
+        $this->postJson("/api/pedidos/{$pedido->id}/pago-qr")
+            ->assertUnprocessable()
+            ->assertJsonPath('errors.pago.0', 'Este pedido ya fue cancelado: no se puede pagar.');
+    }
+
+    public function test_si_paga_a_tiempo_no_se_cancela_por_falta_de_pago(): void
+    {
+        $pedido = $this->pedidoQr();
+        $this->travel(9)->minutes();
+        CobroQr::procesar($pedido);
+        // La tienda lo acepta enseguida.
+        FlujoPedido::cambiar($pedido, 'confirmado', $this->negocio->usuario, 'comerciante');
+
+        $this->travel(30)->minutes();
+        $this->vencer();
+        $pedido->refresh();
+        $this->assertSame('confirmado', $pedido->estado);
+        $this->assertSame('pagado', $pedido->estado_pago);
+    }
+
+    public function test_el_sistema_no_cancela_por_falta_de_pago_un_pedido_ya_pagado(): void
+    {
+        // Pagó justo antes de que la tarea lo tocara: no se cancela.
+        $pedido = $this->pedidoQr();
+        CobroQr::procesar($pedido);
+
+        $this->expectException(ValidationException::class);
+        FlujoPedido::cambiar($pedido, 'cancelado', null, 'sistema', VencimientoPedidos::MOTIVO_SIN_PAGO);
+    }
+
+    public function test_el_plazo_para_pagar_se_cambia_en_configuracion(): void
+    {
+        $this->plazo('minutos_para_pagar_qr', 3);
+        $pedido = $this->pedidoQr();
+
+        $this->travel(2)->minutes();
+        $this->vencer();
+        $this->assertSame('pendiente', $pedido->refresh()->estado);
+
+        $this->travel(61)->seconds();
+        $this->vencer();
+        $this->assertSame('cancelado', $pedido->refresh()->estado);
+    }
+
+    public function test_efectivo_no_se_cancela_por_falta_de_pago(): void
+    {
+        // En efectivo se paga al recibir: lo que vence es la respuesta de la tienda.
+        $pedido = $this->crearPedido($this->negocio, $this->producto);
+        $this->travel(15)->minutes();
+        $this->vencer();
+        $pedido->refresh();
+        $this->assertSame('rechazado', $pedido->estado);
+        $this->assertSame(VencimientoPedidos::MOTIVO_SIN_RESPUESTA, $pedido->motivo_cancelacion);
     }
 
     // ---------- Ningún repartidor lo toma: se cancela solo ----------
@@ -301,6 +390,43 @@ class ReglaPedidosTest extends TestCase
         $this->assertSame(10, $this->producto->refresh()->stock);
     }
 
+    // ---------- Comisión: sobre la venta, no sobre el envío ----------
+
+    public function test_la_comision_es_el_8_por_ciento_de_los_productos_y_el_envio_es_del_repartidor(): void
+    {
+        DB::table('configuracion')->where('clave', 'comision_plataforma_pct')->update(['valor' => '8']);
+        $producto = $this->crearProducto($this->negocio, ['precio' => 50, 'costo' => 30, 'stock' => 10]);
+        Sanctum::actingAs($this->crearUsuario());
+
+        $id = $this->postJson('/api/pedidos', [
+            'negocio_id' => $this->negocio->id,
+            'direccion' => 'Calle Libertad 123',
+            'latitud' => -17.79,
+            'longitud' => -63.18,
+            'metodo_pago' => 'efectivo',
+            'items' => [['producto_id' => $producto->id, 'cantidad' => 2]],
+        ])->assertCreated()->json('id');
+
+        $pedido = Pedido::find($id);
+        $this->assertEquals(100, $pedido->subtotal);
+        $this->assertGreaterThan(0, (float) $pedido->costo_envio);
+        // 8 % de Bs 100 de productos; el envío no paga comisión.
+        $this->assertEquals(8, $pedido->comision_plataforma);
+        // El cliente no paga la comisión: el total es productos + envío.
+        $this->assertEquals(100 + (float) $pedido->costo_envio, (float) $pedido->total);
+
+        $repartidor = $this->crearRepartidor(placa: 'C-8');
+        $this->entregarPedido($pedido, $repartidor);
+
+        // Al entregar, la base anota la comisión como gasto del negocio.
+        $this->assertEquals(8, RegistroComercio::where('pedido_id', $id)->where('tipo', 'comision')->value('egreso'));
+        // El repartidor gana todo el envío.
+        Sanctum::actingAs($repartidor);
+        $this->getJson('/api/repartidor/entregas')
+            ->assertOk()
+            ->assertJsonPath('resumen.total_envios', number_format((float) $pedido->costo_envio, 2, '.', ''));
+    }
+
     // ---------- La tarea automática ----------
 
     public function test_la_tarea_automatica_esta_programada(): void
@@ -311,7 +437,7 @@ class ReglaPedidosTest extends TestCase
         $pedido = $this->crearPedido($this->negocio, $this->producto);
         $this->travel(2)->minutes();
         $this->artisan('pedidos:vencer')
-            ->expectsOutput('Rechazados sin respuesta: 1. Cancelados sin repartidor: 0.')
+            ->expectsOutput('Rechazados sin respuesta: 1. Cancelados sin pago QR: 0. Cancelados sin repartidor: 0.')
             ->assertSuccessful();
         $this->assertSame('rechazado', $pedido->refresh()->estado);
     }
@@ -326,6 +452,15 @@ class ReglaPedidosTest extends TestCase
     private function plazo(string $clave, int $minutos): void
     {
         DB::table('configuracion')->updateOrInsert(['clave' => $clave], ['valor' => (string) $minutos, 'tipo' => 'int', 'updated_at' => now()]);
+    }
+
+    /** Pedido nuevo con QR, todavía sin pagar. */
+    private function pedidoQr(int $cantidad = 1): Pedido
+    {
+        $pedido = $this->crearPedido($this->negocio, $this->producto, $cantidad);
+        $pedido->forceFill(['metodo_pago' => 'qr', 'referencia_pago' => CobroQr::nuevaReferencia()])->save();
+
+        return $pedido->refresh();
     }
 
     /** Pedido que la tienda dejó listo (con el historial, como en la vida real). */

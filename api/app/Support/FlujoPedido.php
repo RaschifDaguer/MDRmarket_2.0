@@ -24,8 +24,9 @@ use Illuminate\Validation\ValidationException;
  * el PIN). Antes de recogerlo puede soltarlo y vuelve a quedar disponible.
  *
  * El "sistema" (tarea automática, ver VencimientoPedidos) rechaza el pedido
- * nuevo que el negocio no respondió a tiempo y cancela el "listo" que ningún
- * repartidor tomó. El admin puede cancelar a mano antes de que llegue.
+ * nuevo que el negocio no respondió a tiempo, cancela el que el cliente no
+ * pagó con QR a tiempo y cancela el "listo" que ningún repartidor tomó. El
+ * admin puede cancelar a mano antes de que llegue.
  * Al entregar, la base (trg_pedido_au) registra la venta; al cancelar o
  * rechazar, devuelve el stock.
  */
@@ -44,7 +45,8 @@ class FlujoPedido
             'preparando' => ['listo'],
         ],
         'sistema' => [
-            'pendiente' => ['rechazado'],
+            // Rechazado: la tienda no respondió. Cancelado: el cliente no pagó el QR.
+            'pendiente' => ['rechazado', 'cancelado'],
             'listo' => ['cancelado'],
         ],
         'repartidor' => [
@@ -87,6 +89,12 @@ class FlujoPedido
             // Pudo soltarlo (o tomarlo otro) justo antes: solo lo mueve quien lo lleva.
             if ($rol === 'repartidor' && (int) $pedido->repartidor_id !== (int) $quien?->id) {
                 throw ValidationException::withMessages(['estado' => 'Este pedido ya no está a tu cargo.']);
+            }
+
+            // El sistema cancela un pedido nuevo solo si sigue sin pagar: si el
+            // cliente pagó justo antes, ya no se cancela.
+            if ($rol === 'sistema' && $anterior === 'pendiente' && $nuevo === 'cancelado' && ! CobroQr::esperandoPago($pedido)) {
+                throw ValidationException::withMessages(['estado' => 'El cliente ya pagó este pedido.']);
             }
 
             if ($nuevo === 'confirmado' && CobroQr::esperandoPago($pedido)) {

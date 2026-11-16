@@ -6,13 +6,15 @@ use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
 
 // Pedidos que nadie atendió a tiempo: rechaza los nuevos que la tienda no
-// respondió y cancela los listos que ningún repartidor tomó (ver
-// VencimientoPedidos). Lo corre solo el programador (abajo); también a mano:
+// respondió, cancela los QR que no se pagaron y los listos que ningún
+// repartidor tomó (ver VencimientoPedidos). Lo corre solo el programador
+// (abajo); también a mano:
 //   php artisan pedidos:vencer
 Artisan::command('pedidos:vencer', function () {
     $hechos = VencimientoPedidos::ejecutar();
-    if ($hechos['rechazados'] || $hechos['cancelados']) {
-        $this->info("Rechazados sin respuesta: {$hechos['rechazados']}. Cancelados sin repartidor: {$hechos['cancelados']}.");
+    if (array_sum($hechos) > 0) {
+        $this->info("Rechazados sin respuesta: {$hechos['rechazados']}. Cancelados sin pago QR: {$hechos['sin_pago']}. "
+            ."Cancelados sin repartidor: {$hechos['cancelados']}.");
     }
 
     return 0;
