@@ -45,12 +45,16 @@ class _DetalleState extends ConsumerState<_Detalle> {
   ({int negocioId, int pedidoId}) get _id => (negocioId: widget.negocio.id, pedidoId: widget.pedidoId);
 
   Future<void> _avanzar(EstadoPedido estado) async {
-    // El local llega hasta "listo"; recoger y entregar (con el PIN) lo hace el repartidor.
+    // Un pedido nuevo se acepta o se rechaza (con motivo); una vez aceptado ya
+    // no se cancela. El local llega hasta "listo"; recoger y entregar (con el
+    // PIN) lo hace el repartidor.
     String? motivo;
-    if (estado == EstadoPedido.rechazado || estado == EstadoPedido.cancelado) {
-      motivo = await _pedirTexto(
-        titulo: estado == EstadoPedido.rechazado ? '¿Por qué lo rechazas?' : '¿Por qué lo cancelas?',
-        ayuda: 'El cliente verá este motivo. Ej.: "Nos quedamos sin stock".',
+    if (estado.fallido) {
+      motivo = await showDialog<String>(
+        context: context,
+        builder: (_) => DialogoMotivo(
+          titulo: estado == EstadoPedido.rechazado ? '¿Por qué lo rechazas?' : '¿Por qué lo cancelas?',
+        ),
       );
       if (motivo == null) return;
     }
@@ -74,37 +78,6 @@ class _DetalleState extends ConsumerState<_Detalle> {
     } finally {
       if (mounted) setState(() => _cambiando = false);
     }
-  }
-
-  Future<String?> _pedirTexto({required String titulo, required String ayuda}) async {
-    final control = TextEditingController();
-    final valor = await showDialog<String>(
-      context: context,
-      builder: (contexto) => AlertDialog(
-        title: Text(titulo),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(ayuda),
-            const SizedBox(height: AppEspacios.m),
-            TextField(
-              key: const Key('campo-motivo'),
-              controller: control,
-              autofocus: true,
-              maxLength: 255,
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(contexto), child: const Text('Cancelar')),
-          TextButton(onPressed: () => Navigator.pop(contexto, control.text.trim()), child: const Text('Confirmar')),
-        ],
-      ),
-    );
-    control.dispose();
-    if (valor == null || valor.isEmpty) return null;
-    return valor;
   }
 
   @override
@@ -250,6 +223,98 @@ class _DetalleState extends ConsumerState<_Detalle> {
       );
     }
     return null;
+  }
+}
+
+/// Motivo para rechazar un pedido: un motivo rápido ("Sin stock", "Estamos
+/// cerrando") o "Otro" con el texto. Con un motivo rápido el texto es un
+/// detalle opcional. Devuelve el motivo que verá el cliente, o null si cancela.
+class DialogoMotivo extends StatefulWidget {
+  const DialogoMotivo({super.key, required this.titulo});
+
+  final String titulo;
+
+  /// Motivos rápidos: [clave del botón, texto que se envía].
+  static const rapidos = [
+    ('sin-stock', 'Sin stock'),
+    ('cerrando', 'Estamos cerrando'),
+    ('otro', 'Otro'),
+  ];
+
+  @override
+  State<DialogoMotivo> createState() => _DialogoMotivoState();
+}
+
+class _DialogoMotivoState extends State<DialogoMotivo> {
+  final _texto = TextEditingController();
+  String? _elegido;
+
+  bool get _esOtro => _elegido == 'Otro';
+  String get _detalle => _texto.text.trim();
+
+  /// "Otro" necesita el texto; los demás pueden ir solos o con un detalle.
+  String? get _motivo {
+    if (_elegido == null) return null;
+    if (_esOtro) return _detalle.isEmpty ? null : _detalle;
+    return _detalle.isEmpty ? _elegido : '$_elegido: $_detalle';
+  }
+
+  @override
+  void dispose() {
+    _texto.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final motivo = _motivo;
+
+    return AlertDialog(
+      title: Text(widget.titulo),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text('El cliente verá este motivo.'),
+            const SizedBox(height: AppEspacios.m),
+            Wrap(
+              spacing: AppEspacios.s,
+              runSpacing: AppEspacios.s,
+              children: [
+                for (final (clave, texto) in DialogoMotivo.rapidos)
+                  ChoiceChip(
+                    key: Key('motivo-$clave'),
+                    label: Text(texto),
+                    selected: _elegido == texto,
+                    onSelected: (_) => setState(() => _elegido = texto),
+                  ),
+              ],
+            ),
+            const SizedBox(height: AppEspacios.m),
+            TextField(
+              key: const Key('campo-motivo'),
+              controller: _texto,
+              maxLength: 200,
+              autofocus: _esOtro,
+              onChanged: (_) => setState(() {}),
+              decoration: InputDecoration(
+                labelText: _esOtro ? 'Cuéntale al cliente qué pasó' : 'Detalle (opcional)',
+                hintText: _esOtro ? 'Ej.: el producto llegó dañado' : null,
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Volver')),
+        FilledButton(
+          key: const Key('confirmar-motivo'),
+          onPressed: motivo == null ? null : () => Navigator.pop(context, motivo),
+          child: const Text('Confirmar'),
+        ),
+      ],
+    );
   }
 }
 

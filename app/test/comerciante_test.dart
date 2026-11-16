@@ -217,7 +217,7 @@ void main() {
   });
 
   // El local no entrega: lo deja listo y un repartidor de la app lo lleva.
-  testWidgets('pedido listo sin repartidor: "Buscando repartidor…" y solo cancelar', (tester) async {
+  testWidgets('pedido listo sin repartidor: "Buscando repartidor…" y sin botones', (tester) async {
     final miNegocio = MiNegocioFalso();
     await abrirApp(tester, miNegocio: miNegocio);
 
@@ -230,11 +230,99 @@ void main() {
 
     expect(find.byKey(const Key('buscando-repartidor')), findsOneWidget);
     expect(find.text('Buscando repartidor…'), findsOneWidget);
-    // Sin botones para sacarlo ni entregarlo, ni PIN; puede cancelarlo.
+    // Sin botones para sacarlo ni entregarlo, ni PIN; aceptado, ya no lo puede cancelar.
     expect(find.byKey(const Key('accion-en_camino')), findsNothing);
     expect(find.byKey(const Key('accion-entregado')), findsNothing);
     expect(find.byKey(const Key('campo-pin')), findsNothing);
-    expect(find.byKey(const Key('accion-cancelado')), findsOneWidget);
+    expect(find.byKey(const Key('accion-cancelado')), findsNothing);
+    expect(tester.takeException(), isNull);
+    await cerrarApp(tester);
+  });
+
+  // Regla: un pedido nuevo se acepta o se rechaza (con un motivo rápido).
+  testWidgets('pedido nuevo: Aceptar o Rechazar con motivo rápido', (tester) async {
+    final miNegocio = MiNegocioFalso()
+      ..pedidoMostrado = pedidoDeEjemplo(
+        paraNegocio: true,
+        acciones: const [EstadoPedido.confirmado, EstadoPedido.rechazado],
+      );
+    await abrirApp(tester, miNegocio: miNegocio);
+
+    await tester.tap(find.text('Pedidos'));
+    await esperar(tester);
+    await tester.tap(find.byKey(const Key('pedido-negocio-42')));
+    await esperar(tester);
+
+    expect(find.byKey(const Key('accion-confirmado')), findsOneWidget);
+    expect(find.text('Aceptar'), findsOneWidget);
+    expect(find.text('Rechazar pedido'), findsOneWidget);
+    expect(find.byKey(const Key('accion-cancelado')), findsNothing);
+
+    await tester.tap(find.byKey(const Key('accion-rechazado')));
+    await esperar(tester);
+    expect(find.text('¿Por qué lo rechazas?'), findsOneWidget);
+    expect(find.text('Sin stock'), findsOneWidget);
+    expect(find.text('Estamos cerrando'), findsOneWidget);
+    expect(find.text('Otro'), findsOneWidget);
+
+    // Sin elegir motivo no se puede confirmar.
+    final confirmar = find.byKey(const Key('confirmar-motivo'));
+    expect(tester.widget<FilledButton>(confirmar).onPressed, isNull);
+
+    // "Otro" necesita el texto.
+    await tester.tap(find.byKey(const Key('motivo-otro')));
+    await tester.pump();
+    expect(tester.widget<FilledButton>(confirmar).onPressed, isNull);
+
+    // Motivo rápido con un detalle opcional.
+    await tester.tap(find.byKey(const Key('motivo-sin-stock')));
+    await tester.pump();
+    expect(tester.widget<FilledButton>(confirmar).onPressed, isNotNull);
+    await tester.enterText(find.byKey(const Key('campo-motivo')), 'Se acabó el pollo');
+    await tester.pump();
+    await tester.tap(confirmar);
+    await esperar(tester);
+
+    expect(miNegocio.cambios, [EstadoPedido.rechazado]);
+    expect(miNegocio.motivos, ['Sin stock: Se acabó el pollo']);
+    expect(tester.takeException(), isNull);
+    await cerrarApp(tester);
+  });
+
+  testWidgets('rechazar con "Otro": se envía el texto escrito', (tester) async {
+    final miNegocio = MiNegocioFalso()
+      ..pedidoMostrado = pedidoDeEjemplo(
+        paraNegocio: true,
+        acciones: const [EstadoPedido.confirmado, EstadoPedido.rechazado],
+      );
+    await abrirApp(tester, miNegocio: miNegocio);
+
+    await tester.tap(find.text('Pedidos'));
+    await esperar(tester);
+    await tester.tap(find.byKey(const Key('pedido-negocio-42')));
+    await esperar(tester);
+    await tester.tap(find.byKey(const Key('accion-rechazado')));
+    await esperar(tester);
+
+    await tester.tap(find.byKey(const Key('motivo-otro')));
+    await tester.pump();
+    await tester.enterText(find.byKey(const Key('campo-motivo')), '  No llegamos a esa zona  ');
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('confirmar-motivo')));
+    await esperar(tester);
+
+    expect(miNegocio.motivos, ['No llegamos a esa zona']);
+    expect(tester.takeException(), isNull);
+    await cerrarApp(tester);
+  });
+
+  testWidgets('Más: las entregas las hace un repartidor de MDR Market', (tester) async {
+    await abrirApp(tester);
+    await tester.tap(find.text('Más'));
+    await esperar(tester);
+
+    expect(find.textContaining('Las entregas las hace un repartidor de MDR Market'), findsOneWidget);
+    expect(find.textContaining('propio delivery'), findsNothing);
     expect(tester.takeException(), isNull);
     await cerrarApp(tester);
   });

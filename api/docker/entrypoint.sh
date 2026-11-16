@@ -32,4 +32,21 @@ chown www-data:www-data /var/www/html/storage/app /var/www/html/storage/app/publ
 php artisan config:cache
 php artisan route:cache
 
+# Tareas automáticas (ver routes/console.php): rechazar los pedidos que la
+# tienda no respondió y cancelar los listos que ningún repartidor tomó.
+# Corren en segundo plano en este mismo contenedor, así funcionan igual en
+# Railway y en el servidor de la universidad sin configurar un cron aparte.
+# Con TAREAS_AUTOMATICAS=0 no se arrancan (ej. si hubiera dos copias de la
+# API, para que corran en una sola; aunque corran dos, no hacen nada doble).
+# Corren como www-data (igual que Apache) y, si se caen, vuelven a arrancar.
+if [ "${TAREAS_AUTOMATICAS:-1}" != "0" ]; then
+    su -s /bin/sh www-data -c '
+        while true; do
+            /usr/local/bin/php /var/www/html/artisan schedule:work --no-interaction > /dev/null
+            echo "Las tareas automáticas se detuvieron; se vuelven a arrancar en 10 s." >&2
+            sleep 10
+        done
+    ' &
+fi
+
 exec apache2-foreground

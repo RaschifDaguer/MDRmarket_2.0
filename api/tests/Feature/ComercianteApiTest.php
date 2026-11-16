@@ -120,8 +120,8 @@ class ComercianteApiTest extends TestCase
         foreach (['confirmado', 'preparando', 'listo'] as $estado) {
             $this->putJson("$url/{$pedido->id}/estado", ['estado' => $estado])->assertOk()->assertJsonPath('estado', $estado);
         }
-        // Listo: el local ya no lo saca a entregar; espera a un repartidor (o lo cancela).
-        $this->getJson("$url/{$pedido->id}")->assertJsonPath('acciones', ['cancelado'])->assertJsonPath('repartidor', null);
+        // Listo: el local ya no lo saca a entregar ni lo cancela; espera a un repartidor.
+        $this->getJson("$url/{$pedido->id}")->assertJsonPath('acciones', [])->assertJsonPath('repartidor', null);
 
         // Un repartidor lo acepta, lo recoge y lo entrega con el PIN del cliente.
         Sanctum::actingAs($this->crearRepartidor());

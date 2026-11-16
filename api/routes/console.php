@@ -1,7 +1,28 @@
 <?php
 
 use App\Models\Usuario;
+use App\Support\VencimientoPedidos;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Schedule;
+
+// Pedidos que nadie atendió a tiempo: rechaza los nuevos que la tienda no
+// respondió y cancela los listos que ningún repartidor tomó (ver
+// VencimientoPedidos). Lo corre solo el programador (abajo); también a mano:
+//   php artisan pedidos:vencer
+Artisan::command('pedidos:vencer', function () {
+    $hechos = VencimientoPedidos::ejecutar();
+    if ($hechos['rechazados'] || $hechos['cancelados']) {
+        $this->info("Rechazados sin respuesta: {$hechos['rechazados']}. Cancelados sin repartidor: {$hechos['cancelados']}.");
+    }
+
+    return 0;
+})->purpose('Rechaza o cancela los pedidos que nadie atendió a tiempo');
+
+// Tareas automáticas. Las corre `php artisan schedule:work`, que el contenedor
+// de la API arranca solo (docker/entrypoint.sh, variable TAREAS_AUTOMATICAS).
+// Cada 15 segundos: con un plazo de 1 minuto, el pedido se rechaza entre los
+// 60 y los 75 segundos. Sin superponerse si una pasada tarda.
+Schedule::command('pedidos:vencer')->everyFifteenSeconds()->withoutOverlapping(5);
 
 // Da permiso de administrador (panel /admin) a una cuenta ya registrada en la app.
 //   php artisan mdr:admin correo@ejemplo.com

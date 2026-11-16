@@ -61,8 +61,8 @@ class MasTab extends StatelessWidget {
                 const EstadoVacio(
                   icono: Icons.delivery_dining_outlined,
                   titulo: 'Entregas',
-                  texto: 'Por ahora entregas con tu propio delivery: al llegar, pide al cliente su PIN de 4 '
-                      'números y marca el pedido como entregado.',
+                  texto: 'Las entregas las hace un repartidor de MDR Market. Tú solo alistas el pedido y lo '
+                      'marcas como listo; nosotros buscamos al repartidor.',
                 ),
               ],
             ),

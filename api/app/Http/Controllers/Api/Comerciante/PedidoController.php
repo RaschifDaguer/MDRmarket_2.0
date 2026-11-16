@@ -43,9 +43,10 @@ class PedidoController extends Controller
     }
 
     /**
-     * PUT /{pedido}/estado — aceptar, rechazar, preparando, listo o cancelar.
-     * "En camino" y "entregado" los hace el repartidor de la app (el local no
-     * tiene delivery propio).
+     * PUT /{pedido}/estado — aceptar o rechazar un pedido nuevo; después,
+     * preparando y listo. Una vez aceptado ya no se cancela. "En camino" y
+     * "entregado" los hace el repartidor de la app (el local no tiene delivery
+     * propio).
      */
     public function estado(Request $request, Negocio $negocio, Pedido $pedido): PedidoResource
     {
@@ -58,6 +59,11 @@ class PedidoController extends Controller
 
         if (in_array($datos['estado'], ['en_camino', 'entregado'], true)) {
             throw ValidationException::withMessages(['estado' => 'Solo el repartidor de la app recoge y entrega el pedido.']);
+        }
+        if ($datos['estado'] === 'cancelado') {
+            throw ValidationException::withMessages(['estado' => $pedido->estado === 'pendiente'
+                ? 'Para no atender un pedido nuevo, recházalo y dile al cliente por qué.'
+                : 'Un pedido aceptado ya no se puede cancelar. Si tienes un problema, avisa a MDR Market.']);
         }
 
         $pedido = FlujoPedido::cambiar($pedido, $datos['estado'], $request->user(), 'comerciante', $datos['motivo'] ?? null);

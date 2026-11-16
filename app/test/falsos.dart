@@ -268,6 +268,9 @@ class MiNegocioFalso extends MiNegocioRepository {
 
   final cambios = <EstadoPedido>[];
 
+  /// Motivo enviado con cada cambio (rechazar lleva motivo).
+  final motivos = <String?>[];
+
   /// El pedido que se abre (por defecto: listo y sin repartidor, "Buscando repartidor…").
   Pedido? pedidoMostrado;
 
@@ -315,18 +318,17 @@ class MiNegocioFalso extends MiNegocioRepository {
       );
 
   // El local llega hasta "listo": recoger y entregar lo hace el repartidor.
+  // Listo ya no tiene botones: aceptado, el local no lo puede cancelar.
   @override
   Future<Pedido> pedido(int negocioId, int pedidoId) async =>
-      pedidoMostrado ??
-      pedidoDeEjemplo(
-        paraNegocio: true,
-        estado: cambios.isEmpty ? EstadoPedido.listo : cambios.last,
-        acciones: cambios.isEmpty ? const [EstadoPedido.cancelado] : const [],
-      );
+      cambios.isNotEmpty
+          ? pedidoDeEjemplo(paraNegocio: true, estado: cambios.last)
+          : pedidoMostrado ?? pedidoDeEjemplo(paraNegocio: true, estado: EstadoPedido.listo);
 
   @override
   Future<Pedido> cambiarEstado(int negocioId, int pedidoId, EstadoPedido estado, {String? motivo, String? codigo}) async {
     cambios.add(estado);
+    motivos.add(motivo);
     return pedidoDeEjemplo(paraNegocio: true, estado: estado);
   }
 
