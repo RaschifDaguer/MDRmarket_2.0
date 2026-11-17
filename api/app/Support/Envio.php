@@ -87,7 +87,7 @@ class Envio
             * (float) Configuracion::valor('factor_ruta', 1.3), 2);
 
         // Preparación + trayecto; el rango ("15–25 min") da margen para encontrar repartidor.
-        $velocidad = max(1, (float) Configuracion::valor('velocidad_reparto_kmh', self::VELOCIDAD_KMH));
+        $velocidad = max(1, (float) Configuracion::valor('velocidad_promedio_kmh', self::VELOCIDAD_KMH));
         $minimo = (int) ($negocio->tiempo_preparacion_min ?? self::PREPARACION_MIN) + (int) ceil($km / $velocidad * 60);
 
         return [

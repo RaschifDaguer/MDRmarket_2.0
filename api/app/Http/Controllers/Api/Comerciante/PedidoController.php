@@ -71,6 +71,25 @@ class PedidoController extends Controller
         return new PedidoResource($this->conDetalle($pedido));
     }
 
+    /**
+     * PATCH /{pedido}/items/{item}/alistado — marca o desmarca un producto
+     * como alistado (la lista "Alista los productos"). Solo mientras el pedido
+     * está aceptado o alistándose.
+     */
+    public function alistado(Request $request, Negocio $negocio, Pedido $pedido, int $item): PedidoResource
+    {
+        $datos = $request->validate(['alistado' => ['required', 'boolean']]);
+        if (! in_array($pedido->estado, ['confirmado', 'preparando'], true)) {
+            throw ValidationException::withMessages([
+                'alistado' => 'Solo se marcan los productos de un pedido aceptado que estás alistando.',
+            ]);
+        }
+
+        $pedido->items()->findOrFail($item)->forceFill(['alistado' => $datos['alistado']])->save();
+
+        return new PedidoResource($this->conDetalle($pedido));
+    }
+
     private function conDetalle(Pedido $pedido): Pedido
     {
         return $pedido->refresh()->load(['negocio', 'comprador', 'items.producto.imagenPrincipal', 'historial', 'repartidor', 'vehiculo.tipo']);

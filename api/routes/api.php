@@ -162,6 +162,7 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::delete('productos/{producto}/fotos/{imagen}', [Comerciante\ProductoController::class, 'borrarFoto'])->whereNumber('imagen');
             Route::post('productos/{producto}/fotos/{imagen}/portada', [Comerciante\ProductoController::class, 'portada'])->whereNumber('imagen');
             Route::put('pedidos/{pedido}/estado', [Comerciante\PedidoController::class, 'estado']);
+            Route::patch('pedidos/{pedido}/items/{item}/alistado', [Comerciante\PedidoController::class, 'alistado'])->whereNumber('item');
             Route::post('registros', [Comerciante\RegistroController::class, 'store']);
             Route::delete('registros/{registro}', [Comerciante\RegistroController::class, 'destroy']);
             Route::put('resenas/{resena}/respuesta', [Comerciante\ResenaController::class, 'responder'])->withoutScopedBindings();

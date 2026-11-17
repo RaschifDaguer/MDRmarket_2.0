@@ -103,6 +103,7 @@ class PedidoResource extends JsonResource
                 'cantidad' => $item->cantidad,
                 'subtotal' => $item->subtotal,
                 'notas' => $item->notas,
+                'alistado' => (bool) $item->alistado,
             ])),
             'historial' => $this->whenLoaded('historial', fn () => $this->historial->map(fn ($h) => [
                 'estado' => $h->estado_nuevo,

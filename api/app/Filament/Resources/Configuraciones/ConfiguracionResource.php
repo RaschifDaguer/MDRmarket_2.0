@@ -32,6 +32,7 @@ class ConfiguracionResource extends Resource
         'minutos_listo_sin_repartidor' => [5, 1440, 'min'],
         'umbral_poco_stock' => [0, 1000, 'u.'],
         'radio_busqueda_repartidor_km' => [1, 50, 'km'],
+        'velocidad_promedio_kmh' => [5, 60, 'km/h'],
         'factor_ruta' => [1, 3, '×'],
     ];
 
