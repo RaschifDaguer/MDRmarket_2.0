@@ -444,6 +444,41 @@ class ReglaPedidosTest extends TestCase
 
     // ---------- Ayudas ----------
 
+    // ---------- La app del comercio: cuenta regresiva y lista ----------
+
+    public function test_la_tienda_ve_hasta_cuando_puede_aceptar_un_pedido_nuevo(): void
+    {
+        $this->freezeSecond();
+        $pedido = $this->crearPedido($this->negocio, $this->producto);
+        Sanctum::actingAs($this->negocio->usuario);
+        $url = "/api/negocios/{$this->negocio->id}/pedidos";
+
+        $limite = $pedido->refresh()->created_at->copy()->addMinute();
+        $this->getJson("$url/{$pedido->id}")->assertJsonPath('aceptar_antes', $limite->toJSON());
+        // En la lista, con sus productos (para la tarjeta) y el mismo plazo.
+        $this->getJson("$url?grupo=nuevos")
+            ->assertJsonPath('data.0.aceptar_antes', $limite->toJSON())
+            ->assertJsonPath('data.0.items.0.producto_id', $this->producto->id)
+            ->assertJsonPath('data.0.acciones', ['confirmado', 'rechazado']);
+
+        // Aceptado: ya no hay plazo.
+        $this->putJson("$url/{$pedido->id}/estado", ['estado' => 'confirmado'])->assertOk()->assertJsonMissingPath('aceptar_antes');
+        // El cliente nunca lo recibe.
+        Sanctum::actingAs($pedido->comprador);
+        $this->getJson("/api/pedidos/{$this->crearPedido($this->negocio, $this->producto)->id}")->assertJsonMissingPath('aceptar_antes');
+    }
+
+    public function test_con_qr_sin_pagar_la_cuenta_regresiva_no_empieza(): void
+    {
+        $pedido = $this->pedidoQr();
+        Sanctum::actingAs($this->negocio->usuario);
+        $url = "/api/negocios/{$this->negocio->id}/pedidos/{$pedido->id}";
+
+        $this->getJson($url)->assertJsonPath('aceptar_antes', null);
+        CobroQr::procesar($pedido);
+        $this->getJson($url)->assertJsonPath('aceptar_antes', $pedido->refresh()->pagado_en->copy()->addMinute()->toJSON());
+    }
+
     private function vencer(): void
     {
         $this->artisan('pedidos:vencer')->assertSuccessful();

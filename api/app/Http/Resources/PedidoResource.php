@@ -8,6 +8,7 @@ use App\Support\Archivos;
 use App\Support\CobroQr;
 use App\Support\FlujoPedido;
 use App\Support\RepartidoresCerca;
+use App\Support\VencimientoPedidos;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -62,6 +63,9 @@ class PedidoResource extends JsonResource
                 $rol === 'comerciante' && $this->estado === 'listo' && $this->repartidor_id === null && $this->relationLoaded('negocio'),
                 fn () => RepartidoresCerca::contar($this->resource)
             ),
+            // Al negocio, en un pedido nuevo: hasta cuándo puede aceptarlo (cuenta regresiva).
+            'aceptar_antes' => $this->when($rol === 'comerciante' && $this->estado === 'pendiente',
+                fn () => VencimientoPedidos::aceptarAntes($this->resource)),
             // Tamaño de vehículo que necesita: Liviano, Mediano o Grande.
             'tamano' => $this->whenLoaded('categoriaVehiculo', fn () => $this->categoriaVehiculo?->nombre),
             'direccion_entrega' => $this->direccion_entrega,

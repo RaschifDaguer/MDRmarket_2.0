@@ -4,6 +4,7 @@ namespace App\Support;
 
 use App\Models\Configuracion;
 use App\Models\Pedido;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
@@ -110,6 +111,23 @@ class VencimientoPedidos
         }
 
         return $hechos;
+    }
+
+    /**
+     * Hasta cuándo puede aceptar la tienda un pedido nuevo (para la cuenta
+     * regresiva). Null si no está esperando a la tienda o si el plazo todavía
+     * no corre (con QR, corre desde que el cliente pagó).
+     */
+    public static function aceptarAntes(Pedido $pedido): ?CarbonInterface
+    {
+        if ($pedido->estado !== 'pendiente') {
+            return null;
+        }
+        $desde = $pedido->metodo_pago === 'qr'
+            ? ($pedido->estado_pago === 'pagado' ? $pedido->pagado_en : null)
+            : $pedido->created_at;
+
+        return $desde?->copy()->addSeconds((int) round(self::minutos('minutos_para_aceptar', self::MINUTOS_PARA_ACEPTAR) * 60));
     }
 
     private static function minutos(string $clave, float $defecto): float

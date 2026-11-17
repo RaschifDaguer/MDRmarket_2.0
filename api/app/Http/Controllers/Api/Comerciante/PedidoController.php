@@ -28,7 +28,8 @@ class PedidoController extends Controller
 
         $pedidos = $negocio->pedidos()
             ->whereIn('estado', self::GRUPOS[$grupo])
-            ->with(['negocio', 'comprador'])
+            // Con los productos y quién lo lleva, para la tarjeta de la lista.
+            ->with(['negocio', 'comprador', 'items.producto.imagenPrincipal', 'repartidor', 'vehiculo.tipo'])
             ->withCount('items')
             ->when($grupo === 'terminados', fn ($q) => $q->latest('id'), fn ($q) => $q->oldest('id'))
             ->paginate(30);
