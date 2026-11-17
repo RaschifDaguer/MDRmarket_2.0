@@ -1,910 +1,520 @@
 # MDR Market 2.0
 
-App de delivery para **Santa Cruz de la Sierra**, del centro al 10mo anillo, con
-tres vistas en una sola cuenta:
+App de delivery para **Santa Cruz de la Sierra** (del centro al 10mo anillo).
+Una sola cuenta tiene tres vistas: **cliente** (compra), **comercio** (vende)
+y **repartidor** (lleva los pedidos).
 
-- **Cliente:** compra productos de los negocios y sigue su pedido.
-- **Repartidor:** lleva pedidos en moto, bicicleta, auto, camioneta o camión.
-- **Comerciante:** publica productos, recibe pedidos y ve sus ganancias.
-
-Cualquier usuario puede comprar. Si además se registra como repartidor o
-comerciante, aparece el botón **"cambiar vista"**.
-
-> 👋 **¿Recién llegas al proyecto?** Empieza por la
-> [Guía para el equipo](#guía-para-el-equipo): cómo configurar la app, crear tu
-> cuenta, hacerte administrador y qué puedes cambiar en el backend. Lo nuevo
-> está en [Cambios recientes](#cambios-recientes).
-
-## 🔗 Enlaces del proyecto
-
-| Qué | Enlace | Acceso |
+| Parte | Dónde está | Con qué está hecha |
 |---|---|---|
-| **Servidor de la universidad** (el único servidor: base, API, panel y app web) | Dirección definitiva (pendiente): `https://mdrmarket.sistemasunifranz.site`. Mientras tanto, una temporal `*.trycloudflare.com` que cambia al reiniciar (verla con `sudo ./direccion_temporal.sh`) | Por SSH: [cómo conectarte y publicar tus cambios](#-servidor-de-la-universidad-conectarte-y-publicar-tus-cambios) · manejo en [servidor/README.md](servidor/README.md) |
-| **App web** (desde cualquier celular o computadora) | `DIRECCIÓN/app/` (la dirección del servidor de arriba) | Pública: entras con tu cuenta de la app. Sin mapa de Google hasta tener una clave restringida (se usa el botón de GPS) |
-| **API publicada** | `DIRECCIÓN/api` | Pública. Abrirla muestra si el servidor y la base están funcionando |
-| **Panel de administrador** | `DIRECCIÓN/admin` | Solo cuentas administradoras, con verificación en dos pasos ([cómo entrar](#-crear-tu-cuenta-y-hacerte-administrador)) |
-| **Repo de código** | https://github.com/RaschifDaguer/MDRmarket_2.0 | Público para leer; colaborador para subir cambios |
-| **Repo de la base (Docker)** | https://github.com/RaschifDaguer/MDRmarket_2.0_docker | Ídem |
-| **Google Cloud** (clave de Maps, para los módulos de mapa) | https://console.cloud.google.com/apis/credentials | Pedir al dueño |
-
-## Cambios recientes
-
-**Octubre y noviembre 2026**
-
-| Fecha | Qué cambió | Qué significa para ti |
-|---|---|---|
-| 16-nov | **Ya no se usan Railway ni Aiven**: el único servidor es el de la universidad | Los pasos y la configuración que eran solo para Railway o Aiven se quitaron. Las entradas de abajo son historial |
-| 16-nov | **Regla de pedidos** (fase 0): la tienda solo acepta o rechaza un pedido nuevo y, aceptado, ya no lo cancela. Lo que nadie atiende vence solo (la tienda no responde en 1 min, el QR no se paga en 10 min o ningún repartidor lo toma en 30 min). Comisión de la plataforma: 8 % sobre los productos | Plazos y comisión se cambian en `/admin` → Configuración. Las tareas automáticas corren solas dentro del contenedor de la API |
-| 11-nov | **MDR Market corre también en el servidor de la universidad** (Docker: base, API, panel, app web y respaldo diario) | Va a reemplazar a Railway y Aiven cuando exista la dirección definitiva y se pasen los datos reales. Railway y Aiven siguen funcionando hasta entonces ([guía](servidor/README.md)) |
-| 11-nov | **Multimedia**: `POST /api/multimedia` guarda fotos, videos, audios y PDF (hasta 90 MB por archivo, 300 MB por usuario) | Disponible en la API para usarla desde la app donde haga falta (ej. videos de productos). Ver [docs/API_FRONTEND.md](docs/API_FRONTEND.md) |
-| 11-nov | **App web sin dirección fija**: usa la API del mismo sitio desde donde se abre | Sirve igual en Railway y en la universidad sin volver a armarla |
-| 13-nov | **Textos generales, sin referencias a comida** (Daner, PR #5 y #6) | «Preparando» pasa a ser **«Alistando»** en la app, los avisos y el panel. «Tiempo de preparación» pasa a ser «Tiempo para alistar un pedido», y se cambió el ícono de comida de la portada. Sirve para cualquier rubro |
-| 12-nov | **Stock obligatorio y aviso al agotarse** | Al crear un producto se pide cuántas unidades se publican (ya no hay "Controlar stock"). Cuando una venta lo agota, el comerciante recibe el aviso «Stock insuficiente: renueva el producto», en su resumen y en la lista, con el botón **Renovar stock**. La lista muestra cuántos productos hay, las unidades en stock y los agotados. El cliente sigue viendo los agotados, con la etiqueta «Agotado» |
-| 12-nov | **Ícono de «Preparando»**: una caja guardándose en vez de la cuchara | Sirve para todo tipo de negocio, no solo comida |
-| 11-nov | **Pago solo en efectivo o con QR** (sin tarjeta ni transferencia). El QR es un **cobro simulado**: no cobra dinero real | Al pedir con QR, la app muestra el QR. Se paga escaneándolo con otro celular o con «Simular pago»; llega «Cobro realizado» y el pedido sigue. El negocio lo acepta recién cuando está pagado ([detalle](docs/API_FRONTEND.md#pago-con-qr-simulado-no-se-cobra-dinero-real)) |
-| 06-nov | **Publicados en el servidor los módulos 4b, 8 y 9 de Daner** (registro de repartidor, vista repartidor y rastreo en el mapa) | Ya funcionan en la app web y en el panel. Ojo: **el local ya no entrega**; sin un repartidor aprobado y en línea, los pedidos se quedan en "listo" |
-| 06-nov | **App web publicada** en https://api-mdrmarket-production.up.railway.app/app/ | Se abre desde cualquier dispositivo, sin instalar nada, e incluye la vista repartidor. Se vuelve a publicar con `app/publicar_web.ps1` ([cómo](#publicar-la-app-web)) |
-| 03-nov | **Tope al PIN de entrega:** tras 5 PIN equivocados en un pedido, se bloquea 15 minutos | Nadie puede adivinar el PIN probando (son solo 10.000 combinaciones) para marcar como entregado un pedido que no entregó |
-| 30-oct | **El local ya no entrega** (decisión de operaciones): llega hasta "listo"; "en camino" y "entregado" los hace solo el repartidor | En la app del comerciante, un pedido listo muestra "Buscando repartidor…" (puede cancelarlo mientras nadie lo toma) o "Lo lleva…". Ya no hay botón de entregar ni PIN para el local |
-| 30-oct | **Corregido:** al cambiar de cuenta en la misma pestaña se veían los pedidos de la cuenta anterior; y la compra propia de un repartidor no aparecía en su lista sin explicar por qué | Ahora cada cuenta ve solo lo suyo al instante. Su propia compra le aparece con "Es tu propio pedido: lo llevará otro repartidor". También: una dirección guardada sin coordenadas (datos de ejemplo) ya no rompe "¿Dónde lo recibes?" |
-| 30-oct | **Vista repartidor (módulo 8):** interruptor "En línea", pedidos listos que su vehículo puede llevar, Aceptar, "Recogido", "Entregado" con el PIN, "Soltar pedido" y "Mis entregas" | Ya se puede probar el pedido completo con repartidor. El cliente ve quién lo lleva (nombre, vehículo y placa). Rutas en [docs/API_FRONTEND.md](docs/API_FRONTEND.md#repartidor-llevar-pedidos--módulo-8) |
-| 30-oct | **Registro de repartidor en la app (módulo 4b):** tarjeta "¿Quieres repartir?" en el inicio del cliente, pantalla "Quiero ser repartidor" (tarjetas por tipo de vehículo; placa y RUAT solo si los pide) y, en la vista repartidor, "Te falta subir…" con el botón Subir | Se puede probar todo el registro de punta a punta. Si te rechazan, la app muestra el motivo y el botón "Volver a enviar". Por ahora, un solo vehículo por repartidor |
-| 30-oct | **Registro de repartidor (módulo 4b), parte del backend:** `GET /api/tipos-vehiculo`, `POST /api/repartidor`, `POST /api/vehiculos` y la sección **Aprobaciones → Repartidores** del panel | La API ya permite registrarse como repartidor con su vehículo; placa y RUAT solo si el tipo los pide (la bicicleta no). Campos y ejemplos en [docs/API_FRONTEND.md](docs/API_FRONTEND.md#registro-de-repartidor--módulo-4b) |
-| 29-oct | **Disco permanente activo** en Railway (Volume en `/var/www/html/storage/app`) | Las fotos de negocios, productos y documentos **ya no se borran** al actualizar el servidor. Comprobado: una foto de prueba sobrevivió a un redespliegue. Las que se perdieron antes hay que volver a subirlas |
-| 29-oct | `GET /api` muestra también **dónde se guardan las fotos** | Debe decir `"fotos": "disco permanente"`. Si dice *disco temporal*, el Volume se desconectó |
-| 29-oct | **`test@example.com` ya no es administrador** | Era una cuenta de prueba sin verificación en dos pasos. Los admins ahora son cuentas reales |
-| 28-oct | **PHP 8.3.36** en el servidor (imagen fijada en `api/Dockerfile`) | Corrige "PHP2Shell" (CVE-2026-109618 y CVE-2026-109619), una falla grave de PHP. Si trabajas en la API en tu PC, usa **PHP 8.3.36 o más nuevo** |
-| 28-oct | **Contraseña de Aiven cambiada** | La anterior ya no sirve. Si la necesitas, pídesela a Raschif por privado |
-| 28-oct | Fotos de los productos de ejemplo en **PNG** | Antes salían vacías en la app (eran SVG, que Flutter no dibuja) |
-| 28-oct | **"En mantenimiento"** cuando la base está apagada | Si Aiven se duerme, la app y el panel lo dicen claro (error 503) en vez de "Error del servidor" |
-| 28-oct | `GET /api` muestra el **estado del servidor** | Abre https://api-mdrmarket-production.up.railway.app/api: debe decir `"base_de_datos": "conectada"` |
-| 28-oct | Servidor preparado para un **disco permanente** (Volume de Railway) | `docker/entrypoint.sh` crea las carpetas de fotos dentro del disco y se las da a Apache ([detalle](api/README.md#fotos-que-no-se-borren-volume-de-railway)) |
-| 28-oct | Conexión persistente con la base y máximo 10 procesos de Apache | Respuestas más rápidas; ante una avalancha de solicitudes, el servidor no se cae |
-| 28-oct | Cabecera de inicio más limpia; plurales en "Más" y calificaciones | Los íconos de fondo ya no tapan el saludo ni "cerrar sesión" |
-| 15-oct | **Selfie obligatoria** para comerciantes y repartidores | Al registrar el negocio se pide una foto de la cara con la cámara delantera; el admin la compara con el carnet |
-| 15-oct | Carnet (los dos lados) + selfie = **una sola solicitud** en el panel | El admin ve las 3 fotos juntas y elige qué parte rechazar |
-| 14-oct | **Seguridad**: verificación en dos pasos en el panel, límites de solicitudes, cabeceras, `/docs/api` solo para admins, sesiones de la app que vencen a los 60 días | Ver [api/README.md](api/README.md#seguridad) |
-
-Pruebas al día: **71 de la API** (`php artisan test`, incluidas pruebas de
-ataque) y **113 de la app** (`flutter test`).
-
----
-
-## Guía para el equipo
-
-Pensada para quien trabaja en el **frontend (Flutter) y las pruebas**. No
-necesitas Laragon ni una base de datos en tu PC: la app usa el servidor de la
-universidad, que tiene la API y la base juntas.
-
-### Paso 1 — Accesos que tienes que pedir
-
-Pídeselos a Raschif (GitHub `RaschifDaguer`):
-
-- **Colaborador en GitHub** de este repo (y del repo de la base, si vas a tocarla).
-- **La clave de Google Maps**, por mensaje privado. Sin ella la app funciona igual,
-  pero en lugar del mapa muestra solo el botón de GPS.
-
-### Paso 2 — Instala las herramientas
-
-**Git**, **Flutter 3.44** (que `flutter doctor` no muestre errores), **Google
-Chrome**, **VS Code** con las extensiones *Flutter* y *Dart*, y si vas a probar
-en Android, **Android Studio** (SDK + un emulador). Detalle de versiones en la
-[sección 1](#1-herramientas-que-tienes-que-instalar).
-
-### Paso 3 — Configura y ejecuta el frontend
-
-```bash
-git clone https://github.com/RaschifDaguer/MDRmarket_2.0.git
-cd MDRmarket_2.0/app
-flutter pub get
-```
-
-Crea tu archivo de configuración local: copia `app/dart_defines.example.json`
-como **`app/dart_defines.local.json`** y déjalo así:
-
-```json
-{
-  "API_URL": "https://DIRECCIÓN-DEL-SERVIDOR/api",
-  "GOOGLE_MAPS_KEY": "la-clave-que-te-pasó-Raschif"
-}
-```
-
-`DIRECCIÓN-DEL-SERVIDOR` es la del [servidor de la universidad](#-enlaces-del-proyecto)
-(la definitiva cuando esté activa; mientras tanto, la temporal).
-
-Ese archivo **nunca se sube** al repositorio: ya está en `.gitignore`, porque el
-repo es público. Después ejecuta desde `app/`:
-
-```bash
-flutter run -d chrome --dart-define-from-file=dart_defines.local.json   # navegador
-flutter run --dart-define-from-file=dart_defines.local.json             # emulador o celular conectado
-```
-
-| Si quieres usar… | `API_URL` |
-|---|---|
-| El servidor de la universidad (lo normal) | `https://DIRECCIÓN-DEL-SERVIDOR/api` |
-| Una API en tu propia PC, desde Chrome | `http://localhost:8001/api` |
-| Una API en tu PC, desde el emulador Android | `http://10.0.2.2:8001/api` |
-| Una API en tu PC, desde un celular en tu Wi-Fi | `http://IP-DE-TU-PC:8001/api` |
-
-> Si la app dice **"En mantenimiento"** o no carga nada, abre
-> `https://DIRECCIÓN-DEL-SERVIDOR/api`: si dice *sin conexión*, la base del
-> servidor está apagada. Avisa a Raschif para que la revise
-> (`sudo docker compose ps` en el servidor).
-
-### Paso 4 — Crea tu cuenta y hazte administrador
-
-Sigue [Crear tu cuenta y hacerte administrador](#-crear-tu-cuenta-y-hacerte-administrador):
-te registras en la app, Raschif te da el permiso desde el panel y la primera vez
-configuras Google Authenticator.
-
-### Paso 5 — Prueba la app completa
-
-Sigue el [recorrido completo](#recorrido-completo-para-probar-o-para-una-demostración):
-cliente → registrar negocio → aprobarlo como admin → agregar productos → pedido →
-entrega con PIN → reseña. Para entender qué manda y recibe cada pantalla:
-
-- [docs/API_FRONTEND.md](docs/API_FRONTEND.md): JSON de ejemplo, estados del pedido y errores.
-- [docs/HOJA_DE_RUTA.md](docs/HOJA_DE_RUTA.md): pantallas que faltan y **cómo probar cada una**.
-- [docs/DIAGRAMA_BD.md](docs/DIAGRAMA_BD.md): las tablas y cómo se relacionan.
-
-La app publicada usa **datos reales**: no borres ni cambies datos de otros
-usuarios. Para romper cosas sin miedo, usa una base local
-([sección 3](#3-ponerlo-en-marcha-en-tu-pc)).
-
-### Paso 6 — Sube tus cambios del frontend
-
-```bash
-git checkout main && git pull
-git checkout -b nombre-del-cambio        # una rama por cambio
-# … trabajas …
-cd app && flutter analyze && flutter test # los dos sin errores
-git add -A && git commit -m "App: qué cambiaste"
-git push -u origin nombre-del-cambio
-```
-
-Luego abre un **Pull Request** a `main` en GitHub para que Raschif lo revise.
-Los cambios que solo tocan `app/` **no** cambian nada del servidor. Si encuentras
-un error que no vas a arreglar tú, abre un **Issue** con qué hiciste, qué
-esperabas, qué pasó, una captura y el dispositivo (Chrome, emulador o celular).
-
-### Publicar la app web
-
-La versión web vive en el mismo servidor, en **`DIRECCIÓN-DEL-SERVIDOR/app/`**:
-Apache sirve los archivos de `api/public/app`. Cuando cambies pantallas y
-quieras que se vean ahí:
-
-```powershell
-cd app
-.\publicar_web.ps1                  # arma la app con la API del servidor y la copia a api/public/app
-git add api/public/app
-git commit -m "App web: nueva versión"
-git push                            # después, en el servidor: sudo ./actualizar.sh
-```
-
-- La app web **usa los mismos datos reales** que la app del celular y el panel.
-- **Mapa de Google:** la clave queda dentro del código que descarga cualquier
-  visitante. Úsala solo restringida en Google Cloud a "Sitios web" con
-  `https://mdrmarket.sistemasunifranz.site/*` y a la "Maps JavaScript
-  API": `.\publicar_web.ps1 -ClaveMaps "AIza…"`. Sin clave, la app usa el botón de GPS.
-- Si después de publicar se sigue viendo la versión anterior, recarga con **Ctrl + F5**.
-
----
-
-## Cambios en el backend (API y base de datos)
-
-**Sí, puedes hacer cambios en el backend**, con estas reglas, porque todo lo que
-llega a `main` dentro de `api/` **se publica en el servidor real** al actualizarlo
-(`sudo ./actualizar.sh`):
-
-1. **Prepara tu PC:** PHP **8.3.36 o más nuevo** y Composer (con Laragon es lo
-   más fácil; si trae una versión más vieja de PHP, actualízala), más la base
-   local `mdrmarket_new` y la de pruebas `mdrmarket_prueba`. Pasos en la
-   [sección 3](#3-ponerlo-en-marcha-en-tu-pc) y en [api/README.md](api/README.md#pruebas).
-2. **Siempre en una rama y con Pull Request.** Nunca hagas push directo a `main`:
-   lo que está en `main` es lo que se publica en el servidor.
-3. **Antes de pedir revisión:** `php artisan test` sin fallos. Si agregas una
-   ruta, agrega su prueba y actualiza [docs/API_FRONTEND.md](docs/API_FRONTEND.md).
-   La documentación de `/docs/api` se genera sola.
-4. **La estructura de la base NO se cambia con migraciones de Laravel.** Se
-   cambia en el script del [repo Docker](https://github.com/RaschifDaguer/MDRmarket_2.0_docker)
-   y con un archivo en su carpeta `cambios/`. Ese cambio se aplica en el
-   servidor de la universidad **antes** de publicar el código que lo usa, con
-   un respaldo previo ([cómo](#5-cambios-en-la-base-de-datos)). **Nunca
-   importes el script completo en el servidor**: borra todos los datos. Ver
-   [docs/BASE_DE_DATOS.md](docs/BASE_DE_DATOS.md).
-5. **No toques sin hablarlo antes:**
-   - la versión de PHP del `api/Dockerfile` (solo se sube, por seguridad);
-   - los límites de seguridad y la verificación en dos pasos del panel;
-   - `docker/entrypoint.sh`.
-6. **Secretos:** contraseñas, `.env`, `ca.pem`, `APP_KEY` y la clave de Google
-   **nunca** van al repositorio ni a grupos de chat.
-7. **Para estas cosas necesitas a Raschif** (o acceso al servidor): cambiar
-   las variables de `servidor/.env`, aplicar cambios de la base y actualizar
-   el servidor.
-
----
-
-## 💻 Servidor de la universidad: conectarte y publicar tus cambios
-
-MDR Market corre en el servidor que nos dio la universidad (es el único
-servidor). Aquí está lo necesario para entrar y publicar lo que hagas. La guía completa de manejo del servidor está en
-[servidor/README.md](servidor/README.md).
-
-### 1. Lo que necesitas (una sola vez)
-
-1. **La contraseña de la cuenta `remoto`.** Pídesela a Raschif **por privado**
-   (nunca va al repo ni a grupos de chat). Es la misma que pide `sudo`.
-2. **cloudflared.** El servidor se alcanza por un túnel de Cloudflare. En
-   PowerShell:
-   ```
-   winget install --id Cloudflare.cloudflared
-   ```
-   Si no tienes `winget`, baja `cloudflared-windows-amd64.exe` de
-   https://github.com/cloudflare/cloudflared/releases y renómbralo `cloudflared.exe`.
-3. **Configura SSH.** Crea o edita `C:\Users\TU_USUARIO\.ssh\config` y agrega:
-   ```
-   Host ssh-software
-     HostName softwareii.sistemasunifranz.site
-     User remoto
-     ProxyCommand cloudflared access ssh --hostname %h
-   ```
-   Si `cloudflared` no está en el PATH, pon la ruta completa al `.exe` en
-   `ProxyCommand`.
-4. **Pruébalo:** `ssh ssh-software`. La primera vez escribe `yes` para aceptar
-   la huella del servidor, y luego pon la contraseña.
-
-### 2. Dónde está nuestro apartado
-
-- **Carpeta:** `/home/remoto1/mdrmarket`. Es el repositorio, en la rama
-  `servidor-universidad`; la configuración del servidor está en `servidor/`.
-- **Permisos:** la carpeta es de la cuenta `remoto1`. Entras como `remoto` y
-  pasas a administrador con `sudo -i` (pide la misma contraseña). Para volver,
-  `exit`.
-- **Contenedores:**
-  - `mdrmarket-db-1`: base de datos;
-  - `mdrmarket-api-1`: API, panel y app web;
-  - `mdrmarket-respaldo-1`: respaldo diario;
-  - `mdrmarket-tunel-1`: dirección temporal.
-- **El servidor es compartido con otros grupos.** Toca solo lo que empieza con
-  `mdrmarket`.
-
-### 3. Publicar tus cambios
-
-**No edites el código dentro del servidor.** Haz los cambios en tu PC, súbelos
-a GitHub, y el servidor los descarga.
-
-1. **En tu PC, trabaja en una rama creada desde `servidor-universidad`**, que
-   es la que usa el servidor:
-   ```
-   git fetch origin
-   git switch -c mi-cambio origin/servidor-universidad
-   ```
-2. **Prueba antes de subir:**
-   - API: `php artisan test`.
-   - App: `flutter test`.
-   - Si cambiaste la app y quieres que se vea en la versión web, corre
-     `app\publicar_web.ps1` y sube también `api/public/app`.
-3. **Sube tu rama** (`git push -u origin mi-cambio`) y abre un **Pull Request
-   hacia `servidor-universidad`**, todavía no hacia `main`. Cuando se una…
-4. **…publícalo en el servidor:**
-   ```
-   ssh ssh-software
-   sudo -i
-   cd /home/remoto1/mdrmarket/servidor
-   ./actualizar.sh
-   ```
-   `actualizar.sh` trae lo último de GitHub y vuelve a armar la API (1 a 3
-   minutos). **No toca la base ni las fotos.**
-5. **Revisa que funcione:**
-   - `curl -s http://127.0.0.1:8090/api`: tiene que decir `"base_de_datos":"conectada"`.
-   - La app web, en la dirección pública. La temporal se ve con
-     `./direccion_temporal.sh`.
-
-### 4. Comandos útiles
-
-Siempre después de `sudo -i` y `cd /home/remoto1/mdrmarket/servidor`:
-
-| Para… | Comando |
-|---|---|
-| Ver si todo está encendido | `docker compose ps` |
-| Ver errores de la API | `docker compose logs --tail 100 api` |
-| Respaldar la base ahora | `docker compose exec respaldo bash /respaldo.sh ahora` |
-| Consola de MySQL | `docker compose exec db sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" mdrmarket_new'` |
-| Ver la dirección pública temporal | `./direccion_temporal.sh` |
-
-### 5. Cambios en la base de datos
-
-1. **Haz primero un respaldo** (ver la tabla de arriba).
-2. **Aplica el archivo SQL** del cambio:
-   ```
-   # en tu PC
-   scp cambio.sql ssh-software:/tmp/
-   # en el servidor (después de sudo -i y cd …/servidor)
-   docker compose exec -T db sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" mdrmarket_new' < /tmp/cambio.sql
-   rm /tmp/cambio.sql
-   ```
-3. **Deja el mismo cambio en el
-   [repo de la base](https://github.com/RaschifDaguer/MDRmarket_2.0_docker)**
-   (carpeta `cambios/` y script maestro).
-
-**Nunca uses `./importar_base.sh` con el script maestro:** reemplaza toda la
-base y borra los datos reales.
-
-### 6. Lo que nunca hay que hacer
-
-- `docker compose down -v`: el `-v` **borra la base y todas las fotos**.
-- Tocar los contenedores o carpetas de otros grupos (`proyecto-warnes`,
-  `parasitos-app`…) o usar sus puertos (80, 3306, 5173 y 8081).
-- Cambiar la contraseña de `remoto`: la usan otros grupos.
-- Subir a GitHub o a grupos de chat contraseñas, `.env`, `key.properties`, el
-  `.jks` o la clave de Google.
-
-### 7. Si vas a armar el APK
-
-Pídele a Raschif **por privado**:
-- la llave del proyecto: `mdrmarket-release.jks` y `key.properties`;
-- `dart_defines.local.json`, con la clave de Google Maps.
-
-Con la llave del proyecto el mapa funciona en cualquier PC sin registrar nada
-nuevo en Google. Detalles en
-[app/README.md](app/README.md#llave-de-firma-del-proyecto-una-sola-huella-sha-1).
-
----
-
-## 👤 Crear tu cuenta y hacerte administrador
-
-En MDR Market **no hay cuentas aparte para administradores**: un administrador
-es una cuenta normal de la app con el permiso activado. Con la misma cuenta
-compras como cliente en la app y entras al panel web.
-
-### Paso 1 — Crea tu cuenta en la app
-
-1. Abre la app contra el servidor de internet (ver arriba,
-   [Configura y ejecuta el frontend](#paso-3--configura-y-ejecuta-el-frontend)) y toca
-   **"Crear cuenta"**.
-2. Llena tus datos reales:
-   - **Nombre y apellido.**
-   - **Correo:** no puede estar usado por otra cuenta. Es tu usuario para la app y el panel.
-   - **Contraseña, escrita dos veces:** mínimo 8 caracteres, con al menos una
-     **mayúscula**, una **minúscula** y un **número**. Ejemplo válido: `Mdrmarket2026`.
-   - **Carnet:** número; complemento y lugar de expedición son opcionales.
-     El mismo carnet no puede repetirse en dos cuentas.
-   - **Teléfono:** opcional.
-3. Al terminar ya quedas con sesión abierta en la **vista cliente**.
-
-> Si no tienes Flutter instalado, también puedes crear la cuenta directo contra la
-> API (Git Bash o terminal de Mac/Linux):
-> ```bash
-> curl -X POST https://DIRECCIÓN-DEL-SERVIDOR/api/auth/registro \
->   -H "Accept: application/json" -H "Content-Type: application/json" \
->   -d '{"nombre":"Tu nombre","apellido":"Tu apellido","email":"tu@correo.com",
->        "password":"Mdrmarket2026","password_confirmation":"Mdrmarket2026","ci_numero":"1234567"}'
-> ```
-> Si responde `201` con un `token`, la cuenta quedó creada.
-
-### Paso 2 — Pide el permiso de administrador
-
-Nadie puede darse el permiso a sí mismo desde la app: lo da **otro administrador**.
-Pásale tu **correo** a Raschif (o a cualquier admin) y él hace una de estas:
-
-| Quién lo da | Cómo |
-|---|---|
-| **Un admin, desde el panel** (lo normal) | `/admin` → **Operación → Usuarios** → busca tu correo → menú **⋮** → **"Hacer administrador"** |
-| Quien tenga acceso al servidor | En el servidor (`cd /home/remoto1/mdrmarket/servidor`): `sudo docker compose exec api php artisan mdr:admin tu@correo.com` |
-| En una base local (Laragon) | Desde `api/`: `php artisan mdr:admin tu@correo.com` (con `--quitar` lo saca) |
-
-### Paso 3 — Primer ingreso al panel (verificación en dos pasos)
-
-El panel guarda datos personales (fotos de carnets), así que además de la
-contraseña pide un **código del celular**. Es obligatorio para todos los admins.
-
-1. Instala en tu celular **Google Authenticator** o **Microsoft Authenticator** (gratis).
-2. Entra a **`DIRECCIÓN-DEL-SERVIDOR/admin`** con tu correo y
-   tu contraseña de la app.
-3. La primera vez aparece **"Configurar la aplicación de autenticación"** con un
-   **código QR**. En la app del celular toca **+ → Escanear código QR** y apunta a la pantalla.
-4. Escribe el **código de 6 dígitos** que muestra el celular y tu **contraseña
-   actual**, y toca **Siguiente**.
-5. Te muestra **códigos de recuperación**. **Guárdalos fuera del celular**
-   (papel o gestor de contraseñas): cada uno sirve una vez si pierdes el teléfono.
-6. Desde ahora, cada ingreso pide **contraseña + código de 6 dígitos** (cambia cada 30 s).
-
-> 🔒 No mandes capturas de esa pantalla: el texto debajo del QR es la llave de tu
-> verificación. Si se compartió, cancela y vuelve a abrir: se genera otra.
-
-**¿Perdiste el celular y los códigos?** Pide a Raschif que reinicie tu
-verificación (en la consola de MySQL del servidor: `UPDATE usuario SET
-app_authentication_secret = NULL, app_authentication_recovery_codes = NULL
-WHERE email = 'tu@correo.com';`). Al entrar de nuevo aparece otra vez el QR.
-
-### Qué hace un administrador
-
-| Sección | Para qué |
-|---|---|
-| **Aprobaciones → Negocios** | Ver cada negocio nuevo (foto, ubicación, datos, documentos del dueño) y **aprobarlo** o rechazarlo con motivo. **Un negocio no aparece en el catálogo hasta que se aprueba.** |
-| **Aprobaciones → Repartidores** | Ver a cada repartidor nuevo con su vehículo (tipo, placa, RUAT) y **aprobarlo** o rechazarlo con motivo. **Un repartidor no ve pedidos hasta que se aprueba.** También se puede suspender. |
-| **Aprobaciones → Documentos** | Revisar la identidad de comerciantes y repartidores: **el carnet (los dos lados) y la selfie van juntos en una sola solicitud**, con las fotos lado a lado. Comprueba que la cara de la selfie sea la del carnet. Al rechazar eliges qué parte debe volver a subir; la persona recibe el motivo. |
-| **Operación → Pedidos** | Ver todos los pedidos y cancelar uno si hace falta (devuelve el stock). |
-| **Operación → Usuarios** | Activar o desactivar cuentas y **dar o quitar el permiso de administrador**. |
-| **Configuración** | Tarifas de envío por distancia, tarifa de servicio, comisión, plazos de los pedidos y umbral de "poco stock". |
-
-Reglas: no compartas tu cuenta de admin; cada persona usa la suya. Las fotos de
-documentos son privadas y solo se ven dentro del panel.
-
-### Recorrido completo para probar (o para una demostración)
-
-1. **Antes de empezar:** abre `DIRECCIÓN-DEL-SERVIDOR/api`.
-   Debe decir `"base_de_datos": "conectada"`. Si dice *sin conexión* o la app
-   muestra **"En mantenimiento"**, la base del servidor está apagada (ver
-   [Problemas conocidos](#10-problemas-conocidos)). Conviene revisarlo
-   **10 minutos antes** de una presentación.
-2. **Cliente:** en la app, pestaña **Inicio** (productos), **Tiendas** y
-   **Pedidos**. Los productos que ves son de los negocios **aprobados**.
-3. **Volverse comerciante:** en Inicio, **"¿Tienes un negocio? → Registrar"**:
-   nombre, rubro, ubicación, foto del negocio, y si faltan, carnet (frente y
-   reverso) y **una selfie** (abre la cámara delantera). El negocio queda **"en revisión"**.
-4. **Volverse repartidor** (con otra cuenta): en Inicio, **"¿Quieres repartir?"**
-   → tipo de vehículo, placa y RUAT si el tipo los pide, fotos del vehículo,
-   carnet, selfie y licencia. Queda **"en revisión"**.
-5. **Admin:** en el panel, aprueba el negocio, el repartidor
-   (**Aprobaciones → Repartidores**) y las solicitudes de identidad.
-6. **Comerciante:** cambia a la vista comerciante (botón de arriba) →
-   **Productos → Agregar producto** (foto, precio, stock) → en **Resumen**, que
-   esté **Abierto**.
-7. **Cliente (una tercera cuenta):** ve el producto en Inicio o en la tienda →
-   carrito → dirección → **hacer pedido**. La app muestra un **PIN de 4 números**.
-8. **Comerciante:** **Pedidos → aceptar → preparando → listo**. Desde ahí ve
-   "Buscando repartidor…": **el local no entrega**.
-9. **Repartidor:** en su vista, **En línea** → el pedido aparece en la lista →
-   **Aceptar** → **Recogido** (el cliente ya lo ve moverse en el mapa) →
-   **Entregado** con el PIN que le dicta el cliente. Tras 5 PIN equivocados se
-   bloquea 15 minutos.
-10. **Cliente:** califica el negocio y los productos. El comerciante ve sus
-    **Ganancias** y puede responder la reseña.
-
-> ⚠️ **Sin un repartidor aprobado y en línea, ningún pedido puede terminar de
-> entregarse.** Para una demostración, ten lista una cuenta de repartidor aprobada.
-
----
+| API y panel de administrador (`/admin`) | `api/` de este repo | Laravel 12 + Filament 5 (PHP 8.3) |
+| App (web, Android) | `app/` de este repo | Flutter 3.44 (Dart 3.12) |
+| Base de datos | repo [MDRmarket_2.0_docker](https://github.com/RaschifDaguer/MDRmarket_2.0_docker) | MySQL 8.4 |
+| Servidor de la universidad | `servidor/` de este repo | Docker Compose |
+
+Esta guía es para alguien que recién empieza: síguela en orden.
 
 ## Contenido
 
-- [Cambios recientes](#cambios-recientes)
-- [Guía para el equipo](#guía-para-el-equipo) (configurar el frontend, subir cambios)
-- [Cambios en el backend (API y base de datos)](#cambios-en-el-backend-api-y-base-de-datos)
-- [Crear tu cuenta y hacerte administrador](#-crear-tu-cuenta-y-hacerte-administrador)
-- [Estado actual](#estado-actual)
-- [Cómo está armado](#cómo-está-armado)
-- [1. Herramientas que tienes que instalar](#1-herramientas-que-tienes-que-instalar)
-- [2. Accesos que tienes que pedir](#2-accesos-que-tienes-que-pedir)
-- [3. Ponerlo en marcha en tu PC](#3-ponerlo-en-marcha-en-tu-pc)
-- [4. Servidor en internet (universidad)](#4-servidor-en-internet-universidad)
-- [5. Cómo trabajar sin romper nada](#5-cómo-trabajar-sin-romper-nada)
-- [6. Estructura del código](#6-estructura-del-código)
-- [7. API: rutas disponibles](#7-api-rutas-disponibles)
-- [8. Reglas del negocio que ya están implementadas](#8-reglas-del-negocio-que-ya-están-implementadas)
-- [9. Pruebas](#9-pruebas)
-- [10. Problemas conocidos](#10-problemas-conocidos)
-- [Documentación adicional](#documentación-adicional)
+- [Novedades](#novedades)
+- [1. Requisitos: qué instalar](#1-requisitos-qué-instalar)
+- [2. Bajar el proyecto](#2-bajar-el-proyecto)
+- [3. Opción 1: en tu PC con Laragon](#3-opción-1-en-tu-pc-con-laragon)
+- [4. Opción 2: en tu PC con Docker](#4-opción-2-en-tu-pc-con-docker)
+- [5. Actualizar tu copia después de un git pull](#5-actualizar-tu-copia-después-de-un-git-pull)
+- [6. Servidor de la universidad](#6-servidor-de-la-universidad)
+- [7. Correr las pruebas](#7-correr-las-pruebas)
+- [8. Reglas para trabajar en equipo](#8-reglas-para-trabajar-en-equipo)
+- [9. Más documentación](#9-más-documentación)
 
 ---
 
-## Estado actual
+## Novedades
 
-| # | Módulo | Estado |
-|---|---|---|
-| 1 | **Base de datos** completa: usuarios y roles, documentos, vehículos, 12 categorías con 49 subcategorías, productos, pedidos, envío por km y anillos, reseñas, reportes, sanciones, ganancias del comerciante | ✅ Hecho |
-| 2 | **API:** registro (contraseña segura escrita dos veces), inicio y cierre de sesión, perfil y cambio de vista | ✅ Hecho |
-| 3 | **App:** pantallas de arranque, inicio de sesión, registro e inicio por vista, con el botón "cambiar vista" | ✅ Hecho |
-| — | **Servidor en internet:** todo en el servidor de la universidad (Docker: base, API, panel, app web, respaldo diario y tareas automáticas) | ✅ Hecho |
-| 4a | Registro de comerciante (negocio, mapa/GPS, foto, carnet y selfie) | ✅ Hecho |
-| 4b | Registro de repartidor (vehículo y documentos) | ✅ Hecho (API, panel y app; un solo vehículo por ahora) |
-| 5 | Catálogo con categorías, búsqueda, ofertas y páginas de tienda | ✅ Hecho |
-| 6 | Carrito, direcciones, costo del envío y pedido (con PIN de entrega) | ✅ Hecho |
-| 7 | Vista comerciante: productos, pedidos entrantes, compras y gastos, perfil y horario | ✅ Hecho |
-| 8 | Vista repartidor: en línea, pedidos disponibles, aceptar, recoger, entregar con PIN y mis entregas | ✅ Hecho (todo pedido lo lleva un repartidor de la app; el local no entrega) |
-| 9 | **Rastreo del pedido en el mapa** (GPS del repartidor en vivo) | ✅ Hecho (consulta cada pocos segundos; falta probar el mapa con Playwright) |
-| 10 | Reseñas (✅ producto y negocio, con respuesta del negocio); reportes y sanciones en la app ⏳ | Parcial |
-| 11 | Ganancias del comerciante (por período con gráfico y por producto) | ✅ Hecho |
-| 12 | Panel de administrador web (Filament) en `/admin`: aprobar negocios, repartidores e identidades (carnet + selfie), pedidos, usuarios, tarifas; verificación en dos pasos | ✅ Hecho |
-| 13 | Notificaciones, recuperar contraseña y publicación (APK / Play Store / iOS) | ⏳ |
+**Pedidos**
+- **Regla de pedidos:** la tienda solo puede **aceptar o rechazar** un pedido
+  nuevo (con un motivo rápido como "Sin stock"). Una vez aceptado, ya no lo
+  puede cancelar.
+- **Plazos automáticos** (se cambian en el panel → Configuración):
+  - si la tienda no responde en 1 minuto, el pedido se **rechaza solo**;
+  - si el cliente no paga el QR en 10 minutos, se **cancela solo**;
+  - si un pedido listo no lo toma ningún repartidor en 30 minutos, se **cancela solo**.
 
-El detalle de cada módulo pendiente, con qué construir y cómo probarlo, está en
-**[docs/HOJA_DE_RUTA.md](docs/HOJA_DE_RUTA.md)**.
+  Lo hace la tarea automática (`schedule:work`, ver el paso 3.4).
+- **Comisión de la plataforma:** 8 % sobre los productos. El envío es todo del repartidor.
+- **"¿Con cuánto pagas?"** en efectivo: el comercio y el repartidor ven cuánto cambio dar.
+- **Ahorro:** el cliente ve cuánto ahorró con las ofertas.
+
+**Calificaciones, reportes y avisos**
+- **Calificar al repartidor** con estrellas y etiquetas ("Puntual", "Amable"…),
+  además de la tienda y los productos.
+- **Reportar un problema** con un pedido; el administrador lo ve y lo responde
+  en el panel (Operación → Reportes).
+- **Notificaciones** en la app (pedido aceptado, en camino, entregado…).
+
+**Productos y mapas**
+- **Varias fotos por producto** (hasta 4, con portada).
+- **Mapa con OpenStreetMap:** si no hay clave de Google Maps, el mapa igual se
+  ve (gratis y sin clave). Con clave, se usa Google Maps. Sirve para el
+  seguimiento del pedido, el mapa del repartidor y el selector de dirección.
+
+**Pantallas**
+- **Modo oscuro / claro / automático** en los tres roles: es una sola
+  preferencia para toda la app.
+- **Cliente:** Inicio con tiendas cerca, Buscar, Cuenta, direcciones,
+  seguimiento en el mapa, calificar y volver a pedir.
+- **Comercio:**
+  - Resumen con ventas contra ayer y gráfico de la semana;
+  - pedido nuevo con cuenta regresiva, lista para alistar los productos y
+    "Buscando repartidor";
+  - productos con fotos y la ganancia calculada;
+  - Ganancias por Hoy, Semana y Mes, y Más (horario, documentos, calificaciones).
+- **Repartidor:**
+  - registro en pasos y estado de cada documento;
+  - Pedidos cerca, con En línea, lo ganado hoy y la meta del día;
+  - pedido en curso con mapa y "Cómo llegar";
+  - entrega con el PIN y cuánto cambio dar;
+  - Mis entregas con un gráfico por día.
 
 ---
 
-## Cómo está armado
+## 1. Requisitos: qué instalar
 
-```
-📱 App Flutter  ──HTTPS──▶  API Laravel  ──────▶  MySQL 8.4
- (Android, iOS, web)       └──── servidor de la universidad (Docker) ────┘
-```
-
-| Repositorio | Contenido |
-|---|---|
-| **[MDRmarket_2.0](https://github.com/RaschifDaguer/MDRmarket_2.0)** (este) | Código: `api/` (Laravel) y `app/` (Flutter) |
-| **[MDRmarket_2.0_docker](https://github.com/RaschifDaguer/MDRmarket_2.0_docker)** | Base de datos: script `mdrmarketnewdatabase.sql` + Dockerfile |
-
-| Parte | Dónde corre | URL / acceso |
-|---|---|---|
-| API, panel y app web | Servidor de la universidad (contenedor `mdrmarket-api-1`) | `DIRECCIÓN-DEL-SERVIDOR/api` |
-| Base de datos | Servidor de la universidad (contenedor `mdrmarket-db-1`, solo por dentro) | Por SSH ([servidor/README.md](servidor/README.md)) |
-| Código | GitHub | Los dos repos de arriba |
-
-**Decisión importante:** la estructura de la base **la define el script SQL**
-del repo Docker, **no** las migraciones de Laravel. Tiene triggers, vistas y
-procedimientos que hacen cumplir las reglas del negocio (stock, reseñas,
-sanciones…). Ver [docs/BASE_DE_DATOS.md](docs/BASE_DE_DATOS.md).
-
----
-
-## 1. Herramientas que tienes que instalar
-
-### Elige tu camino: no todos necesitan todo
-
-| Vas a trabajar en… | Instala | ¿Laragon? |
-|---|---|---|
-| **Solo la app** (pantallas Flutter) | Git, Flutter, Android Studio (SDK y emulador), VS Code | ❌ No. La app usa la API del servidor de la universidad, que ya tiene la base |
-| **La API** (Laravel) | Lo anterior + PHP 8.3 y Composer | ✅ Recomendado. Es la forma más fácil de tener PHP, Composer y MySQL en Windows (alternativas: XAMPP, Herd o Docker) |
-| **La base de datos** | Un cliente MySQL: **DBeaver**, **MySQL Workbench** o **HeidiSQL** | ✅ Para tu base local. La de producción está dentro del servidor (consola de MySQL por SSH) |
-
-> ⚠️ La base del servidor es la **de producción**. Prueba los cambios primero en
-> una base local (Laragon o Docker) y aplícalos en el servidor solo cuando funcionen.
-
-### Versiones
-
-Versiones con las que se desarrolló (usa las mismas o más nuevas dentro de la misma versión mayor):
-
-| Herramienta | Versión | Para qué | Notas |
+| Programa | Versión | Para qué | Dónde se baja |
 |---|---|---|---|
-| **Git** | 2.54 | Clonar y subir cambios | https://git-scm.com |
-| **Laragon** | 8.6 (trae PHP 8.3, MySQL 8.4, Apache, phpMyAdmin, HeidiSQL) | Correr la API y la base en tu PC | https://laragon.org — en Windows es lo más simple |
-| **PHP** | **8.3.36 o más nuevo** | La API | Viene con Laragon, pero puede traer una 8.3 vieja: las anteriores a la 8.3.36 tienen la falla "PHP2Shell". Para actualizar: descarga `php-8.3.36-1-Win32-vs16-x64.zip` de https://downloads.php.net/~windows/releases/, descomprímelo en `laragon\bin\php\php-8.3.36-Win32-vs16-x64`, copia ahí tu `php.ini` (corrigiendo `extension_dir`) y elígelo en Laragon → PHP → Versión |
-| **Composer** | 2.9 | Dependencias de PHP | Viene con Laragon o https://getcomposer.org |
-| **MySQL** | 8.4 | Base de datos local | Viene con Laragon |
-| **Flutter SDK** | 3.44.1 (Dart 3.12.1), canal stable | La app | https://docs.flutter.dev/get-started/install — corre `flutter doctor` al terminar |
-| **Android Studio** | Reciente | SDK de Android y emulador | Solo para Android SDK + emulador; el código se edita en VS Code |
-| **VS Code** | Reciente | Editor | Extensiones: *Flutter*, *Dart*, *PHP Intelephense*, *Laravel Extra Intellisense* (opcional) |
-| **Google Chrome** | Reciente | Probar la app en web | `flutter run -d chrome` |
-| Docker Desktop | Opcional | Levantar la base con un comando | Solo si no usas Laragon |
-| Xcode (Mac) | Opcional | Compilar para iPhone | **Solo en Mac.** Desde Windows no se puede compilar iOS |
+| **Git** | 2.40 o más nueva | Bajar y subir el código | https://git-scm.com (en Windows trae **Git Bash**) |
+| **Laragon** (Full) | 6 o más nueva | Trae PHP, MySQL, Composer y una terminal en un solo instalador | https://laragon.org |
+| **PHP** | **8.3** | La API | Viene con Laragon (ver abajo) |
+| **Composer** | 2.x | Las librerías de la API | Viene con Laragon |
+| **MySQL** | **8.4** | La base de datos | Viene con Laragon (ver abajo) |
+| **Flutter** | **3.44** (trae **Dart 3.12**) | La app | https://docs.flutter.dev/get-started/install |
+| **Google Chrome** | La última | Correr la app web | https://www.google.com/chrome |
+| **Docker Desktop** | 4.x | Solo para la [Opción 2](#4-opción-2-en-tu-pc-con-docker) | https://www.docker.com/products/docker-desktop |
+| Android Studio | La última | Solo si vas a probar en Android | https://developer.android.com/studio |
 
-Paquetes principales (se instalan solos con `composer install` / `flutter pub get`):
+**PHP 8.3 y MySQL 8.4 en Laragon:** si tu Laragon trae otras versiones, baja
+las correctas y elígelas:
 
-- **App:** `flutter_riverpod` 3.4 (estado), `go_router` 18 (navegación), `dio` 5 (HTTP), `flutter_secure_storage` 11 (token guardado cifrado).
-- **API:** `laravel/framework` 12, `laravel/sanctum` 4 (login con tokens), `laravel-lang/common` (mensajes en español).
+1. **PHP:** baja PHP 8.3 (*Thread Safe*, x64) de https://windows.php.net/download.
+2. **MySQL:** baja MySQL 8.4 (*ZIP Archive*) de https://dev.mysql.com/downloads/mysql/.
+3. Descomprímelos en `C:\laragon\bin\php\` y `C:\laragon\bin\mysql\`.
+4. En Laragon: clic derecho → **PHP → Versión** y **MySQL → Versión** para elegirlas.
 
----
+Para revisar que todo quedó bien, abre la **terminal de Laragon** (botón
+*Terminal*) y escribe:
 
-## 2. Accesos que tienes que pedir
+```
+git --version
+php -v              (debe decir 8.3)
+composer --version
+mysql --version     (debe decir 8.4)
+flutter --version   (debe decir Flutter 3.44 y Dart 3.12)
+```
 
-Pídeselos al dueño del proyecto (**Raschif Daguer**, GitHub `RaschifDaguer`):
-
-| Acceso | Para qué | Cómo te lo da |
-|---|---|---|
-| **GitHub** — colaborador en los dos repos | Subir cambios (push) | Repo → *Settings → Collaborators → Add people* |
-| **Servidor de la universidad** (SSH) | Ver logs, publicar y aplicar cambios de la base | Ver [cómo conectarte](#-servidor-de-la-universidad-conectarte-y-publicar-tus-cambios) |
-| **Valores de `servidor/.env`** | Solo si vas a tocar el servidor | Por mensaje privado, **nunca** por el repo ni grupos |
-| **Clave de Google Maps** | Mapa al registrar el negocio; rastreo (9) | Es la misma de la versión anterior; va en `app/dart_defines.local.json` (ver [app/README.md](app/README.md#con-el-mapa-de-google-chrome)), nunca en el código |
-
-> 🔒 **Secretos:** contraseñas, `APP_KEY` y la clave de Google **nunca** se
-> suben al repositorio. Los `.gitignore` ya excluyen `.env` y `*.pem`.
+`flutter doctor` te dice si falta algo más de Flutter.
 
 ---
 
-## 3. Ponerlo en marcha en tu PC
+## 2. Bajar el proyecto
 
-### 3.1 Clonar
-```bash
+Los dos repos van uno al lado del otro, dentro de `C:\proyecto`:
+
+```
+C:\proyecto\
+├── MDRmarket_2.0\          ← API, app y servidor (este repo)
+└── MDRmarket_2.0_docker\   ← base de datos (script y cambios)
+```
+
+En la terminal de Laragon (o en Git Bash):
+
+```
+mkdir C:\proyecto
+cd C:\proyecto
 git clone https://github.com/RaschifDaguer/MDRmarket_2.0.git
 git clone https://github.com/RaschifDaguer/MDRmarket_2.0_docker.git
+cd MDRmarket_2.0
+git checkout servidor-universidad
 ```
 
-### 3.2 Base de datos local
-1. Abre **Laragon → Start All**.
-2. Abre **phpMyAdmin** (o HeidiSQL) → **Importar** → uno de estos dos archivos del repo Docker:
-   - `mdrmarketnewdatabase.sql`: script maestro comentado, para crear la base desde cero
-     (con 10 usuarios, 3 negocios y 26 productos de ejemplo).
-   - `mdrmarket_new_aiven_2026-10-03.sql`: copia vieja de la producción anterior (03-oct);
-     no tiene los cambios de `cambios/`.
-
-   Cualquiera de los dos crea solo la base **`mdrmarket_new`**. ⚠️ Ninguno se
-   importa en el servidor de la universidad.
-
-   *Alternativa con Docker:* dentro de `MDRmarket_2.0_docker`, `docker compose up -d --build`
-   (queda en `localhost:3307`, usuario `root`, contraseña `root`).
-
-### 3.3 API
-```bash
-cd MDRmarket_2.0/api
-composer install
-copy .env.example .env          # en Mac/Linux: cp .env.example .env
-php artisan key:generate
-php artisan serve --host=0.0.0.0 --port=8001
-```
-Abre http://localhost:8001/up → debe responder. El `.env.example` ya apunta a
-`mdrmarket_new` en `127.0.0.1:3306` con usuario `root` sin contraseña (Laragon).
-
-### 3.4 App
-```bash
-cd MDRmarket_2.0/app
-flutter pub get
-flutter run -d chrome           # navegador
-flutter run                     # emulador Android abierto en Android Studio
-```
-
-| Dónde corre la app | API que usa por defecto |
-|---|---|
-| Chrome | `http://localhost:8001/api` |
-| Emulador Android | `http://10.0.2.2:8001/api` (así ve el emulador a tu PC) |
-| Celular real en tu Wi-Fi | `flutter run --dart-define=API_URL=http://IP-DE-TU-PC:8001/api` |
-| Contra el servidor de la universidad | `flutter run --dart-define=API_URL=https://DIRECCIÓN-DEL-SERVIDOR/api` |
-
-Para ver el **mapa de Google** en Chrome hace falta la clave en un archivo local:
-ver [app/README.md](app/README.md#con-el-mapa-de-google-chrome). Sin clave, la
-app usa solo el botón de GPS.
-
-Usuarios de ejemplo: los `*@mdrmarket.local` del script. Lo más simple es
-**crear tu propia cuenta** desde la pantalla de registro.
-
-### 3.5 Atajos sin Laragon
-
-- **Solo app:** salta 3.2 y 3.3, y en 3.4 corre
-  `flutter run --dart-define=API_URL=https://DIRECCIÓN-DEL-SERVIDOR/api`.
-- **Base con Docker en vez de Laragon:** ver la alternativa de 3.2
-  (`docker compose up -d --build` en el repo de la base).
-
-### 3.6 Panel de administrador
-
-Es una página web dentro de la misma API: **`/admin`**
-(`http://localhost:8001/admin` en tu PC, `DIRECCIÓN-DEL-SERVIDOR/admin`
-en internet). Cómo crear la cuenta, hacerte administrador y configurar la
-verificación en dos pasos: ver
-[Crear tu cuenta y hacerte administrador](#-crear-tu-cuenta-y-hacerte-administrador).
-
-En tu base local, el permiso se da con `php artisan mdr:admin tu@correo.com`
-(desde `api/`). La verificación en dos pasos también se pide en local.
+`servidor-universidad` es la rama que corre en el servidor: trabaja siempre a
+partir de ella (ver [8. Reglas](#8-reglas-para-trabajar-en-equipo)).
 
 ---
 
-## 4. Servidor en internet (universidad)
+## 3. Opción 1: en tu PC con Laragon
 
-- **Un solo servidor:** base, API, panel, app web, respaldo diario y tareas
-  automáticas corren en Docker en el servidor de la universidad
-  ([servidor/README.md](servidor/README.md)).
-- **Publicar:** después de unir a `main`, en el servidor `sudo ./actualizar.sh`
-  baja lo último de GitHub y reconstruye la API (no toca la base ni los archivos).
-- **La app instalada en celulares no se actualiza sola:** si cambias pantallas,
-  hay que generar e instalar un APK nuevo (`flutter build apk`).
-- **La base NO se actualiza sola.** Si cambias el script SQL, hay que aplicar
-  el archivo de `cambios/` a mano ([cómo](#5-cambios-en-la-base-de-datos)).
-  **Nunca importes el script completo en el servidor**: borra todas las tablas
-  y los datos. Ver [docs/BASE_DE_DATOS.md](docs/BASE_DE_DATOS.md#cómo-cambiar-la-base).
-- **Tareas automáticas:** el contenedor de la API corre el programador de
-  Laravel (vencer pedidos que nadie atendió). Se apaga con `TAREAS_AUTOMATICAS=0`.
+Es la forma recomendada para programar. Al final tendrás la API en
+`http://localhost:8001` y la app en Chrome.
 
----
+### 3.1 Crear la base de datos
 
-## 5. Cómo trabajar sin romper nada
+1. Abre Laragon y toca **Start All** (enciende MySQL).
+2. En la terminal de Laragon:
 
-1. **Una rama por módulo o arreglo:**
-   ```bash
-   git checkout main && git pull
-   git checkout -b modulo-4-registro-repartidor
    ```
-2. **Prueba en tu PC** (Laragon + `flutter run`) antes de subir.
-3. **Corre las pruebas** (ver [Pruebas](#9-pruebas)) y `flutter analyze` sin errores.
-4. **Sube la rama y abre un Pull Request** a `main`. Que el otro lo revise.
-5. Al unir a `main`, si tocaste `api/`, actualiza el servidor (`sudo ./actualizar.sh`)
-   y prueba `DIRECCIÓN-DEL-SERVIDOR/up`.
+   cd C:\proyecto\MDRmarket_2.0_docker
+   mysql -u root --default-character-set=utf8mb4 -e "source mdrmarketnewdatabase.sql"
+   ```
 
-Convenciones del código:
+   Crea la base **`mdrmarket_new`** con todas sus tablas, vistas, triggers,
+   procedimientos y datos de ejemplo. También se puede importar desde
+   HeidiSQL o phpMyAdmin (**Importar** → `mdrmarketnewdatabase.sql`).
 
-- **Todo en español:** nombres de tablas, columnas, variables, mensajes y commits.
-- **App:** una carpeta por funcionalidad en `app/lib/features/<feature>/` con
-  `data/` (llamadas a la API), `domain/` (modelos) y `presentation/` (pantallas y
-  estado con Riverpod). Lo compartido va en `app/lib/core/`.
-- **API:** controladores en `app/Http/Controllers/Api`, validaciones en
-  `app/Http/Requests`, respuestas con `app/Http/Resources`. Errores siempre en
-  JSON y en español.
-- **Reglas del negocio importantes van en la base** (triggers), así se cumplen
-  aunque alguien llame a la API de otra forma.
+> ⚠️ Ese script **empieza borrando la base**: úsalo solo en tu PC, nunca en el servidor.
 
----
-
-## 6. Estructura del código
+### 3.2 Configurar la API
 
 ```
-MDRmarket_2.0/
-├── README.md                 ← este archivo
-├── docs/
-│   ├── HOJA_DE_RUTA.md       ← qué falta y cómo hacerlo
-│   ├── API_FRONTEND.md       ← qué manda y recibe cada pantalla
-│   ├── DIAGRAMA_BD.md        ← diagrama de la base
-│   └── BASE_DE_DATOS.md      ← cómo está la base y cómo cambiarla
-├── api/                      ← Laravel 12
-│   ├── app/Http/Controllers/Api/              cuenta, catálogo, pedidos, direcciones, reseñas…
-│   ├── app/Http/Controllers/Api/Comerciante/  productos, pedidos, compras y gastos, ganancias, reseñas
-│   ├── app/Http/Requests/ y Resources/        validaciones y formato de las respuestas
-│   ├── app/Models/                            una clase por tabla (Usuario, Negocio, Producto, Pedido…)
-│   ├── app/Support/                           FlujoPedido (estados), VencimientoPedidos, Envio, RepartidoresCerca, Revision (admin), Archivos
-│   ├── app/Filament/                          panel de administración (/admin)
-│   ├── routes/api.php, web.php, console.php   rutas, el comando mdr:admin y las tareas automáticas
-│   ├── tests/Feature/                         pruebas (php artisan test)
-│   ├── bootstrap/app.php                      errores JSON en español
-│   ├── Dockerfile + docker/entrypoint.sh      imagen de la API (servidor de la universidad)
-│   └── README.md
-└── app/                      ← Flutter
-    ├── lib/main.dart, app.dart
-    ├── lib/core/            config (URL de la API), red (Dio), router, tema, almacenamiento,
-    │                        maps/ (mapa + GPS), archivos/ (fotos), formato/ (Bs y fechas), widgets/
-    ├── lib/features/auth/        login, registro, sesión
-    ├── lib/features/inicio/      inicio por vista (cliente / repartidor / comerciante) + cambio de vista
-    ├── lib/features/catalogo/    catálogo, detalle de producto, tiendas
-    ├── lib/features/carrito/     carrito (de un solo negocio)
-    ├── lib/features/pedidos/     confirmar pedido, direcciones, mis pedidos, calificar
-    ├── lib/features/comerciante/ registrar negocio y todas las pantallas del comerciante
-    ├── lib/features/perfil/      lo que falta para cada rol + subir documentos
-    ├── test/                pruebas (falsos.dart = datos de prueba sin internet)
-    └── README.md
+cd C:\proyecto\MDRmarket_2.0\api
+copy .env.example .env
+composer install
+php artisan key:generate
 ```
 
-En la PC del dueño, `C:\Raschif\laragon\www\mdrmarket_v2_api` es un enlace a
-`api/` para que Laragon la muestre; no hace falta replicarlo.
+El `.env.example` ya apunta a la base `mdrmarket_new` de Laragon. Si tu MySQL
+tiene otro usuario o contraseña, cámbialos en `.env` (`DB_USERNAME`,
+`DB_PASSWORD`). **El `.env` no se sube nunca a GitHub.**
 
----
+### 3.3 Encender la API
 
-## 7. API: rutas disponibles
-
-| Método | Ruta | Sesión | Para qué |
-|---|---|---|---|
-| GET | `/api` | — | Estado del servidor, de la base de datos (`"base_de_datos": "conectada"`) y de las fotos (`"fotos": "disco permanente"`) |
-| POST | `/api/auth/registro` | — | Crear cuenta. Devuelve `token` y `usuario` |
-| POST | `/api/auth/login` | — | Iniciar sesión. Devuelve `token` y `usuario` |
-| POST | `/api/auth/logout` | ✔ | Cerrar sesión en este dispositivo |
-| GET | `/api/me` | ✔ | Usuario, `vistas` y `puede_cambiar_vista` |
-| PUT | `/api/me/vista` | ✔ | Guardar la vista activa (`cliente` / `repartidor` / `comerciante`) |
-| PUT | `/api/me` | ✔ | Completar datos personales (apellido, CI, teléfono…) |
-| GET | `/api/me/faltantes/{rol}` | ✔ | Lo que le falta para ser `repartidor` o `comerciante` |
-| GET | `/api/categorias` | — | Rubros principales con sus subcategorías |
-| GET | `/api/negocios` | ✔ | Mis negocios |
-| POST | `/api/negocios` | ✔ | Registrar mi negocio (con foto; queda en revisión) |
-| GET | `/api/documentos` | ✔ | Mis documentos subidos y su estado |
-| POST | `/api/documentos` | ✔ | Subir la foto de un documento (carnet, licencia, fotos del vehículo con `vehiculo_id`…) |
-| GET | `/api/tipos-vehiculo` | ✔ | Moto, bicicleta, auto, camioneta, camión: categoría y si piden placa, RUAT y licencia |
-| GET | `/api/repartidor` | ✔ | Mi perfil de repartidor, con el vehículo y el motivo si me rechazaron |
-| POST | `/api/repartidor` | ✔ | Registrarme como repartidor (queda en revisión) o volver a enviar si me rechazaron |
-| POST | `/api/vehiculos` | ✔ | Registrar mi vehículo (uno solo; placa y RUAT si el tipo los pide; placa única) |
-| PUT | `/api/repartidor/disponible` | ✔ repartidor | En línea o desconectado (con su ubicación) |
-| GET | `/api/repartidor/pedidos-disponibles` | ✔ repartidor | Pedidos listos que su vehículo puede llevar, del más cercano al más lejano |
-| GET | `/api/repartidor/pedido-actual` | ✔ repartidor | El pedido que lleva ahora |
-| POST | `/api/pedidos/{id}/aceptar`, `/soltar` | ✔ repartidor | Tomar un pedido (gana el primero) o soltarlo antes de recogerlo |
-| PUT | `/api/repartidor/pedidos/{id}/estado` | ✔ repartidor | "en_camino" (recogido) o "entregado" con el PIN |
-| GET | `/api/repartidor/entregas` | ✔ repartidor | Historial de entregas con lo ganado en envíos |
-| GET | `/api/repartidor/ganancias` | ✔ repartidor | Ganado hoy y en la semana (por día), meta del día y calificación |
-| PUT | `/api/repartidor/meta` | ✔ repartidor | Su meta de ganancia del día |
-| GET | `/api/notificaciones` | ✔ | Sus avisos, con cuántos faltan leer; `POST /api/notificaciones/{id}/leida` y `/leidas` (todas) |
-| GET | `/api/motivos-reporte?tipo=negocio\|repartidor` | ✔ | Motivos para reportar un problema |
-| POST | `/api/pedidos/{id}/reportes` | ✔ comprador | "Hubo un problema" con la tienda o el repartidor de su pedido |
-| GET | `/api/archivos/{ruta}` | — | Ver una foto pública (negocios, productos) |
-| GET | `/api/productos`, `/api/productos/{id}` | — | Catálogo (filtros: categoría, negocio, texto, ofertas, orden) y detalle |
-| GET | `/api/tiendas`, `/api/tiendas/{id}` | — | Negocios aprobados y página de cada uno. Con `latitud` y `longitud`: envío, distancia y tiempo estimado (y `orden=cerca`) |
-| GET/POST/PUT/DELETE | `/api/direcciones` | ✔ | Direcciones guardadas del cliente |
-| POST | `/api/envio/cotizar` | ✔ | Costo del envío hasta una dirección |
-| GET/POST | `/api/pedidos` | ✔ | Mis pedidos / hacer un pedido |
-| GET | `/api/pedidos/{id}` | ✔ | Detalle (lo ven el comprador y el negocio) |
-| POST | `/api/pedidos/{id}/cancelar` | ✔ | Cancelar (solo mientras está pendiente) |
-| PUT | `/api/resenas` | ✔ | Calificar un producto, negocio o repartidor (crea o edita; al repartidor, con etiquetas) |
-| … | `/api/negocios/{id}/…` | ✔ dueño | Perfil, horario, abierto, productos, pedidos, compras y gastos, ganancias, reseñas |
-
-**Todas las rutas, con sus campos y para probarlas:** `http://localhost:8001/docs/api`
-(o `DIRECCIÓN-DEL-SERVIDOR/docs/api`). La genera
-**Scramble** leyendo el código. Ejemplos en [docs/API_FRONTEND.md](docs/API_FRONTEND.md).
-
-Sesión = cabecera `Authorization: Bearer <token>` (Laravel Sanctum).
-Prueba rápida:
-```bash
-curl https://DIRECCIÓN-DEL-SERVIDOR/api/me -H "Accept: application/json"
-# → 401 {"message":"Tu sesión expiró o no iniciaste sesión."}
+```
+php artisan serve --port=8001
 ```
 
+Abre http://localhost:8001/api: debe decir `"estado": "en línea"` y
+`"base_de_datos": "conectada"`. Deja esta terminal abierta.
+
+### 3.4 Encender las tareas automáticas (otra terminal)
+
+Abre **otra** terminal de Laragon:
+
+```
+cd C:\proyecto\MDRmarket_2.0\api
+php artisan schedule:work
+```
+
+**Por qué hace falta:** los plazos de los pedidos los aplica una tarea que
+corre cada 15 segundos (`pedidos:vencer`). Se encarga de:
+
+- rechazar los pedidos que la tienda no aceptó a tiempo;
+- cancelar los QR que no se pagaron;
+- cancelar los pedidos listos que ningún repartidor tomó.
+
+Sin `schedule:work`, esos pedidos se quedan esperando para siempre. En el
+servidor y en Docker ya corre sola.
+
+### 3.5 Correr la app en Chrome
+
+1. En `C:\proyecto\MDRmarket_2.0\app`, crea el archivo
+   **`dart_defines.pruebas.local.json`** con esto:
+
+   ```json
+   {
+     "API_URL": "http://localhost:8001/api"
+   }
+   ```
+
+   Sin `GOOGLE_MAPS_KEY`, la app usa **OpenStreetMap** para el mapa, así que no
+   hace falta ninguna clave. Este archivo **no se sube a GitHub** (está en el
+   `.gitignore`). Si algún día usas una clave de Google Maps, va solo aquí,
+   nunca en el código.
+
+2. En la terminal:
+
+   ```
+   cd C:\proyecto\MDRmarket_2.0\app
+   flutter pub get
+   flutter run -d chrome --dart-define-from-file=dart_defines.pruebas.local.json
+   ```
+
+3. **En el emulador de Android**, usa `"API_URL": "http://10.0.2.2:8001/api"`:
+   así ve el emulador a tu PC.
+
+### 3.6 Tu cuenta y el panel de administrador
+
+1. En la app, toca **Crear cuenta** y regístrate con tus datos.
+2. Para entrar al panel, date el permiso de administrador. En la carpeta `api`:
+
+   ```
+   php artisan mdr:admin TU_CORREO
+   ```
+
+3. Entra a http://localhost:8001/admin. La primera vez pide configurar la
+   **verificación en dos pasos** con una app como Google Authenticator. Guarda
+   los códigos de recuperación.
+
+Para probar los tres roles, desde **Cuenta** de la app puedes registrar un
+negocio o pedir ser repartidor. Después apruébalos en el panel (**Aprobaciones**).
+
 ---
 
-## 8. Reglas del negocio que ya están implementadas
+## 4. Opción 2: en tu PC con Docker
 
-- **Registro:** correo, contraseña **escrita dos veces** (mínimo 8 caracteres
-  con mayúscula, minúscula y número), nombre, apellido y carnet
-  (número + complemento + expedido). Correo y carnet no se pueden repetir.
-- **Vistas:** cliente siempre; repartidor si tiene perfil (aunque esté en
-  revisión); comerciante si tiene un negocio. El botón "cambiar vista" **solo
-  aparece si tiene más de una**.
-- **Convertirse en repartidor o comerciante** pidiendo solo lo que falta:
-  `CALL sp_datos_faltantes(usuario, 'repartidor')`. Al repartidor se le piden
-  carnet (anverso y reverso), **selfie**, licencia, foto del vehículo, foto de
-  la placa, RUAT y **SOAT**; a una bicicleta solo carnet, selfie y foto del vehículo. Al
-  comerciante, carnet y selfie. La selfie se toma con la cámara delantera y el
-  administrador la compara con la foto del carnet.
-- **Envío:** precio por km recorrido (`tarifa_envio`: hasta 3 km 3 Bs, hasta
-  6 km 5 Bs, hasta 10 km 8 Bs, hasta 15 km 12 Bs, hasta 20 km 15 Bs, hasta 30 km 20 Bs)
-  y cobertura del centro al **10mo anillo** (`fn_cotizar_envio`).
-- **Stock:** se descuenta en la base al crear el pedido (falla con "Stock
-  insuficiente") y se devuelve si se cancela.
-- **Reseñas:** una por usuario para cada producto, negocio o repartidor,
-  editable; solo después de recibir un pedido; nadie se reseña a sí mismo.
-- **Reportes y sanciones:** reportes con motivo; las sanciones bloquean pedidos,
-  ocultan negocios/productos y vencen solas.
-- **Ganancias del comerciante:** las ventas se registran solas al entregar un
-  pedido; reportes por día, semana, mes o año (`sp_reporte_negocio`). Las
-  compras de mercadería suman stock y actualizan el costo.
-- **Pedido:** a un solo negocio, aprobado y abierto; el precio sale del
-  catálogo (con la oferta vigente), respeta el pedido mínimo y la cobertura.
-  Estados: pendiente → aceptado → preparando → listo → en camino → entregado
-  (o rechazado / cancelado). El cliente cancela solo mientras está pendiente.
-  La tienda solo **acepta o rechaza** un pedido nuevo (con motivo, ej. "Sin
-  stock"); una vez aceptado **ya no lo cancela**. Lo que nadie atiende vence
-  solo: la tienda no responde en `minutos_para_aceptar` (rechazado), el QR no
-  se paga en `minutos_para_pagar_qr` o ningún repartidor lo toma en
-  `minutos_listo_sin_repartidor` (cancelado). En efectivo, el cliente puede
-  decir con cuánto paga (`paga_con`, al menos el total) para recibir cambio.
-- **Comisión:** `comision_plataforma_pct` (8 %) sobre los productos, no sobre
-  el envío; el repartidor gana todo el envío.
-- **Entrega:** un pedido "listo" lo acepta un **repartidor** (aprobado, sin
-  sanción, en línea y con un vehículo del tamaño necesario), que lo recoge y lo
-  marca "entregado" con el **PIN de 4 números** que solo ve el cliente. Lleva un
-  pedido a la vez y puede soltarlo antes de recogerlo. **El local no entrega**
-  (no tiene delivery propio): lleva el pedido hasta "listo" y ve "Buscando
-  repartidor…" (con cuántos repartidores hay cerca) o quién lo lleva.
-- **Aprobación:** un negocio nuevo queda "en revisión" hasta que un
-  administrador lo aprueba en `/admin`; recién ahí aparece en el catálogo.
-- **Horario:** todo se guarda en **UTC**; los reportes se muestran en hora de
-  Bolivia (-04:00).
+Levanta todo junto (base, API, panel, app web y tareas automáticas) con la
+misma configuración del servidor. No necesitas Laragon, PHP ni MySQL.
 
-Detalle completo en [docs/BASE_DE_DATOS.md](docs/BASE_DE_DATOS.md).
+**Requisito:** Docker Desktop abierto. Los comandos van en **Git Bash**.
 
----
-
-## 9. Pruebas
+### 4.1 Levantar todo
 
 ```bash
-# App (desde app/)
-flutter analyze
-flutter test                                                        # todas las pantallas con datos falsos
-flutter test --dart-define=API_URL=http://127.0.0.1:8001/api        # + recorridos reales contra la API local
-flutter test test/responsivo_test.dart --dart-define=CAPTURAS=true  # imágenes de cada pantalla en build/capturas/
+cd /c/proyecto/MDRmarket_2.0/servidor
+./instalar.sh
+```
 
-# API (desde api/): usa la base aparte mdrmarket_prueba (ver api/README.md)
+`instalar.sh` crea `servidor/.env` con claves al azar (solo la primera vez),
+arma la imagen de la API y enciende todo. **Ese `.env` no se sube a GitHub.**
+
+### 4.2 Cargar la base
+
+La primera vez la base está vacía. Cárgala con el script maestro:
+
+```bash
+./importar_base.sh ../../MDRmarket_2.0_docker/mdrmarketnewdatabase.sql
+```
+
+Listo:
+
+| Qué | Dirección |
+|---|---|
+| API | http://localhost:8090/api |
+| Panel de administrador | http://localhost:8090/admin |
+| App web | http://localhost:8090/app/ |
+
+Para correr la app con Flutter contra este Docker, pon
+`"API_URL": "http://localhost:8090/api"` en tu `dart_defines.pruebas.local.json`.
+Para darte el permiso de administrador:
+`docker compose exec api php artisan mdr:admin TU_CORREO`.
+
+### 4.3 Ver los logs, apagar y encender
+
+| Qué quieres hacer | Comando (desde `servidor/`) |
+|---|---|
+| Ver qué está encendido | `docker compose ps` |
+| Ver los logs de la API (Ctrl+C para salir) | `docker compose logs -f api` |
+| Ver los logs de la base | `docker compose logs -f db` |
+| Apagar (los datos se guardan) | `docker compose down` |
+| Volver a encender | `docker compose up -d` |
+| Reconstruir después de cambiar código de la API | `docker compose up -d --build` |
+| Borrar todo, también la base (cuidado) | `docker compose down -v` |
+
+> Si solo quieres la **base** en Docker, el repo `MDRmarket_2.0_docker` tiene
+> su propio `docker-compose.yml` (ver su README).
+
+---
+
+## 5. Actualizar tu copia después de un git pull
+
+Cuando alguien sube cambios, haz esto:
+
+### 5.1 Traer el código
+
+```
+cd C:\proyecto\MDRmarket_2.0
+git pull
+cd api
+composer install
+php artisan optimize:clear
+cd ..\app
+flutter pub get
+
+cd C:\proyecto\MDRmarket_2.0_docker
+git pull
+```
+
+### 5.2 Aplicar los cambios de la base
+
+Los cambios de estructura de la base llegan como archivos nuevos en
+`MDRmarket_2.0_docker/cambios/`, con la fecha en el nombre. Hay que aplicarlos
+**a tu base** en orden, del más viejo al más nuevo. **No vuelvas a importar
+`mdrmarketnewdatabase.sql`**: borra tus datos.
+
+**1. Mira cuáles te faltan.** Muestra cada archivo con `1` (ya lo tienes) o `0` (falta):
+
+- **Terminal de Laragon:**
+
+  ```
+  cd C:\proyecto\MDRmarket_2.0_docker
+  mysql -u root --default-character-set=utf8mb4 mdrmarket_new -e "source ver_cambios_aplicados.sql"
+  ```
+
+- **PowerShell** (en PowerShell no hay `mysql` en el PATH: va con la ruta
+  completa; cambia la carpeta `mysql-8.4.3-winx64` si tu versión es otra):
+
+  ```powershell
+  cd C:\proyecto\MDRmarket_2.0_docker
+  & "C:\laragon\bin\mysql\mysql-8.4.3-winx64\bin\mysql.exe" --user=root --host=127.0.0.1 --default-character-set=utf8mb4 mdrmarket_new -e "source ver_cambios_aplicados.sql"
+  ```
+
+**2. Aplica cada archivo que salga en `0`, en orden.** Ejemplo con uno:
+
+- **Terminal de Laragon:**
+
+  ```
+  mysql -u root --default-character-set=utf8mb4 mdrmarket_new -e "source cambios/2026-11-16_plazos_de_pedidos.sql"
+  ```
+
+- **PowerShell:**
+
+  ```powershell
+  & "C:\laragon\bin\mysql\mysql-8.4.3-winx64\bin\mysql.exe" --user=root --host=127.0.0.1 --default-character-set=utf8mb4 mdrmarket_new -e "source cambios/2026-11-16_plazos_de_pedidos.sql"
+  ```
+
+Usa siempre `-e "source ..."` y no el símbolo `<`: el `<` no funciona en
+PowerShell. Pon siempre `--default-character-set=utf8mb4`, porque sin eso los
+acentos quedan mal.
+
+Los archivos de `cambios/` se pueden aplicar dos veces sin problema: si no
+estás seguro, aplícalos todos en orden.
+
+**Con la Opción 2 (Docker)**, desde `MDRmarket_2.0/servidor` en Git Bash:
+
+```bash
+docker compose exec -T db sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mysql -uroot --default-character-set=utf8mb4 mdrmarket_new' < ../../MDRmarket_2.0_docker/cambios/ARCHIVO.sql
+```
+
+Después vuelve a correr la consulta del paso 1: todo debe salir en `1`.
+
+> Si tienes la base de pruebas `mdrmarket_prueba` (ver [7. Pruebas](#7-correr-las-pruebas)),
+> aplícale lo mismo cambiando `mdrmarket_new` por `mdrmarket_prueba`, o vuelve a crearla.
+
+---
+
+## 6. Servidor de la universidad
+
+El servidor de la universidad es el **único servidor** del proyecto: ahí
+corren la base, la API, el panel y la app web (en `/app/`), con Docker
+Compose. Usa la rama **`servidor-universidad`**.
+
+**Acceso:** pide el acceso SSH al responsable del servidor. Él te dice también
+en qué carpeta está el proyecto.
+
+### Publicar una versión nueva
+
+Una vez que los cambios ya están en la rama `servidor-universidad`, entra al
+servidor por SSH y ve a la carpeta `servidor/` del proyecto.
+
+1. **Respaldo de la base** (siempre primero):
+
+   ```bash
+   sudo docker compose exec -T respaldo bash /respaldo.sh ahora </dev/null
+   ```
+
+   Queda en `servidor/respaldos/`. Si algo sale mal, se vuelve atrás con
+   `./importar_base.sh respaldos/ARCHIVO.sql.gz`.
+
+2. **Aplica los archivos nuevos de `cambios/`, en orden** (del más viejo al más
+   nuevo). Cópialos al servidor (por ejemplo a `/tmp/`) y aplica cada uno:
+
+   ```bash
+   sudo docker compose exec -T db sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mysql -uroot --default-character-set=utf8mb4 mdrmarket_new' < /tmp/ARCHIVO.sql
+   ```
+
+   Para ver cuáles ya tiene el servidor, aplica de la misma forma
+   `ver_cambios_aplicados.sql`: solo lee, no cambia nada.
+
+3. **Actualiza el código y la API:**
+
+   ```bash
+   sudo ./actualizar.sh
+   ```
+
+   Trae lo último de GitHub (`git pull`) y vuelve a armar la API. La base, las
+   fotos subidas y el `.env` no se tocan.
+
+4. **Revisa que quedó en línea:**
+
+   ```bash
+   curl -s http://127.0.0.1:8090/api
+   ```
+
+> 🚨 **Nunca** importes `mdrmarketnewdatabase.sql` en el servidor: empieza
+> borrando la base y se pierden los datos reales. En el servidor solo se aplican
+> los archivos de `cambios/`.
+
+Más detalle de cómo se maneja el servidor: [servidor/README.md](servidor/README.md).
+
+### La app web
+
+La app web se publica dentro de la API, en `api/public/app`. Para armarla de
+nuevo (en PowerShell, desde `app/`):
+
+```powershell
+.\publicar_web.ps1
+```
+
+Sin clave usa OpenStreetMap. Después se hace commit de `api/public/app` y,
+cuando esté en `servidor-universidad`, `./actualizar.sh` en el servidor.
+
+---
+
+## 7. Correr las pruebas
+
+### API
+
+Las pruebas usan una **base aparte, `mdrmarket_prueba`**, creada con el mismo
+script maestro. Así se prueban los triggers y procedimientos reales. Cada
+prueba deshace lo que hizo al terminar, así que tu base `mdrmarket_new` no se toca.
+
+**Crear la base de pruebas (una vez)**, en Git Bash:
+
+```bash
+cd /c/proyecto/MDRmarket_2.0_docker
+sed 's/mdrmarket_new/mdrmarket_prueba/g' mdrmarketnewdatabase.sql > /tmp/prueba.sql
+mysql -u root --default-character-set=utf8mb4 < /tmp/prueba.sql
+```
+
+Si `mysql` no está en el PATH de Git Bash, usa la ruta completa:
+`/c/laragon/bin/mysql/mysql-8.4.3-winx64/bin/mysql.exe`.
+
+**Correr las pruebas:**
+
+```
+cd C:\proyecto\MDRmarket_2.0\api
 php artisan test
 ```
 
-Regla del equipo: **cada módulo nuevo trae al menos una prueba simple que
-demuestre que cumple su función** (ver "Cómo probarlo" en cada módulo de la
-[hoja de ruta](docs/HOJA_DE_RUTA.md)).
+### App
+
+```
+cd C:\proyecto\MDRmarket_2.0\app
+flutter analyze
+flutter test
+```
+
+Las pruebas de la app no usan internet ni la API: trabajan con datos falsos.
+
+Antes de subir algo, **las dos suites tienen que pasar completas** y
+`flutter analyze` no debe dar avisos.
 
 ---
 
-## 10. Problemas conocidos
+## 8. Reglas para trabajar en equipo
 
-| Síntoma | Causa | Qué hacer |
-|---|---|---|
-| La app o el panel dicen **"En mantenimiento"** (o `/api` dice `"base_de_datos": "sin conexión"`) | La base del servidor está apagada o reiniciándose | En el servidor: `sudo docker compose ps`; si `db` no está *healthy*, `sudo docker compose up -d`. Si no tienes acceso, avisa a Raschif |
-| `AH00534: More than one MPM loaded` | Imagen php:apache | Ya resuelto en `Dockerfile` y `entrypoint.sh`; no borrar esas líneas |
-| La app en el emulador no conecta | Usa `localhost` | El emulador usa `10.0.2.2`; un celular real necesita la IP de la PC |
-| Error de CORS en Chrome | API apagada o URL mal escrita | Revisa que la API esté encendida y la URL termine en `/api` |
-| Al registrar el negocio no aparece el mapa, solo el botón GPS | Falta la clave de Google Maps, o la clave no tiene activada la Maps JavaScript API | Ver [app/README.md](app/README.md#con-el-mapa-de-google-chrome) |
-| Una foto subida (negocio, producto, documento) no se ve | El volumen `archivos` del servidor no está montado | `DIRECCIÓN-DEL-SERVIDOR/api` debe decir `"fotos": "disco permanente"`; si no, revisa `servidor/docker-compose.yml` |
-| En el panel, al entrar, no se ve el QR | Versión vieja del panel | Ya corregido (`AutenticadorApp`); recarga con Ctrl + F5 |
-| VS Code marca en rojo cosas de Laravel | El editor no tiene indexado `vendor/` | Abre la carpeta `api/` sola en VS Code o corre `composer install` |
+1. **Una rama por tarea**, creada desde `servidor-universidad`:
+   `git checkout servidor-universidad`, `git pull`, `git checkout -b mi-tarea`.
+2. Al terminar, sube tu rama (`git push -u origin mi-tarea`) y abre un **Pull
+   Request hacia `servidor-universidad`**. No subas directo a esa rama.
+3. **Cambios en la base:** un archivo nuevo en `MDRmarket_2.0_docker/cambios/`.
+   Se refleja también en `mdrmarketnewdatabase.sql` y se prueba en tu base local
+   antes de aplicarlo en el servidor. Cómo escribirlos:
+   [cambios/README.md](https://github.com/RaschifDaguer/MDRmarket_2.0_docker/blob/main/cambios/README.md).
+4. **Formato:** en la app, `dart format -l 120` solo sobre los archivos que
+   cambiaste. En la API, `vendor/bin/pint` sobre los archivos que cambiaste.
+5. **Nunca subas secretos** (el repo es público):
+   - archivos `.env` y `dart_defines*.local.json`;
+   - claves de Google, `APP_KEY`, contraseñas;
+   - llaves de firma (`.jks`, `key.properties`).
 
 ---
 
-## Documentación adicional
+## 9. Más documentación
 
-- [docs/HOJA_DE_RUTA.md](docs/HOJA_DE_RUTA.md) — módulos pendientes, uno por uno.
-- [docs/API_FRONTEND.md](docs/API_FRONTEND.md) — qué manda y recibe la app en cada pantalla (JSON de ejemplo).
-- [docs/DIAGRAMA_BD.md](docs/DIAGRAMA_BD.md) — diagrama de la base de datos.
-- [docs/BASE_DE_DATOS.md](docs/BASE_DE_DATOS.md) — tablas, vistas, triggers y cómo cambiar la base.
-- [api/README.md](api/README.md) — API: configuración, pruebas y seguridad.
-- [app/README.md](app/README.md) — app Flutter.
-- [Repo de la base (Docker)](https://github.com/RaschifDaguer/MDRmarket_2.0_docker).
+| Documento | De qué trata |
+|---|---|
+| [api/README.md](api/README.md) | Detalles de la API: seguridad, archivos, pruebas |
+| [app/README.md](app/README.md) | Detalles de la app: estructura, APK de Android, mapa con Google |
+| [servidor/README.md](servidor/README.md) | Cómo está armado y se maneja el servidor |
+| [docs/API_FRONTEND.md](docs/API_FRONTEND.md) | Todas las rutas de la API con ejemplos |
+| [docs/BASE_DE_DATOS.md](docs/BASE_DE_DATOS.md) | Cómo está pensada la base de datos |
+| [docs/DIAGRAMA_BD.md](docs/DIAGRAMA_BD.md) | Diagrama de la base |
+| [docs/HOJA_DE_RUTA.md](docs/HOJA_DE_RUTA.md) | Qué está hecho y qué falta |
