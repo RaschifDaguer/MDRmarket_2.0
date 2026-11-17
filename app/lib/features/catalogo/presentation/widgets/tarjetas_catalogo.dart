@@ -55,18 +55,30 @@ class EtiquetaDescuento extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: AppEspacios.s, vertical: 2),
       decoration: BoxDecoration(color: c.error, borderRadius: BorderRadius.circular(8)),
-      child: Text('-$porcentaje%', style: TextStyle(color: c.onError, fontWeight: FontWeight.w700, fontSize: 12)),
+      child: Text(
+        '-$porcentaje%',
+        style: TextStyle(color: c.onError, fontWeight: FontWeight.w700, fontSize: 12),
+      ),
     );
   }
 }
 
 /// Producto en la grilla del catálogo.
 class TarjetaProducto extends StatelessWidget {
-  const TarjetaProducto({super.key, required this.producto, required this.alTocar, this.mostrarNegocio = true});
+  const TarjetaProducto({
+    super.key,
+    required this.producto,
+    required this.alTocar,
+    this.mostrarNegocio = true,
+    this.prefijoClave = 'producto',
+  });
 
   final Producto producto;
   final VoidCallback alTocar;
   final bool mostrarNegocio;
+
+  /// Para no repetir la clave si el producto sale dos veces (ej. en "Ofertas del día").
+  final String prefijoClave;
 
   @override
   Widget build(BuildContext context) {
@@ -76,7 +88,7 @@ class TarjetaProducto extends StatelessWidget {
 
     return Card(
       child: InkWell(
-        key: Key('producto-${producto.id}'),
+        key: Key('$prefijoClave-${producto.id}'),
         onTap: alTocar,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -88,7 +100,11 @@ class TarjetaProducto extends StatelessWidget {
                 children: [
                   ImagenRed(producto.imagenUrl, radio: 0, icono: Icons.shopping_bag_outlined),
                   if (producto.enOferta)
-                    Positioned(top: AppEspacios.s, left: AppEspacios.s, child: EtiquetaDescuento(producto.descuentoPct)),
+                    Positioned(
+                      top: AppEspacios.s,
+                      left: AppEspacios.s,
+                      child: EtiquetaDescuento(producto.descuentoPct),
+                    ),
                   if (noDisponible)
                     Positioned.fill(
                       child: ColoredBox(
@@ -113,7 +129,12 @@ class TarjetaProducto extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Flexible(
-                      child: Text(producto.nombre, maxLines: 2, overflow: TextOverflow.ellipsis, style: textos.titleSmall),
+                      child: Text(
+                        producto.nombre,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: textos.titleSmall,
+                      ),
                     ),
                     if (mostrarNegocio)
                       Text(
@@ -175,7 +196,13 @@ class TarjetaTienda extends StatelessWidget {
                       children: [
                         Calificacion(promedio: tienda.rating, total: tienda.totalResenas, compacto: true),
                         EtiquetaAbierto(abierto: tienda.abierto),
-                        if (tienda.tiempoPreparacionMin != null)
+                        // Con la dirección del cliente: "15–25 min · Envío Bs 3".
+                        if (tienda.envio case final envio? when envio.enCobertura) ...[
+                          Text(envio.tiempoTexto!, key: Key('tiempo-tienda-${tienda.id}'), style: textos.bodySmall),
+                          Text('Envío ${Formato.bs(envio.costoEnvio)}', style: textos.bodySmall),
+                        ] else if (tienda.envio != null)
+                          Text('Fuera de tu zona', style: textos.bodySmall?.copyWith(color: c.error))
+                        else if (tienda.tiempoPreparacionMin != null)
                           Text('~${tienda.tiempoPreparacionMin} min', style: textos.bodySmall),
                       ],
                     ),

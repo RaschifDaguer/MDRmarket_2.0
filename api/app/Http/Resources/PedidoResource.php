@@ -7,6 +7,8 @@ use App\Models\Resena;
 use App\Support\Archivos;
 use App\Support\CobroQr;
 use App\Support\FlujoPedido;
+use App\Support\RepartidoresCerca;
+use App\Support\VencimientoPedidos;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -56,6 +58,14 @@ class PedidoResource extends JsonResource
                 'placa' => $this->vehiculo?->placa,
                 'color' => $this->vehiculo?->color,
             ] : null),
+            // Al negocio, mientras espera repartidor: "Buscando repartidor… 3 cerca de tu tienda".
+            'repartidores_cerca' => $this->when(
+                $rol === 'comerciante' && $this->estado === 'listo' && $this->repartidor_id === null && $this->relationLoaded('negocio'),
+                fn () => RepartidoresCerca::contar($this->resource)
+            ),
+            // Al negocio, en un pedido nuevo: hasta cuándo puede aceptarlo (cuenta regresiva).
+            'aceptar_antes' => $this->when($rol === 'comerciante' && $this->estado === 'pendiente',
+                fn () => VencimientoPedidos::aceptarAntes($this->resource)),
             // Tamaño de vehículo que necesita: Liviano, Mediano o Grande.
             'tamano' => $this->whenLoaded('categoriaVehiculo', fn () => $this->categoriaVehiculo?->nombre),
             'direccion_entrega' => $this->direccion_entrega,
@@ -69,6 +79,13 @@ class PedidoResource extends JsonResource
             'descuento' => $this->descuento,
             'total' => $this->total,
             'metodo_pago' => $this->metodo_pago,
+            // Efectivo: con cuánto paga y cuánto cambio le dan (lo ven el cliente, el negocio y el repartidor).
+            'paga_con' => $this->paga_con,
+            'cambio' => $this->paga_con !== null ? number_format((float) $this->paga_con - (float) $this->total, 2, '.', '') : null,
+            // Lo que se ahorró con las ofertas (precio sin oferta − precio cobrado).
+            'ahorro' => $this->when($detalle, fn () => number_format($this->items->sum(
+                fn ($i) => $i->precio_original !== null ? max(0, ((float) $i->precio_original - (float) $i->precio_unitario) * $i->cantidad) : 0
+            ), 2, '.', '')),
             'estado_pago' => $this->estado_pago,
             // Cobro con QR (simulado): solo el comprador recibe el contenido del QR para pagarlo.
             'pago_qr' => $this->when($esComprador && $this->metodo_pago === 'qr' && $this->referencia_pago !== null, fn () => [
@@ -86,9 +103,11 @@ class PedidoResource extends JsonResource
                 'nombre' => $item->producto_nombre,
                 'imagen_url' => Archivos::url($item->producto?->imagenPrincipal?->url),
                 'precio_unitario' => $item->precio_unitario,
+                'precio_original' => $item->precio_original,
                 'cantidad' => $item->cantidad,
                 'subtotal' => $item->subtotal,
                 'notas' => $item->notas,
+                'alistado' => (bool) $item->alistado,
             ])),
             'historial' => $this->whenLoaded('historial', fn () => $this->historial->map(fn ($h) => [
                 'estado' => $h->estado_nuevo,
@@ -112,6 +131,7 @@ class PedidoResource extends JsonResource
         $resenas = Resena::where('autor_id', $usuarioId)
             ->where(fn ($q) => $q
                 ->where(fn ($q) => $q->where('tipo', 'negocio')->where('negocio_id', $this->negocio_id))
+                ->orWhere(fn ($q) => $q->where('tipo', 'repartidor')->where('repartidor_id', $this->repartidor_id))
                 ->orWhere(fn ($q) => $q->where('tipo', 'producto')->whereIn('producto_id', $this->items->pluck('producto_id'))))
             ->get();
 
@@ -120,11 +140,16 @@ class PedidoResource extends JsonResource
             'producto_id' => $r->producto_id,
             'estrellas' => $r->estrellas,
             'comentario' => $r->comentario,
+            'etiquetas' => $r->etiquetas ?? [],
         ];
         $negocio = $resenas->firstWhere('tipo', 'negocio');
+        $repartidor = $this->repartidor_id !== null ? $resenas->firstWhere('tipo', 'repartidor') : null;
 
         return [
             'negocio' => $negocio ? $formato($negocio) : null,
+            // A quién calificar: el repartidor que lo entregó (null si no hubo).
+            'repartidor_id' => $this->repartidor_id,
+            'repartidor' => $repartidor ? $formato($repartidor) : null,
             // Lista (no mapa): Laravel renumera los arreglos con claves numéricas.
             'productos' => $resenas->where('tipo', 'producto')->map($formato)->values()->all(),
         ];

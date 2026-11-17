@@ -7,12 +7,14 @@ use App\Http\Requests\ProductoRequest;
 use App\Http\Resources\MiProductoResource;
 use App\Models\Negocio;
 use App\Models\Producto;
+use App\Models\ProductoImagen;
 use App\Support\Archivos;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 /** Mis productos: /api/negocios/{negocio}/productos (solo el dueño). */
 class ProductoController extends Controller
@@ -24,7 +26,8 @@ class ProductoController extends Controller
 
         return MiProductoResource::collection(
             $negocio->productos()
-                ->with(['categoria', 'imagenPrincipal'])
+                // Con todas sus fotos, para editarlas (hasta 4).
+                ->with(['categoria', 'imagenPrincipal', 'imagenes'])
                 ->when($texto, fn ($q) => $q->where('nombre', 'like', '%'.addcslashes($texto, '%_\\').'%'))
                 ->orderByDesc('disponible')
                 ->orderBy('nombre')
@@ -40,6 +43,7 @@ class ProductoController extends Controller
             if ($request->hasFile('foto')) {
                 $this->guardarFoto($producto, $request->file('foto'));
             }
+            $this->agregarFotos($producto, $request->file('fotos', []));
 
             return $producto;
         });
@@ -47,7 +51,10 @@ class ProductoController extends Controller
         return (new MiProductoResource($this->cargar($producto)))->response()->setStatusCode(201);
     }
 
-    /** POST /{producto} — editar (multipart). Con foto nueva, reemplaza la principal. */
+    /**
+     * POST /{producto} — editar (multipart). Con `foto` reemplaza la portada;
+     * con `fotos[]` agrega fotos (hasta 4 en total).
+     */
     public function update(ProductoRequest $request, Negocio $negocio, Producto $producto): MiProductoResource
     {
         DB::transaction(function () use ($request, $producto) {
@@ -55,6 +62,37 @@ class ProductoController extends Controller
             if ($request->hasFile('foto')) {
                 $this->guardarFoto($producto, $request->file('foto'));
             }
+            $this->agregarFotos($producto, $request->file('fotos', []));
+        });
+
+        return new MiProductoResource($this->cargar($producto));
+    }
+
+    /** DELETE /{producto}/fotos/{imagen} — quita una foto; si era la portada, pasa a serlo la siguiente. */
+    public function borrarFoto(Negocio $negocio, Producto $producto, int $imagen): MiProductoResource
+    {
+        DB::transaction(function () use ($producto, $imagen) {
+            $foto = $producto->imagenes()->lockForUpdate()->findOrFail($imagen);
+            $eraPortada = $foto->es_principal;
+            $url = $foto->url;
+            $foto->delete();
+            if ($eraPortada) {
+                $producto->imagenes()->orderBy('orden')->orderBy('id')->first()?->update(['es_principal' => true]);
+            }
+            DB::afterCommit(fn () => Archivos::borrarPublico($url));
+        });
+
+        return new MiProductoResource($this->cargar($producto));
+    }
+
+    /** POST /{producto}/fotos/{imagen}/portada — esa foto pasa a ser la portada. */
+    public function portada(Negocio $negocio, Producto $producto, int $imagen): MiProductoResource
+    {
+        DB::transaction(function () use ($producto, $imagen) {
+            $nueva = $producto->imagenes()->lockForUpdate()->findOrFail($imagen);
+            // Una sola portada por producto (uq_producto_imagen_principal): primero se quita la otra.
+            $producto->imagenes()->where('id', '!=', $nueva->id)->where('es_principal', true)->update(['es_principal' => false]);
+            $nueva->update(['es_principal' => true]);
         });
 
         return new MiProductoResource($this->cargar($producto));
@@ -103,8 +141,34 @@ class ProductoController extends Controller
         }
     }
 
+    /**
+     * Agrega fotos extra (no portada; si no tenía ninguna, la primera lo es).
+     * 422 si con estas pasaría de ProductoImagen::MAXIMO.
+     *
+     * @param  UploadedFile[]  $fotos
+     */
+    private function agregarFotos(Producto $producto, array $fotos): void
+    {
+        if ($fotos === []) {
+            return;
+        }
+        $actuales = $producto->imagenes()->count();
+        if ($actuales + count($fotos) > ProductoImagen::MAXIMO) {
+            throw ValidationException::withMessages(['fotos' => 'Un producto puede tener hasta '.ProductoImagen::MAXIMO
+                ." fotos. Ya tiene $actuales: borra alguna para agregar otra."]);
+        }
+        $orden = (int) $producto->imagenes()->max('orden');
+        foreach (array_values($fotos) as $i => $foto) {
+            $producto->imagenes()->create([
+                'url' => Archivos::guardarPublico($foto, 'productos'),
+                'es_principal' => $actuales === 0 && $i === 0,
+                'orden' => $orden + $i + 1,
+            ]);
+        }
+    }
+
     private function cargar(Producto $producto): Producto
     {
-        return $producto->refresh()->load(['categoria', 'imagenPrincipal']);
+        return $producto->refresh()->load(['categoria', 'imagenPrincipal', 'imagenes']);
     }
 }

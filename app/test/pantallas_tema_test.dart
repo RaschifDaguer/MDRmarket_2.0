@@ -44,15 +44,18 @@ void main() {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
-    await tester.pumpWidget(ProviderScope(
-      retry: (_, _) => null,
-      overrides: [
-        if (sesion != null) authControllerProvider.overrideWith(() => _SesionFalsa(sesion)),
-        // La vista repartidor en revisión pide lo que falta subir: sin internet, nada.
-        faltantesProvider.overrideWith((ref, rol) async => const []),
-      ],
-      child: MaterialApp(theme: tema, home: pantalla),
-    ));
+    await tester.pumpWidget(
+      ProviderScope(
+        retry: (_, _) => null,
+        overrides: [
+          if (sesion != null) authControllerProvider.overrideWith(() => _SesionFalsa(sesion)),
+          // La vista repartidor en revisión pide lo que falta subir: sin internet, nada.
+          faltantesProvider.overrideWith((ref, rol) async => const []),
+          misDocumentosProvider.overrideWith((ref) async => const []),
+        ],
+        child: MaterialApp(theme: tema, home: pantalla),
+      ),
+    );
     await tester.pump();
   }
 
@@ -67,7 +70,9 @@ void main() {
 
       testWidgets('el registro se dibuja', (tester) async {
         await abrir(tester, const RegistroScreen(), tema);
-        expect(find.widgetWithText(FilledButton, 'Crear cuenta'), findsOneWidget);
+        // En 3 pasos: el primero termina en "Siguiente".
+        expect(find.text('Paso 1 de 3'), findsOneWidget);
+        expect(find.widgetWithText(FilledButton, 'Siguiente'), findsOneWidget);
         expect(find.byIcon(Icons.check_circle), findsNothing);
         expect(tester.takeException(), isNull);
       });
@@ -81,8 +86,7 @@ void main() {
       });
 
       testWidgets('el arranque muestra el error y "Reintentar"', (tester) async {
-        await abrir(tester, const SplashScreen(), tema,
-            sesion: () => Future.error(Exception('Sin conexión')));
+        await abrir(tester, const SplashScreen(), tema, sesion: () => Future.error(Exception('Sin conexión')));
         await tester.pump();
         expect(find.widgetWithText(FilledButton, 'Reintentar'), findsOneWidget);
         expect(tester.takeException(), isNull);
@@ -93,7 +97,8 @@ void main() {
         await tester.pump();
         expect(find.text('Hola, Lucía'), findsOneWidget);
         expect(find.byKey(const Key('boton-cambiar-vista')), findsOneWidget);
-        expect(find.text('Solicitud en revisión'), findsOneWidget);
+        await tester.pump(const Duration(milliseconds: 300));
+        expect(find.text('Estamos revisando tus datos'), findsOneWidget);
         expect(tester.takeException(), isNull);
       });
     });

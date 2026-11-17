@@ -36,6 +36,8 @@ class TiendaResource extends JsonResource
             'tiempo_preparacion_min' => $this->tiempo_preparacion_min,
             'pedido_minimo' => $this->pedido_minimo,
             'total_productos' => $this->whenCounted('productos'),
+            // Solo si el cliente mandó su ubicación: envío "desde", distancia y tiempo estimado.
+            'envio' => $this->when(array_key_exists('envio', $this->resource->getAttributes()), fn () => $this->resource->getAttribute('envio')),
             'horarios' => $this->whenLoaded('horarios', fn () => $this->horarios->map(fn ($h) => [
                 'dia_semana' => $h->dia_semana,
                 'hora_apertura' => substr($h->hora_apertura, 0, 5),

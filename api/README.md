@@ -67,7 +67,7 @@ WHERE email = 'correo@del.admin';
 - **Versión de PHP fijada** en el `Dockerfile` (`php:8.3.36-apache`). La 8.3.36
   corrige "PHP2Shell" (CVE-2026-109618 y CVE-2026-109619, oct-2026). Cuando PHP
   publique otra versión de seguridad de la rama 8.3 (https://www.php.net), sube
-  ese número y haz push: Railway reconstruye con la nueva.
+  ese número, haz push y actualiza el servidor (`sudo ./actualizar.sh`).
 - **Sesión de la app:** el token vence a los 60 días (`SANCTUM_EXPIRATION`, en
   minutos). Los datos de cada usuario y negocio solo los ve su dueño: con un
   número ajeno en la URL la API responde 404.
@@ -96,7 +96,7 @@ WHERE email = 'correo@del.admin';
 - **Ataques de saturación (DDoS):** los límites frenan a una persona o un bot,
   pero un ataque grande desde miles de IP hay que pararlo antes de que llegue al
   servidor. Para eso hace falta un dominio propio con el proxy de Cloudflare
-  (plan gratis) delante de Railway.
+  (plan gratis) delante del servidor.
 - `tests/Feature/SeguridadTest.php` prueba todo esto como lo intentaría un
   atacante (sin sesión, con la sesión de otro, inyección SQL, archivos
   disfrazados, solicitudes en masa).
@@ -136,62 +136,37 @@ ejemplo "Stock insuficiente") también llegan como 422 con su mensaje.
   suben: los genera `php artisan filament:upgrade`, que corre solo con
   `composer install` y al armar la imagen de Docker.
 
-## Docker y Railway
+## Docker y servidor
 
-Publicada en **https://api-mdrmarket-production.up.railway.app/api**.
+La API corre en el **servidor de la universidad**, junto con la base, el panel
+y la app web, con `servidor/docker-compose.yml` (ver [servidor/README.md](../servidor/README.md)).
+El `Dockerfile` arma la API con PHP 8.3 + Apache y `docker/entrypoint.sh`, al
+arrancar:
 
-| Parte | Dónde |
-|---|---|
-| API | Railway (plan Free), se despliega sola con cada push que cambie `api/` |
-| Base de datos | Aiven for MySQL 8.4 (plan Free), base `mdrmarket_new`, conexión SSL |
+1. configura el puerto (`$PORT`, 8080 por defecto) y deja Apache con un solo
+   MPM (prefork);
+2. crea las carpetas de fotos en `storage/app` (un volumen de Docker, así no se
+   borran al actualizar) y se las da a Apache;
+3. cachea la configuración y las rutas;
+4. arranca las **tareas automáticas** (`php artisan schedule:work`, como
+   www-data): `pedidos:vencer` cada 15 s rechaza o cancela los pedidos que
+   nadie atendió a tiempo. Con `TAREAS_AUTOMATICAS=0` no se arrancan.
 
-`Dockerfile` arma la API con PHP 8.3 + Apache. Configuración en Railway:
+Las variables (`APP_KEY`, contraseñas de la base…) están en `servidor/.env`,
+que **nunca** se sube al repositorio.
 
-1. **New → GitHub Repo →** `MDRmarket_2.0`; en **Settings**: Root Directory `/api`
-   y Watch Paths `/api/**`.
-2. Variables: `APP_KEY` (de `php artisan key:generate --show`), `APP_ENV=production`,
-   `APP_DEBUG=false`, `APP_LOCALE=es`, `LOG_CHANNEL=stderr`, `DB_CONNECTION=mysql`,
-   `DB_HOST`, `DB_PORT`, `DB_DATABASE=mdrmarket_new`, `DB_USERNAME`, `DB_PASSWORD`
-   (los de Aiven) y `DB_SSL_CA_BASE64` (el `ca.pem` de Aiven en base64:
-   `base64 -w0 ca.pem`).
-3. Railway asigna el puerto en `$PORT`; `docker/entrypoint.sh` lo configura solo,
-   escribe el certificado de la base y deja Apache con un solo MPM (prefork).
-4. **Disco permanente para las fotos** (ver abajo).
-
-> Nunca subir al repositorio la contraseña de la base ni el `ca.pem`.
-
-### Fotos que no se borren (Volume de Railway)
-
-✅ **Activo desde el 29-oct-2026.** Se comprobó subiendo una foto de prueba y
-redesplegando: la foto siguió viéndose.
-
-Las fotos que suben los usuarios (negocios, productos y documentos privados)
-se guardan en `storage/app`. El disco normal de Railway **se borra en cada
-despliegue**, por eso ahí está montado un disco permanente. Si alguna vez hay
-que volver a crearlo (por ejemplo, en un servicio nuevo):
-
-1. En el proyecto de Railway, `Ctrl + K` (o clic derecho en el lienzo) → **Volume**.
-2. Elige el servicio de la API.
-3. **Mount path:** `/var/www/html/storage/app`
-4. Railway redespliega solo. `docker/entrypoint.sh` crea las carpetas
-   `public/` y `private/` dentro del disco y se las da a Apache.
-
-**Para comprobarlo:** `GET /api` debe decir `"fotos": "disco permanente"`. Si dice
-*disco temporal*, el Volume no está montado y las fotos nuevas se perderán en el
-próximo despliegue. Los documentos privados quedan en el mismo disco y nunca se
-sirven sin sesión de administrador.
+**Para comprobarlo:** `GET /api` debe decir `"base_de_datos": "conectada"` y
+`"fotos": "disco permanente"`. Los documentos privados quedan en el mismo
+volumen y nunca se sirven sin sesión de administrador.
 
 ### Rendimiento y caídas de la base
 
-- Cada proceso de Apache reutiliza su conexión cifrada con Aiven
+- Cada proceso de Apache reutiliza su conexión con la base
   (`DB_PERSISTENT=true` en el `Dockerfile`), en vez de abrir una nueva en cada solicitud.
 - Apache atiende como máximo **10 solicitudes a la vez** (`MaxRequestWorkers`):
-  alcanza para la memoria del plan y para las 76 conexiones de Aiven. Si llegan
-  más, esperan su turno en vez de tumbar el servidor.
+  alcanza para la memoria del contenedor (1 GB) y las conexiones de la base
+  (`--max-connections=40`). Si llegan más, esperan su turno en vez de tumbar el servidor.
 - Si la base está apagada o no responde, la API devuelve **503** con
   "El servicio está en mantenimiento…", y el panel muestra una página "En
   mantenimiento", en vez de "Error del servidor". `GET /api` muestra en todo
   momento si la base está conectada.
-- La API (Railway) y la base (Aiven, San Francisco) conviene que estén en la
-  misma región de EE. UU. Si se nota lenta, en Railway: servicio → **Settings →
-  Region → US West**.

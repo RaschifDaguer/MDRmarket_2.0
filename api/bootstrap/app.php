@@ -19,7 +19,7 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
-        // Railway pone un proxy HTTPS delante: así las URLs (ej. de las fotos)
+        // Delante hay un proxy HTTPS (el túnel de Cloudflare): así las URLs (ej. de las fotos)
         // salen con https y no con http.
         $middleware->trustProxies(at: '*');
 
@@ -54,8 +54,8 @@ return Application::configure(basePath: dirname(__DIR__))
             }
         });
 
-        // La base de datos está apagada o no responde (ej. el plan gratis de
-        // Aiven se duerme): 503 "en mantenimiento" en vez de "Error del servidor".
+        // La base de datos está apagada o no responde (ej. se está
+        // reiniciando): 503 "en mantenimiento" en vez de "Error del servidor".
         $exceptions->render(function (Throwable $e, Request $request) {
             $sinBase = ($e instanceof QueryException || $e instanceof PDOException)
                 && (app(LostConnectionDetector::class)->causedByLostConnection($e)

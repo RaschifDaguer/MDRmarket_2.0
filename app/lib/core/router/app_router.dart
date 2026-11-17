@@ -2,6 +2,11 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../features/catalogo/presentation/buscar_view.dart';
+import '../../features/catalogo/presentation/tiendas_view.dart';
+import '../../features/cuenta/presentation/direcciones_screen.dart';
+import '../../features/notificaciones/presentation/notificaciones_screen.dart';
+import '../../features/pedidos/presentation/pedido_enviado_screen.dart';
 import '../../features/auth/presentation/auth_controller.dart';
 import '../../features/auth/presentation/login_screen.dart';
 import '../../features/auth/presentation/registro_screen.dart';
@@ -12,6 +17,7 @@ import '../../features/catalogo/presentation/tienda_screen.dart';
 import '../../features/comerciante/domain/mi_producto.dart';
 import '../../features/comerciante/presentation/calificaciones_screen.dart';
 import '../../features/comerciante/presentation/horario_screen.dart';
+import '../../features/comerciante/presentation/documentos_negocio_screen.dart';
 import '../../features/comerciante/presentation/pedido_negocio_screen.dart';
 import '../../features/comerciante/presentation/perfil_negocio_screen.dart';
 import '../../features/comerciante/presentation/producto_form_screen.dart';
@@ -21,6 +27,7 @@ import '../../features/inicio/presentation/inicio_screen.dart';
 import '../../features/pedidos/presentation/checkout_screen.dart';
 import '../../features/pedidos/presentation/pago_qr_screen.dart';
 import '../../features/pedidos/presentation/pedido_screen.dart';
+import '../../features/repartidor/presentation/entregar_pin_screen.dart';
 import '../../features/repartidor/presentation/pedido_actual_screen.dart';
 import '../../features/repartidor/presentation/registrar_repartidor_screen.dart';
 
@@ -62,25 +69,53 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       // Repartidor (el pedido que lleva)
       GoRoute(path: '/repartidor/pedido', builder: (_, _) => const PedidoActualScreen()),
+      GoRoute(path: '/repartidor/entregar', builder: (_, _) => const EntregarPinScreen()),
 
       // Cliente
-      GoRoute(path: '/producto/:id', builder: (_, s) => ProductoScreen(productoId: _id(s))),
-      GoRoute(path: '/tienda/:id', builder: (_, s) => TiendaScreen(tiendaId: _id(s))),
+      GoRoute(
+        path: '/producto/:id',
+        builder: (_, s) => ProductoScreen(productoId: _id(s)),
+      ),
+      GoRoute(
+        path: '/tienda/:id',
+        builder: (_, s) => TiendaScreen(tiendaId: _id(s)),
+      ),
       GoRoute(path: '/carrito', builder: (_, _) => const CarritoScreen()),
       GoRoute(path: '/checkout', builder: (_, _) => const CheckoutScreen()),
-      GoRoute(path: '/pedido/:id', builder: (_, s) => PedidoScreen(pedidoId: _id(s))),
-      GoRoute(path: '/pedido/:id/pagar-qr', builder: (_, s) => PagoQrScreen(pedidoId: _id(s))),
+      GoRoute(
+        path: '/pedido/:id',
+        builder: (_, s) => PedidoScreen(pedidoId: _id(s)),
+      ),
+      GoRoute(
+        path: '/pedido/:id/pagar-qr',
+        builder: (_, s) => PagoQrScreen(pedidoId: _id(s)),
+      ),
+      GoRoute(
+        path: '/pedido/:id/enviado',
+        builder: (_, s) => PedidoEnviadoScreen(pedidoId: _id(s)),
+      ),
+      GoRoute(path: '/tiendas', builder: (_, _) => const TiendasScreen()),
+      GoRoute(
+        path: '/buscar',
+        builder: (_, s) => BuscarScreen(categoria: int.tryParse(s.uri.queryParameters['categoria'] ?? '')),
+      ),
+      GoRoute(path: '/direcciones', builder: (_, _) => const DireccionesScreen()),
+      GoRoute(path: '/notificaciones', builder: (_, _) => const NotificacionesScreen()),
 
       // Comerciante (su negocio)
       GoRoute(
         path: '/negocio/producto',
         builder: (_, s) => ProductoFormScreen(producto: s.extra is MiProducto ? s.extra! as MiProducto : null),
       ),
-      GoRoute(path: '/negocio/pedido/:id', builder: (_, s) => PedidoNegocioScreen(pedidoId: _id(s))),
+      GoRoute(
+        path: '/negocio/pedido/:id',
+        builder: (_, s) => PedidoNegocioScreen(pedidoId: _id(s)),
+      ),
       GoRoute(path: '/negocio/registros', builder: (_, _) => const RegistrosScreen()),
       GoRoute(path: '/negocio/calificaciones', builder: (_, _) => const CalificacionesScreen()),
       GoRoute(path: '/negocio/perfil', builder: (_, _) => const PerfilNegocioScreen()),
       GoRoute(path: '/negocio/horario', builder: (_, _) => const HorarioScreen()),
+      GoRoute(path: '/negocio/documentos', builder: (_, _) => const DocumentosNegocioScreen()),
     ],
   );
 });

@@ -11,11 +11,15 @@ import '../../../core/widgets/widgets.dart';
 import '../data/pedidos_repository.dart';
 import '../domain/pedido.dart';
 import 'calificar_sheet.dart';
+import 'reportar_sheet.dart';
+import 'volver_a_pedir.dart';
+import 'widgets/calificar_repartidor.dart';
 import 'widgets/piezas_pedido.dart';
 import 'widgets/seguimiento_pedido.dart';
 
-/// Detalle de un pedido para el cliente: avance, PIN de entrega, productos,
-/// cancelar (mientras está pendiente) y calificar (cuando ya llegó).
+/// Detalle de un pedido para el cliente: avance, PIN de entrega, rastreo,
+/// productos, cancelar (mientras está pendiente) y, cuando ya llegó, calificar
+/// a la tienda y al repartidor, reportar un problema o volver a pedir.
 class PedidoScreen extends ConsumerStatefulWidget {
   const PedidoScreen({super.key, required this.pedidoId});
 
@@ -65,7 +69,9 @@ class _PedidoScreenState extends ConsumerState<PedidoScreen> {
       ref.invalidate(pedidoProvider(widget.pedidoId));
       ref.invalidate(misPedidosProvider);
     } on ApiException catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.errorDe('estado') ?? e.mensaje)));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.errorDe('estado') ?? e.mensaje)));
+      }
       ref.invalidate(pedidoProvider(widget.pedidoId));
     } finally {
       if (mounted) setState(() => _cancelando = false);
@@ -75,7 +81,9 @@ class _PedidoScreenState extends ConsumerState<PedidoScreen> {
   Future<void> _calificar(Future<bool> calificacion) async {
     if (await calificacion) {
       ref.invalidate(pedidoProvider(widget.pedidoId));
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('¡Gracias por tu calificación!')));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('¡Gracias por tu calificación!')));
+      }
     }
   }
 
@@ -86,7 +94,10 @@ class _PedidoScreenState extends ConsumerState<PedidoScreen> {
 
     return pedido.when(
       skipLoadingOnRefresh: true,
-      loading: () => Pantalla(titulo: titulo, child: const Center(child: CircularProgressIndicator())),
+      loading: () => Pantalla(
+        titulo: titulo,
+        child: const Center(child: CircularProgressIndicator()),
+      ),
       error: (e, _) => Pantalla(
         titulo: titulo,
         child: VistaError(error: e, alReintentar: () => ref.invalidate(pedidoProvider(widget.pedidoId))),
@@ -103,6 +114,38 @@ class _PedidoScreenState extends ConsumerState<PedidoScreen> {
             child: ListView(
               padding: const EdgeInsets.all(AppEspacios.m),
               children: [
+                if (p.estado == EstadoPedido.entregado) ...[
+                  Aparecer(
+                    child: Container(
+                      key: const Key('ya-tienes-tu-pedido'),
+                      padding: const EdgeInsets.all(AppEspacios.m),
+                      decoration: BoxDecoration(color: c.primary, borderRadius: BorderRadius.circular(20)),
+                      child: Row(
+                        children: [
+                          Icon(Icons.check_circle_rounded, size: 40, color: c.onPrimary),
+                          const SizedBox(width: AppEspacios.m - 4),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '¡Listo! Ya tienes tu pedido',
+                                  style: textos.titleMedium?.copyWith(color: c.onPrimary, fontWeight: FontWeight.w800),
+                                ),
+                                if (p.entregado != null)
+                                  Text(
+                                    'Entregado ${Formato.fechaHora(p.entregado)}',
+                                    style: textos.bodySmall?.copyWith(color: c.onPrimary),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: AppEspacios.m),
+                ],
                 Tarjeta3D(
                   inclinacionMax: 3,
                   padding: const EdgeInsets.all(AppEspacios.m),
@@ -134,7 +177,10 @@ class _PedidoScreenState extends ConsumerState<PedidoScreen> {
                         const SizedBox(height: AppEspacios.m),
                         Container(
                           padding: const EdgeInsets.all(AppEspacios.m - 4),
-                          decoration: BoxDecoration(color: c.secondaryContainer, borderRadius: BorderRadius.circular(16)),
+                          decoration: BoxDecoration(
+                            color: c.secondaryContainer,
+                            borderRadius: BorderRadius.circular(16),
+                          ),
                           child: Column(
                             children: [
                               Text('Tu PIN de entrega', style: textos.labelLarge),
@@ -143,8 +189,11 @@ class _PedidoScreenState extends ConsumerState<PedidoScreen> {
                                 key: const Key('pin-entrega'),
                                 style: textos.displaySmall?.copyWith(letterSpacing: 10, fontWeight: FontWeight.w800),
                               ),
-                              Text('Dáselo a quien te entregue el pedido, solo al recibirlo.',
-                                  textAlign: TextAlign.center, style: textos.bodySmall),
+                              Text(
+                                'Dáselo a quien te entregue el pedido, solo al recibirlo.',
+                                textAlign: TextAlign.center,
+                                style: textos.bodySmall,
+                              ),
                             ],
                           ),
                         ),
@@ -163,10 +212,14 @@ class _PedidoScreenState extends ConsumerState<PedidoScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          Text('Falta pagar ${Formato.bs(p.total)} con QR',
-                              style: textos.titleSmall?.copyWith(color: c.onTertiaryContainer)),
-                          Text('El negocio aceptará tu pedido cuando esté pagado.',
-                              style: textos.bodySmall?.copyWith(color: c.onTertiaryContainer)),
+                          Text(
+                            'Falta pagar ${Formato.bs(p.total)} con QR',
+                            style: textos.titleSmall?.copyWith(color: c.onTertiaryContainer),
+                          ),
+                          Text(
+                            'El negocio aceptará tu pedido cuando esté pagado.',
+                            style: textos.bodySmall?.copyWith(color: c.onTertiaryContainer),
+                          ),
                           const SizedBox(height: AppEspacios.s),
                           FilledButton.icon(
                             key: const Key('pagar-qr'),
@@ -179,8 +232,27 @@ class _PedidoScreenState extends ConsumerState<PedidoScreen> {
                     ),
                   ),
                 ],
+                // Efectivo: con cuánto paga y su cambio (el repartidor lo ve igual).
+                if (p.pagaCon != null && !p.estado.terminado) ...[
+                  const SizedBox(height: AppEspacios.m),
+                  Card(
+                    child: ListTile(
+                      key: const Key('paga-con'),
+                      leading: const Icon(Icons.payments_outlined),
+                      title: Text('Pagas con ${Formato.bs(p.pagaCon)}'),
+                      subtitle: Text(
+                        (p.cambio ?? 0) > 0 ? 'Te darán ${Formato.bs(p.cambio)} de cambio' : 'Pagas justo, sin cambio',
+                      ),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: AppEspacios.m),
-                Card(child: Padding(padding: const EdgeInsets.all(AppEspacios.m), child: LineaAvance(pedido: p))),
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(AppEspacios.m),
+                    child: LineaAvance(pedido: p),
+                  ),
+                ),
                 // Rastreo en el mapa mientras el repartidor lo lleva (se actualiza solo).
                 if (p.tieneRepartidor && (p.estado == EstadoPedido.listo || p.estado == EstadoPedido.enCamino)) ...[
                   const SizedBox(height: AppEspacios.m),
@@ -202,29 +274,84 @@ class _PedidoScreenState extends ConsumerState<PedidoScreen> {
                       leading: const Icon(Icons.delivery_dining_outlined),
                       title: Text(p.repartidorNombre!),
                       subtitle: Text(['Tu repartidor', if (p.vehiculoTexto.isNotEmpty) p.vehiculoTexto].join(' · ')),
-                      trailing: p.repartidorTelefono == null ? null : Text(p.repartidorTelefono!, style: textos.bodySmall),
+                      trailing: p.repartidorTelefono == null
+                          ? null
+                          : Text(p.repartidorTelefono!, style: textos.bodySmall),
                     ),
                   ),
                 ],
+                // Calificar al repartidor que lo entregó (con etiquetas).
+                if (p.estado == EstadoPedido.entregado && p.repartidorId != null) ...[
+                  const SizedBox(height: AppEspacios.m),
+                  CalificarRepartidor(pedido: p, alGuardar: () => ref.invalidate(pedidoProvider(widget.pedidoId))),
+                ],
                 if (p.estado == EstadoPedido.entregado) ...[
+                  const SizedBox(height: AppEspacios.m),
+                  Card(
+                    key: const Key('todo-bien'),
+                    child: Padding(
+                      padding: const EdgeInsets.all(AppEspacios.m),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Text(
+                            '¿Todo llegó como esperabas?',
+                            style: textos.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+                          ),
+                          const SizedBox(height: AppEspacios.s),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: FilledButton.tonal(
+                                  key: const Key('si-todo-bien'),
+                                  onPressed: () => _calificar(
+                                    mostrarCalificar(
+                                      context,
+                                      titulo: 'Califica a ${p.negocioNombre}',
+                                      negocioId: p.negocioId,
+                                      estrellas: p.resenaNegocio?.estrellas ?? 5,
+                                      comentario: p.resenaNegocio?.comentario,
+                                    ),
+                                  ),
+                                  child: const Text('Sí, todo bien'),
+                                ),
+                              ),
+                              const SizedBox(width: AppEspacios.s),
+                              Expanded(
+                                child: OutlinedButton(
+                                  key: const Key('hubo-un-problema'),
+                                  onPressed: () => mostrarReportar(context, p),
+                                  child: const Text('Hubo un problema'),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                   const SizedBox(height: AppEspacios.m),
                   Card(
                     color: c.primaryContainer.withValues(alpha: 0.35),
                     child: ListTile(
                       key: const Key('calificar-negocio'),
                       leading: const Icon(Icons.star_rounded, color: Color(0xFFF5A524)),
-                      title: Text(p.resenaNegocio == null ? '¿Qué tal ${p.negocioNombre}?' : 'Tu calificación del negocio'),
+                      title: Text(
+                        p.resenaNegocio == null ? '¿Qué tal ${p.negocioNombre}?' : 'Tu calificación del negocio',
+                      ),
                       subtitle: p.resenaNegocio == null
                           ? const Text('Toca para calificar')
                           : EstrellasFijas(p.resenaNegocio!.estrellas),
                       trailing: const Icon(Icons.chevron_right),
-                      onTap: () => _calificar(mostrarCalificar(
-                        context,
-                        titulo: 'Califica a ${p.negocioNombre}',
-                        negocioId: p.negocioId,
-                        estrellas: p.resenaNegocio?.estrellas,
-                        comentario: p.resenaNegocio?.comentario,
-                      )),
+                      onTap: () => _calificar(
+                        mostrarCalificar(
+                          context,
+                          titulo: 'Califica a ${p.negocioNombre}',
+                          negocioId: p.negocioId,
+                          estrellas: p.resenaNegocio?.estrellas,
+                          comentario: p.resenaNegocio?.comentario,
+                        ),
+                      ),
                     ),
                   ),
                 ],
@@ -233,15 +360,26 @@ class _PedidoScreenState extends ConsumerState<PedidoScreen> {
                 DetalleMontos(
                   pedido: p,
                   alCalificarProducto: p.estado == EstadoPedido.entregado
-                      ? (item) => _calificar(mostrarCalificar(
+                      ? (item) => _calificar(
+                          mostrarCalificar(
                             context,
                             titulo: 'Califica «${item.nombre}»',
                             productoId: item.productoId,
                             estrellas: p.resenaDe(item.productoId)?.estrellas,
                             comentario: p.resenaDe(item.productoId)?.comentario,
-                          ))
+                          ),
+                        )
                       : null,
                 ),
+                if (p.ahorro > 0)
+                  Padding(
+                    padding: const EdgeInsets.only(top: AppEspacios.s),
+                    child: Text(
+                      'Ahorraste ${Formato.bs(p.ahorro)} con ofertas',
+                      key: const Key('ahorro-pedido'),
+                      style: textos.bodyMedium?.copyWith(color: c.primary, fontWeight: FontWeight.w700),
+                    ),
+                  ),
                 const SizedBox(height: AppEspacios.m),
                 const TituloSeccion('Entrega', Icons.place_outlined),
                 Card(
@@ -253,7 +391,18 @@ class _PedidoScreenState extends ConsumerState<PedidoScreen> {
                 ),
                 if (p.notas != null) ...[
                   const SizedBox(height: AppEspacios.s),
-                  Card(child: ListTile(leading: const Icon(Icons.chat_bubble_outline), title: Text(p.notas!))),
+                  Card(
+                    child: ListTile(leading: const Icon(Icons.chat_bubble_outline), title: Text(p.notas!)),
+                  ),
+                ],
+                if (p.estado.terminado) ...[
+                  const SizedBox(height: AppEspacios.l),
+                  FilledButton.icon(
+                    key: const Key('volver-a-pedir'),
+                    onPressed: () => volverAPedir(context, ref, p),
+                    icon: const Icon(Icons.replay),
+                    label: const Text('Volver a pedir'),
+                  ),
                 ],
                 if (puedeCancelar) ...[
                   const SizedBox(height: AppEspacios.l),

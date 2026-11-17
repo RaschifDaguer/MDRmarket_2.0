@@ -31,16 +31,16 @@ class Montos {
   final int unidadesVendidas;
 
   factory Montos.fromJson(Map<String, dynamic> json) => Montos(
-        ventas: Formato.numero(json['ventas']),
-        costoDeLoVendido: Formato.numero(json['costo_de_lo_vendido']),
-        gananciaBruta: Formato.numero(json['ganancia_bruta']),
-        compras: Formato.numero(json['compras']),
-        gastos: Formato.numero(json['gastos']),
-        comisiones: Formato.numero(json['comisiones']),
-        gananciaNeta: Formato.numero(json['ganancia_neta']),
-        flujoCaja: Formato.numero(json['flujo_caja']),
-        unidadesVendidas: (json['unidades_vendidas'] as num?)?.toInt() ?? 0,
-      );
+    ventas: Formato.numero(json['ventas']),
+    costoDeLoVendido: Formato.numero(json['costo_de_lo_vendido']),
+    gananciaBruta: Formato.numero(json['ganancia_bruta']),
+    compras: Formato.numero(json['compras']),
+    gastos: Formato.numero(json['gastos']),
+    comisiones: Formato.numero(json['comisiones']),
+    gananciaNeta: Formato.numero(json['ganancia_neta']),
+    flujoCaja: Formato.numero(json['flujo_caja']),
+    unidadesVendidas: (json['unidades_vendidas'] as num?)?.toInt() ?? 0,
+  );
 }
 
 /// Portada de la vista comerciante.
@@ -56,6 +56,12 @@ class ResumenNegocio {
     this.unidadesEnStock = 0,
     this.rating,
     this.totalResenas = 0,
+    this.ayer = const Montos(),
+    this.variacionVentasPct,
+    this.pedidosHoy = 0,
+    this.pedidosEnCamino = 0,
+    this.pocoStock = const [],
+    this.productosPocoStock = 0,
   });
 
   final int pedidosNuevos;
@@ -73,18 +79,41 @@ class ResumenNegocio {
   final double? rating;
   final int totalResenas;
 
+  /// Lo de ayer, para comparar con hoy.
+  final Montos ayer;
+
+  /// "+18 % que ayer". Null si ayer no vendió (no hay con qué comparar).
+  final double? variacionVentasPct;
+
+  /// Pedidos recibidos hoy (sin rechazados ni cancelados).
+  final int pedidosHoy;
+  final int pedidosEnCamino;
+
+  /// Productos que se están acabando (hasta 10), el que menos tiene primero.
+  final List<({int id, String nombre, int stock})> pocoStock;
+  final int productosPocoStock;
+
   factory ResumenNegocio.fromJson(Map<String, dynamic> json) => ResumenNegocio(
-        pedidosNuevos: (json['pedidos_nuevos'] as num).toInt(),
-        pedidosEnCurso: (json['pedidos_en_curso'] as num).toInt(),
-        hoy: Montos.fromJson(json['hoy'] as Map<String, dynamic>),
-        mes: Montos.fromJson(json['mes'] as Map<String, dynamic>),
-        productosActivos: (json['productos_activos'] as num).toInt(),
-        productosSinStock: (json['productos_sin_stock'] as num).toInt(),
-        productosAgotados: ((json['productos_agotados'] as List?) ?? const []).cast<String>(),
-        unidadesEnStock: (json['unidades_en_stock'] as num?)?.toInt() ?? 0,
-        rating: (json['rating_promedio'] as num?)?.toDouble(),
-        totalResenas: (json['total_resenas'] as num?)?.toInt() ?? 0,
-      );
+    pedidosNuevos: (json['pedidos_nuevos'] as num).toInt(),
+    pedidosEnCurso: (json['pedidos_en_curso'] as num).toInt(),
+    hoy: Montos.fromJson(json['hoy'] as Map<String, dynamic>),
+    mes: Montos.fromJson(json['mes'] as Map<String, dynamic>),
+    productosActivos: (json['productos_activos'] as num).toInt(),
+    productosSinStock: (json['productos_sin_stock'] as num).toInt(),
+    productosAgotados: ((json['productos_agotados'] as List?) ?? const []).cast<String>(),
+    unidadesEnStock: (json['unidades_en_stock'] as num?)?.toInt() ?? 0,
+    rating: (json['rating_promedio'] as num?)?.toDouble(),
+    totalResenas: (json['total_resenas'] as num?)?.toInt() ?? 0,
+    ayer: json['ayer'] is Map ? Montos.fromJson(json['ayer'] as Map<String, dynamic>) : const Montos(),
+    variacionVentasPct: (json['variacion_ventas_pct'] as num?)?.toDouble(),
+    pedidosHoy: (json['pedidos_hoy'] as num?)?.toInt() ?? 0,
+    pedidosEnCamino: (json['pedidos_en_camino'] as num?)?.toInt() ?? 0,
+    pocoStock: [
+      for (final p in (json['poco_stock'] as List?) ?? const [])
+        (id: ((p as Map)['id'] as num).toInt(), nombre: p['nombre'] as String, stock: (p['stock'] as num).toInt()),
+    ],
+    productosPocoStock: (json['productos_poco_stock'] as num?)?.toInt() ?? 0,
+  );
 }
 
 /// Ganancias de un rango de fechas, por período (día, semana, mes o año).
@@ -96,13 +125,13 @@ class Reporte {
   final String agrupar;
 
   factory Reporte.fromJson(Map<String, dynamic> json) => Reporte(
-        totales: Montos.fromJson(json['totales'] as Map<String, dynamic>),
-        agrupar: json['agrupar'] as String,
-        periodos: [
-          for (final p in json['periodos'] as List)
-            (periodo: (p as Map)['periodo'] as String, montos: Montos.fromJson(p as Map<String, dynamic>)),
-        ],
-      );
+    totales: Montos.fromJson(json['totales'] as Map<String, dynamic>),
+    agrupar: json['agrupar'] as String,
+    periodos: [
+      for (final p in json['periodos'] as List)
+        (periodo: (p as Map)['periodo'] as String, montos: Montos.fromJson(p as Map<String, dynamic>)),
+    ],
+  );
 }
 
 /// Gasto y ganancia de un producto en un rango de fechas.
@@ -126,14 +155,14 @@ class ReporteProducto {
   final double? margenPct;
 
   factory ReporteProducto.fromJson(Map<String, dynamic> json) => ReporteProducto(
-        productoId: (json['producto_id'] as num).toInt(),
-        producto: json['producto'] as String,
-        unidadesVendidas: (json['unidades_vendidas'] as num).toInt(),
-        ventas: Formato.numero(json['ventas']),
-        ganancia: Formato.numero(json['ganancia']),
-        gastoEnCompras: Formato.numero(json['gasto_en_compras']),
-        margenPct: (json['margen_pct'] as num?)?.toDouble(),
-      );
+    productoId: (json['producto_id'] as num).toInt(),
+    producto: json['producto'] as String,
+    unidadesVendidas: (json['unidades_vendidas'] as num).toInt(),
+    ventas: Formato.numero(json['ventas']),
+    ganancia: Formato.numero(json['ganancia']),
+    gastoEnCompras: Formato.numero(json['gasto_en_compras']),
+    margenPct: (json['margen_pct'] as num?)?.toDouble(),
+  );
 }
 
 /// Una fila del libro de compras, gastos y ventas.
@@ -166,23 +195,23 @@ class Registro {
   bool get sePuedeBorrar => tipo == 'compra' || tipo == 'gasto';
 
   String get titulo => switch (tipo) {
-        'compra' => 'Compra: ${producto ?? 'producto'} × $cantidad',
-        'venta' => 'Venta: ${producto ?? 'producto'} × $cantidad',
-        'comision' => 'Comisión de la plataforma',
-        _ => descripcion ?? 'Gasto',
-      };
+    'compra' => 'Compra: ${producto ?? 'producto'} × $cantidad',
+    'venta' => 'Venta: ${producto ?? 'producto'} × $cantidad',
+    'comision' => 'Comisión de la plataforma',
+    _ => descripcion ?? 'Gasto',
+  };
 
   factory Registro.fromJson(Map<String, dynamic> json) => Registro(
-        id: json['id'] as int,
-        tipo: json['tipo'] as String,
-        monto: Formato.numero(json['monto']),
-        cantidad: (json['cantidad'] as num?)?.toInt() ?? 1,
-        producto: (json['producto'] as Map?)?['nombre'] as String?,
-        descripcion: json['descripcion'] as String?,
-        proveedor: json['proveedor'] as String?,
-        pedidoId: (json['pedido_id'] as num?)?.toInt(),
-        fecha: Formato.fechaDe(json['fecha']),
-      );
+    id: json['id'] as int,
+    tipo: json['tipo'] as String,
+    monto: Formato.numero(json['monto']),
+    cantidad: (json['cantidad'] as num?)?.toInt() ?? 1,
+    producto: (json['producto'] as Map?)?['nombre'] as String?,
+    descripcion: json['descripcion'] as String?,
+    proveedor: json['proveedor'] as String?,
+    pedidoId: (json['pedido_id'] as num?)?.toInt(),
+    fecha: Formato.fechaDe(json['fecha']),
+  );
 }
 
 /// Reseñas del negocio con el resumen de estrellas.

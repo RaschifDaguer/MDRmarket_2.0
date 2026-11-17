@@ -17,11 +17,16 @@ use Illuminate\Validation\ValidationException;
  *   pendiente → confirmado → preparando → listo → en_camino → entregado
  *   (cancelado o rechazado antes de salir)
  *
- * El negocio lo lleva hasta "listo". Todo pedido lo entrega un repartidor de
- * la app (el local no tiene delivery propio): lo acepta (aceptar), lo pasa a
- * "en_camino" (lo recogió) y a "entregado" (con el PIN). Antes de recogerlo
- * puede soltarlo y vuelve a quedar disponible. Mientras nadie lo tome, el
- * negocio puede cancelarlo.
+ * El negocio solo acepta o rechaza un pedido nuevo (ej. "Sin stock"). Una vez
+ * aceptado, ya no lo puede cancelar: lo alista y lo deja "listo". Todo pedido
+ * lo entrega un repartidor de la app (el local no tiene delivery propio): lo
+ * acepta (aceptar), lo pasa a "en_camino" (lo recogió) y a "entregado" (con
+ * el PIN). Antes de recogerlo puede soltarlo y vuelve a quedar disponible.
+ *
+ * El "sistema" (tarea automática, ver VencimientoPedidos) rechaza el pedido
+ * nuevo que el negocio no respondió a tiempo, cancela el que el cliente no
+ * pagó con QR a tiempo y cancela el "listo" que ningún repartidor tomó. El
+ * admin puede cancelar a mano antes de que llegue.
  * Al entregar, la base (trg_pedido_au) registra la venta; al cancelar o
  * rechazar, devuelve el stock.
  */
@@ -34,9 +39,14 @@ class FlujoPedido
         ],
         'comerciante' => [
             'pendiente' => ['confirmado', 'rechazado'],
-            'confirmado' => ['preparando', 'cancelado'],
-            'preparando' => ['listo', 'cancelado'],
+            // Aceptado: ya no se cancela, solo se alista.
+            'confirmado' => ['preparando'],
             // Nunca "en_camino" ni "entregado": eso lo hace el repartidor.
+            'preparando' => ['listo'],
+        ],
+        'sistema' => [
+            // Rechazado: la tienda no respondió. Cancelado: el cliente no pagó el QR.
+            'pendiente' => ['rechazado', 'cancelado'],
             'listo' => ['cancelado'],
         ],
         'repartidor' => [
@@ -60,15 +70,16 @@ class FlujoPedido
         return match (true) {
             // Con QR: el negocio lo acepta recién cuando el cliente pagó (ver CobroQr).
             $rol === 'comerciante' && $pedido->estado === 'pendiente' && CobroQr::esperandoPago($pedido) => array_values(array_diff($siguientes, ['confirmado'])),
-            // Ya lo tomó un repartidor (va a buscarlo): el negocio ya no lo puede cancelar.
-            $rol === 'comerciante' && $pedido->repartidor_id !== null => [],
+            // Ya lo tomó un repartidor (va a buscarlo): ni el negocio ni el sistema lo tocan.
+            in_array($rol, ['comerciante', 'sistema'], true) && $pedido->repartidor_id !== null => [],
             // El repartidor solo mueve los pedidos que aceptó.
             $rol === 'repartidor' && $pedido->repartidor_id === null => [],
             default => $siguientes,
         };
     }
 
-    public static function cambiar(Pedido $pedido, string $nuevo, Usuario $quien, string $rol, ?string $motivo = null): Pedido
+    /** $quien = null cuando lo hace el sistema (tarea automática). */
+    public static function cambiar(Pedido $pedido, string $nuevo, ?Usuario $quien, string $rol, ?string $motivo = null): Pedido
     {
         return DB::transaction(function () use ($pedido, $nuevo, $quien, $rol, $motivo) {
             // Se vuelve a leer bloqueado: si dos personas tocan el pedido a la vez, gana la primera.
@@ -76,8 +87,14 @@ class FlujoPedido
             $anterior = $pedido->estado;
 
             // Pudo soltarlo (o tomarlo otro) justo antes: solo lo mueve quien lo lleva.
-            if ($rol === 'repartidor' && (int) $pedido->repartidor_id !== (int) $quien->id) {
+            if ($rol === 'repartidor' && (int) $pedido->repartidor_id !== (int) $quien?->id) {
                 throw ValidationException::withMessages(['estado' => 'Este pedido ya no está a tu cargo.']);
+            }
+
+            // El sistema cancela un pedido nuevo solo si sigue sin pagar: si el
+            // cliente pagó justo antes, ya no se cancela.
+            if ($rol === 'sistema' && $anterior === 'pendiente' && $nuevo === 'cancelado' && ! CobroQr::esperandoPago($pedido)) {
+                throw ValidationException::withMessages(['estado' => 'El cliente ya pagó este pedido.']);
             }
 
             if ($nuevo === 'confirmado' && CobroQr::esperandoPago($pedido)) {
@@ -104,7 +121,7 @@ class FlujoPedido
                 ],
                 'cancelado', 'rechazado' => $cambios += [
                     'cancelado_en' => now(),
-                    'cancelado_por' => $quien->id,
+                    'cancelado_por' => $quien?->id,
                     'motivo_cancelacion' => $motivo,
                 ],
                 default => null,
@@ -116,7 +133,7 @@ class FlujoPedido
                 $cambios['estado_pago'] = 'reembolsado';
             }
             $pedido->forceFill($cambios)->save();
-            $pedido->registrarEstado($anterior, $nuevo, $quien->id, $rol, $motivo);
+            $pedido->registrarEstado($anterior, $nuevo, $quien?->id, $rol, $motivo);
 
             self::avisar($pedido, $nuevo, $rol);
             if ($devolver) {
@@ -218,6 +235,15 @@ class FlujoPedido
         ];
         Notificacion::avisar($pedido->comprador_id, 'pedido_'.$nuevo,
             $titulos[$nuevo] ?? 'Tu pedido cambió de estado', $pedido->motivo_cancelacion, $pedido->id);
+
+        // Lo resolvió solo el sistema: el negocio también se entera, y por qué.
+        if ($rol === 'sistema') {
+            Notificacion::avisar($pedido->negocio->usuario_id, 'pedido_'.$nuevo,
+                $nuevo === 'rechazado'
+                    ? "El pedido #{$pedido->id} se rechazó solo"
+                    : "El pedido #{$pedido->id} se canceló solo",
+                $pedido->motivo_cancelacion, $pedido->id);
+        }
 
         // Lo recogió o lo entregó el repartidor: también se entera el negocio.
         if ($rol === 'repartidor') {

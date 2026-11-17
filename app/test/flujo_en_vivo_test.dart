@@ -102,7 +102,7 @@ void main() {
       negocio.id,
       DatosProducto(nombre: 'Hamburguesa', categoriaId: 101, precio: 30, costo: 18, stock: 5, precioOferta: 25,
           ofertaFin: DateTime.now().add(const Duration(days: 3))),
-      foto: _foto,
+      fotos: [_foto],
     );
     expect(hamburguesa.enOferta, isTrue);
     expect(hamburguesa.imagenUrl, contains('/archivos/productos/'));

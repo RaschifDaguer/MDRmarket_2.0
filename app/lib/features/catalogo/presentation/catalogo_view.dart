@@ -12,10 +12,17 @@ import 'widgets/tarjetas_catalogo.dart';
 /// Inicio del cliente: buscador, categorías, ofertas y la grilla de productos
 /// (de 20 en 20, con "Ver más").
 class CatalogoView extends ConsumerStatefulWidget {
-  const CatalogoView({super.key, this.encabezado});
+  const CatalogoView({super.key, this.encabezado, this.conBuscador = true, this.titulo});
 
-  /// Algo para mostrar arriba de todo (ej. "¿Tienes un negocio?").
+  /// Algo para mostrar arriba de todo (en el Inicio: dirección, categorías,
+  /// tiendas cerca y ofertas).
   final Widget? encabezado;
+
+  /// En el Inicio el buscador está en su propia pestaña (Buscar).
+  final bool conBuscador;
+
+  /// Título arriba de los filtros (ej. "Todos los productos").
+  final String? titulo;
 
   @override
   ConsumerState<CatalogoView> createState() => _CatalogoViewState();
@@ -91,40 +98,49 @@ class _CatalogoViewState extends ConsumerState<CatalogoView> {
                     children: [
                       ?widget.encabezado,
                       if (widget.encabezado != null) const SizedBox(height: AppEspacios.m),
-                      TextField(
-                        key: const Key('buscar-productos'),
-                        controller: _busqueda,
-                        textInputAction: TextInputAction.search,
-                        decoration: InputDecoration(
-                          hintText: 'Buscar productos o negocios',
-                          prefixIcon: const Icon(Icons.search),
-                          suffixIcon: _busqueda.text.isEmpty
-                              ? null
-                              : IconButton(
-                                  tooltip: 'Borrar',
-                                  icon: const Icon(Icons.close),
-                                  onPressed: () {
-                                    _busqueda.clear();
-                                    _filtrar((
-                                      categoria: _filtro.categoria,
-                                      negocio: null,
-                                      texto: null,
-                                      soloOfertas: _filtro.soloOfertas,
-                                      orden: _filtro.orden,
-                                    ));
-                                  },
-                                ),
+                      if (widget.titulo case final titulo?) ...[
+                        Text(
+                          titulo,
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
                         ),
-                        onChanged: (_) => setState(() {}),
-                        onSubmitted: (texto) => _filtrar((
-                          categoria: _filtro.categoria,
-                          negocio: null,
-                          texto: texto,
-                          soloOfertas: _filtro.soloOfertas,
-                          orden: _filtro.orden,
-                        )),
-                      ),
-                      const SizedBox(height: AppEspacios.m - 4),
+                        const SizedBox(height: AppEspacios.s),
+                      ],
+                      if (widget.conBuscador) ...[
+                        TextField(
+                          key: const Key('buscar-productos'),
+                          controller: _busqueda,
+                          textInputAction: TextInputAction.search,
+                          decoration: InputDecoration(
+                            hintText: 'Buscar productos o negocios',
+                            prefixIcon: const Icon(Icons.search),
+                            suffixIcon: _busqueda.text.isEmpty
+                                ? null
+                                : IconButton(
+                                    tooltip: 'Borrar',
+                                    icon: const Icon(Icons.close),
+                                    onPressed: () {
+                                      _busqueda.clear();
+                                      _filtrar((
+                                        categoria: _filtro.categoria,
+                                        negocio: null,
+                                        texto: null,
+                                        soloOfertas: _filtro.soloOfertas,
+                                        orden: _filtro.orden,
+                                      ));
+                                    },
+                                  ),
+                          ),
+                          onChanged: (_) => setState(() {}),
+                          onSubmitted: (texto) => _filtrar((
+                            categoria: _filtro.categoria,
+                            negocio: null,
+                            texto: texto,
+                            soloOfertas: _filtro.soloOfertas,
+                            orden: _filtro.orden,
+                          )),
+                        ),
+                        const SizedBox(height: AppEspacios.m - 4),
+                      ],
                       SizedBox(
                         height: 40,
                         child: ListView(
@@ -257,8 +273,8 @@ class _CatalogoViewState extends ConsumerState<CatalogoView> {
                   mainAxisSpacing: AppEspacios.m - 4,
                   crossAxisSpacing: AppEspacios.m - 4,
                   // Foto 4:3 + el texto de abajo (más alto si la letra es grande).
-                  mainAxisExtent: (ancho - (columnas - 1) * 12) / columnas * 3 / 4 +
-                      MediaQuery.textScalerOf(context).scale(122),
+                  mainAxisExtent:
+                      (ancho - (columnas - 1) * 12) / columnas * 3 / 4 + MediaQuery.textScalerOf(context).scale(122),
                 ),
                 delegate: SliverChildBuilderDelegate(
                   (context, i) => TarjetaProducto(
@@ -279,12 +295,12 @@ class _CatalogoViewState extends ConsumerState<CatalogoView> {
             child: _cargando
                 ? const CircularProgressIndicator()
                 : _hayMas
-                    ? OutlinedButton(
-                        style: OutlinedButton.styleFrom(minimumSize: const Size(160, 44)),
-                        onPressed: _cargar,
-                        child: const Text('Ver más'),
-                      )
-                    : const SizedBox(height: AppEspacios.xl),
+                ? OutlinedButton(
+                    style: OutlinedButton.styleFrom(minimumSize: const Size(160, 44)),
+                    onPressed: _cargar,
+                    child: const Text('Ver más'),
+                  )
+                : const SizedBox(height: AppEspacios.xl),
           ),
         ),
       ),
@@ -292,12 +308,12 @@ class _CatalogoViewState extends ConsumerState<CatalogoView> {
   }
 
   String _textoOrden(String orden) => switch (orden) {
-        'recientes' => 'Más nuevos',
-        'precio' => 'Precio: menor a mayor',
-        'precio_desc' => 'Precio: mayor a menor',
-        'rating' => 'Mejor calificados',
-        _ => 'Más vendidos',
-      };
+    'recientes' => 'Más nuevos',
+    'precio' => 'Precio: menor a mayor',
+    'precio_desc' => 'Precio: mayor a menor',
+    'rating' => 'Mejor calificados',
+    _ => 'Más vendidos',
+  };
 }
 
 /// Limita el ancho de un sliver y lo centra (en PC no se estira de borde a borde).
@@ -312,7 +328,10 @@ class SliverCrossAxisConstrained extends StatelessWidget {
     return SliverLayoutBuilder(
       builder: (context, limites) {
         final sobra = (limites.crossAxisExtent - maxCrossAxisExtent).clamp(0, double.infinity) / 2;
-        return SliverPadding(padding: EdgeInsets.symmetric(horizontal: sobra.toDouble()), sliver: child);
+        return SliverPadding(
+          padding: EdgeInsets.symmetric(horizontal: sobra.toDouble()),
+          sliver: child,
+        );
       },
     );
   }

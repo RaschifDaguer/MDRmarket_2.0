@@ -58,4 +58,52 @@ class Envio
             'tarifa_servicio' => number_format((float) Configuracion::valor('tarifa_servicio', 0), 2, '.', ''),
         ];
     }
+
+    /** Si no hay valor en `configuracion`: velocidad media de reparto en la ciudad. */
+    public const VELOCIDAD_KMH = 20;
+
+    /** Minutos de viaje para recorrer $km a la velocidad media de reparto (configurable). */
+    public static function minutosDeViaje(float $km): int
+    {
+        $velocidad = max(1, (float) Configuracion::valor('velocidad_promedio_kmh', self::VELOCIDAD_KMH));
+
+        return (int) ceil($km / $velocidad * 60);
+    }
+
+    /** Minutos de preparación cuando el negocio no los cargó. */
+    public const PREPARACION_MIN = 15;
+
+    /**
+     * Para listar tiendas: envío "desde" (vehículo liviano), distancia y
+     * tiempo estimado, sin fallar. Fuera de cobertura: en_cobertura = false
+     * y sin costo. $anilloCliente se calcula una vez para toda la lista.
+     *
+     * @return array{en_cobertura: bool, costo_envio: ?string, distancia_km: ?float, tiempo_min: ?int, tiempo_max: ?int}
+     */
+    public static function estimar(Negocio $negocio, float $latitud, float $longitud, ?int $anilloCliente): array
+    {
+        $sinCobertura = ['en_cobertura' => false, 'costo_envio' => null, 'distancia_km' => null, 'tiempo_min' => null, 'tiempo_max' => null];
+        if ($anilloCliente === null || $negocio->latitud === null || $negocio->longitud === null) {
+            return $sinCobertura;
+        }
+
+        $costo = DB::scalar('SELECT fn_cotizar_envio(?, ?, ?, ?, NULL, 1)', [$negocio->latitud, $negocio->longitud, $latitud, $longitud]);
+        if ($costo === null) {
+            return $sinCobertura;
+        }
+        $km = round((float) DB::scalar('SELECT fn_distancia_km(?, ?, ?, ?)', [$negocio->latitud, $negocio->longitud, $latitud, $longitud])
+            * (float) Configuracion::valor('factor_ruta', 1.3), 2);
+
+        // Preparación + trayecto; el rango ("15–25 min") da margen para encontrar repartidor.
+        $velocidad = max(1, (float) Configuracion::valor('velocidad_promedio_kmh', self::VELOCIDAD_KMH));
+        $minimo = (int) ($negocio->tiempo_preparacion_min ?? self::PREPARACION_MIN) + (int) ceil($km / $velocidad * 60);
+
+        return [
+            'en_cobertura' => true,
+            'costo_envio' => number_format((float) $costo, 2, '.', ''),
+            'distancia_km' => $km,
+            'tiempo_min' => $minimo,
+            'tiempo_max' => $minimo + 10,
+        ];
+    }
 }

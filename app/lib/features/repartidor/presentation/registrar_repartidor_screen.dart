@@ -37,6 +37,13 @@ class _RegistrarRepartidorScreenState extends ConsumerState<RegistrarRepartidorS
 
   TipoVehiculo? _tipo;
 
+  /// Paso 1 "Tus datos", paso 2 "Tu vehículo" (el 3, los documentos, es la
+  /// pantalla "En revisión").
+  int _paso = 1;
+
+  /// Grupo de vehículos elegido (índice de [gruposVehiculo]).
+  int? _grupo;
+
   /// Ya se hizo POST /repartidor en esta pantalla (si después falla el
   /// vehículo, al reintentar no se vuelve a pedir).
   bool _solicitado = false;
@@ -55,9 +62,7 @@ class _RegistrarRepartidorScreenState extends ConsumerState<RegistrarRepartidorS
   }
 
   bool _validar() {
-    final errores = <String, String>{
-      if (_tipo == null) 'tipo_vehiculo_id': 'Elige el tipo de vehículo.',
-    };
+    final errores = <String, String>{if (_paso == 2 && _tipo == null) 'tipo_vehiculo_id': 'Elige el tipo de vehículo.'};
     final formularioOk = _form.currentState!.validate();
     setState(() => _errores = errores);
     return formularioOk && errores.isEmpty;
@@ -81,10 +86,14 @@ class _RegistrarRepartidorScreenState extends ConsumerState<RegistrarRepartidorS
     try {
       // 1. Cuentas antiguas: completar apellido o CI.
       if (!conVehiculo && (faltaApellido || faltaCi)) {
-        ref.read(authControllerProvider.notifier).actualizarUsuario(await ref.read(perfilRepositoryProvider).actualizar({
-          if (faltaApellido) 'apellido': _apellido.text.trim(),
-          if (faltaCi) 'ci_numero': _ciNumero.text.trim(),
-        }));
+        ref
+            .read(authControllerProvider.notifier)
+            .actualizarUsuario(
+              await ref.read(perfilRepositoryProvider).actualizar({
+                if (faltaApellido) 'apellido': _apellido.text.trim(),
+                if (faltaCi) 'ci_numero': _ciNumero.text.trim(),
+              }),
+            );
       }
 
       // 2. El perfil de repartidor (o volver a enviar si lo rechazaron).
@@ -95,15 +104,17 @@ class _RegistrarRepartidorScreenState extends ConsumerState<RegistrarRepartidorS
 
       // 3. El vehículo (uno solo: si ya lo tiene, no se pide de nuevo).
       if (!conVehiculo) {
-        await repartidor.registrarVehiculo(DatosVehiculo(
-          tipoVehiculoId: _tipo!.id,
-          placa: _tipo!.requierePlaca ? _placa.text : null,
-          ruat: _tipo!.requiereRuat ? _ruat.text : null,
-          marca: _marca.text,
-          modelo: _modelo.text,
-          color: _color.text,
-          anio: int.tryParse(_anio.text.trim()),
-        ));
+        await repartidor.registrarVehiculo(
+          DatosVehiculo(
+            tipoVehiculoId: _tipo!.id,
+            placa: _tipo!.requierePlaca ? _placa.text : null,
+            ruat: _tipo!.requiereRuat ? _ruat.text : null,
+            marca: _marca.text,
+            modelo: _modelo.text,
+            color: _color.text,
+            anio: int.tryParse(_anio.text.trim()),
+          ),
+        );
       }
     } on ApiException catch (e) {
       if (!mounted) return;
@@ -128,12 +139,16 @@ class _RegistrarRepartidorScreenState extends ConsumerState<RegistrarRepartidorS
     }
 
     if (!mounted) return;
-    mensajero.showSnackBar(SnackBar(
-      content: Text(perfil?.rechazado == true
-          ? 'Listo: enviaste tu solicitud de nuevo. Sube lo que te falta.'
-          : '¡Listo! Tu solicitud está en revisión. Ahora sube las fotos que te faltan.'),
-      duration: const Duration(seconds: 5),
-    ));
+    mensajero.showSnackBar(
+      SnackBar(
+        content: Text(
+          perfil?.rechazado == true
+              ? 'Listo: enviaste tu solicitud de nuevo. Sube lo que te falta.'
+              : '¡Listo! Tu solicitud está en revisión. Ahora sube las fotos que te faltan.',
+        ),
+        duration: const Duration(seconds: 5),
+      ),
+    );
     context.go('/inicio');
   }
 
@@ -167,11 +182,17 @@ class _RegistrarRepartidorScreenState extends ConsumerState<RegistrarRepartidorS
             if (vehiculo != null)
               Aparecer(orden: 2, child: _resumenVehiculo(vehiculo))
             else ...[
-              Aparecer(orden: 2, child: _seccionTipo(tipos.value!)),
-              ..._seccionDatos(),
-              ..._seccionPersona(usuario!),
-              const SizedBox(height: AppEspacios.l),
-              Aparecer(orden: 5, child: _queSigue()),
+              _indicadorPaso(),
+              const SizedBox(height: AppEspacios.m),
+              if (_paso == 1) ...[
+                _seccionTuNombre(usuario!),
+                ..._seccionPersona(usuario),
+                const SizedBox(height: AppEspacios.l),
+                Aparecer(orden: 5, child: _queSigue()),
+              ] else ...[
+                Aparecer(orden: 2, child: _seccionTipo(tipos.value!)),
+                ..._seccionDatos(),
+              ],
             ],
             AnimatedSize(
               duration: animar ? AppMovimiento.normal : Duration.zero,
@@ -184,15 +205,42 @@ class _RegistrarRepartidorScreenState extends ConsumerState<RegistrarRepartidorS
                     ),
             ),
             const SizedBox(height: AppEspacios.l + 4),
-            Aparecer(
-              orden: 6,
-              child: BotonPrincipal(
-                texto: miPerfil?.rechazado == true ? 'Volver a enviar' : 'Enviar solicitud',
-                icono: Icons.delivery_dining_outlined,
-                cargando: _enviando,
-                onPressed: () => _enviar(usuario!, miPerfil),
+            if (vehiculo == null && _paso == 1)
+              Aparecer(
+                orden: 6,
+                child: BotonPrincipal(
+                  key: const Key('siguiente-vehiculo'),
+                  texto: 'Siguiente: tu vehículo',
+                  icono: Icons.arrow_forward,
+                  onPressed: () {
+                    if (_form.currentState!.validate()) {
+                      setState(() => _paso = 2);
+                    } else {
+                      setState(() => _temblores++);
+                    }
+                  },
+                ),
+              )
+            else ...[
+              Aparecer(
+                orden: 6,
+                child: BotonPrincipal(
+                  key: const Key('siguiente-documentos'),
+                  texto: vehiculo != null
+                      ? 'Volver a enviar'
+                      : (miPerfil?.rechazado == true ? 'Volver a enviar: documentos' : 'Siguiente: documentos'),
+                  icono: Icons.delivery_dining_outlined,
+                  cargando: _enviando,
+                  onPressed: () => _enviar(usuario!, miPerfil),
+                ),
               ),
-            ),
+              if (vehiculo == null)
+                TextButton(
+                  key: const Key('paso-atras'),
+                  onPressed: _enviando ? null : () => setState(() => _paso = 1),
+                  child: const Text('Atrás'),
+                ),
+            ],
           ],
         ),
       );
@@ -209,7 +257,11 @@ class _RegistrarRepartidorScreenState extends ConsumerState<RegistrarRepartidorS
                   constraints: const BoxConstraints(maxWidth: 560),
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(
-                        AppEspacios.m + 4, AppEspacios.l, AppEspacios.m + 4, AppEspacios.xl),
+                      AppEspacios.m + 4,
+                      AppEspacios.l,
+                      AppEspacios.m + 4,
+                      AppEspacios.xl,
+                    ),
                     child: Temblor(
                       disparo: _temblores,
                       child: Tarjeta3D(
@@ -221,8 +273,8 @@ class _RegistrarRepartidorScreenState extends ConsumerState<RegistrarRepartidorS
                                 child: Center(child: CircularProgressIndicator()),
                               )
                             : errorCarga != null
-                                ? _errorDeCarga(errorCarga)
-                                : contenido(),
+                            ? _errorDeCarga(errorCarga)
+                            : contenido(),
                       ),
                     ),
                   ),
@@ -264,10 +316,7 @@ class _RegistrarRepartidorScreenState extends ConsumerState<RegistrarRepartidorS
               child: Padding(
                 padding: const EdgeInsets.all(AppEspacios.s),
                 // Sobre el verde de la marca (igual en los dos temas), como en las demás cabeceras.
-                child: BackButton(
-                  color: Colors.white,
-                  onPressed: _enviando ? null : () => context.go('/inicio'),
-                ),
+                child: BackButton(color: Colors.white, onPressed: _enviando ? null : () => context.go('/inicio')),
               ),
             ),
             Center(
@@ -292,47 +341,126 @@ class _RegistrarRepartidorScreenState extends ConsumerState<RegistrarRepartidorS
     );
   }
 
-  /// Tarjetas grandes con ícono, una por tipo de vehículo.
+  /// "Paso 1 de 3" con una barra de avance.
+  Widget _indicadorPaso() {
+    final textos = Theme.of(context).textTheme;
+    final c = Theme.of(context).colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          'Paso $_paso de 3',
+          key: const Key('paso-registro'),
+          style: textos.labelLarge?.copyWith(color: c.primary),
+        ),
+        const SizedBox(height: AppEspacios.xs),
+        Row(
+          children: [
+            for (var i = 1; i <= 3; i++) ...[
+              Expanded(
+                child: Container(
+                  height: 6,
+                  decoration: BoxDecoration(
+                    color: i <= _paso ? c.primary : c.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                ),
+              ),
+              if (i < 3) const SizedBox(width: AppEspacios.xs),
+            ],
+          ],
+        ),
+      ],
+    );
+  }
+
+  /// Paso 1: con qué nombre se registra (lo ve el cliente).
+  Widget _seccionTuNombre(Usuario usuario) {
+    final textos = Theme.of(context).textTheme;
+    final c = Theme.of(context).colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const TituloSeccion('Tus datos', Icons.badge_outlined),
+        Text(usuario.nombreCompleto, style: textos.titleMedium),
+        Text(
+          'Así te verán los clientes y las tiendas cuando lleves un pedido.',
+          style: textos.bodySmall?.copyWith(color: c.onSurfaceVariant),
+        ),
+      ],
+    );
+  }
+
+  /// Los vehículos en 3 grupos (como en el diseño). Al elegir un grupo con
+  /// más de un tipo, se elige el tipo exacto (moto o bicicleta…), porque
+  /// cambia lo que se pide (la bicicleta no pide placa ni RUAT).
+  static const gruposVehiculo = [
+    ('Moto o bicicleta', ['moto', 'bicicleta'], Icons.two_wheeler),
+    ('Auto', ['auto'], Icons.directions_car_outlined),
+    ('Camioneta o camión', ['camioneta', 'camion'], Icons.local_shipping_outlined),
+  ];
+
+  void _elegirTipo(TipoVehiculo tipo) => setState(() {
+    _tipo = tipo;
+    _errores = {..._errores}
+      ..remove('tipo_vehiculo_id')
+      ..remove('placa')
+      ..remove('ruat');
+  });
+
   Widget _seccionTipo(List<TipoVehiculo> tipos) {
     final c = Theme.of(context).colorScheme;
     final textos = Theme.of(context).textTheme;
     final error = _errores['tipo_vehiculo_id'];
+    List<TipoVehiculo> delGrupo(int g) => [
+      for (final codigo in gruposVehiculo[g].$2) ...tipos.where((t) => t.codigo == codigo),
+    ];
+    final grupo = _grupo;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const TituloSeccion('¿En qué vas a repartir?', Icons.delivery_dining_outlined),
-        LayoutBuilder(
-          builder: (context, medidas) {
-            const espacio = AppEspacios.s + 2;
-            // 3 por fila en celular; las que sobran se centran.
-            final ancho = (medidas.maxWidth - espacio * 2) / 3;
-            return Wrap(
-              spacing: espacio,
-              runSpacing: espacio,
-              alignment: WrapAlignment.center,
-              children: [
-                for (final tipo in tipos)
-                  SizedBox(
-                    width: ancho,
-                    child: _TarjetaTipo(
-                      tipo: tipo,
-                      elegido: _tipo?.id == tipo.id,
-                      alElegir: _enviando
-                          ? null
-                          : () => setState(() {
-                                _tipo = tipo;
-                                _errores = {..._errores}
-                                  ..remove('tipo_vehiculo_id')
-                                  ..remove('placa')
-                                  ..remove('ruat');
-                              }),
-                    ),
-                  ),
-              ],
-            );
-          },
-        ),
+        const TituloSeccion('¿Con qué vas a repartir?', Icons.delivery_dining_outlined),
+        for (var g = 0; g < gruposVehiculo.length; g++)
+          if (delGrupo(g).isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(bottom: AppEspacios.s),
+              child: _TarjetaGrupo(
+                key: Key('grupo-$g'),
+                titulo: gruposVehiculo[g].$1,
+                detalle: {for (final t in delGrupo(g)) ?t.categoria}.join(' y '),
+                icono: gruposVehiculo[g].$3,
+                elegido: grupo == g,
+                alElegir: _enviando
+                    ? null
+                    : () {
+                        setState(() => _grupo = g);
+                        final opciones = delGrupo(g);
+                        // Con un solo tipo (auto), queda elegido; si no, se elige abajo.
+                        if (opciones.length == 1) {
+                          _elegirTipo(opciones.single);
+                        } else if (!opciones.contains(_tipo)) {
+                          setState(() => _tipo = null);
+                        }
+                      },
+              ),
+            ),
+        if (grupo != null && delGrupo(grupo).length > 1) ...[
+          const SizedBox(height: AppEspacios.xs),
+          Wrap(
+            spacing: AppEspacios.s,
+            children: [
+              for (final t in delGrupo(grupo))
+                ChoiceChip(
+                  key: Key('tipo-${t.codigo}'),
+                  avatar: Icon(t.icono, size: 18),
+                  label: Text(t.nombre),
+                  selected: _tipo?.id == t.id,
+                  onSelected: _enviando ? null : (_) => _elegirTipo(t),
+                ),
+            ],
+          ),
+        ],
         if (error != null) ...[
           const SizedBox(height: AppEspacios.s),
           Text(error, style: textos.bodySmall?.copyWith(color: c.error)),
@@ -395,9 +523,9 @@ class _RegistrarRepartidorScreenState extends ConsumerState<RegistrarRepartidorS
             if (!tipo.requierePlaca && !tipo.requiereRuat) ...[
               Text(
                 'Tu ${tipo.nombre.toLowerCase()} no necesita placa, RUAT ni licencia.',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
               ),
               espacio,
             ],
@@ -516,10 +644,7 @@ class _RegistrarRepartidorScreenState extends ConsumerState<RegistrarRepartidorS
 
     return Container(
       padding: const EdgeInsets.all(AppEspacios.m - 2),
-      decoration: BoxDecoration(
-        color: c.secondaryContainer,
-        borderRadius: BorderRadius.circular(AppRadios.campo),
-      ),
+      decoration: BoxDecoration(color: c.secondaryContainer, borderRadius: BorderRadius.circular(AppRadios.campo)),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -608,11 +733,20 @@ class _RegistrarRepartidorScreenState extends ConsumerState<RegistrarRepartidorS
   }
 }
 
-/// Tarjeta grande y tocable con el ícono y el nombre de un tipo de vehículo.
-class _TarjetaTipo extends StatelessWidget {
-  const _TarjetaTipo({required this.tipo, required this.elegido, required this.alElegir});
+/// Tarjeta grande y tocable de un grupo de vehículos ("Moto o bicicleta").
+class _TarjetaGrupo extends StatelessWidget {
+  const _TarjetaGrupo({
+    super.key,
+    required this.titulo,
+    required this.detalle,
+    required this.icono,
+    required this.elegido,
+    required this.alElegir,
+  });
 
-  final TipoVehiculo tipo;
+  final String titulo;
+  final String detalle;
+  final IconData icono;
   final bool elegido;
   final VoidCallback? alElegir;
 
@@ -621,14 +755,12 @@ class _TarjetaTipo extends StatelessWidget {
     final c = Theme.of(context).colorScheme;
     final textos = Theme.of(context).textTheme;
     final animar = AppMovimiento.activo(context);
-    final colorTexto = elegido ? c.onPrimaryContainer : c.onSurface;
 
     return Semantics(
       selected: elegido,
       button: true,
       child: ReaccionToque(
         child: AnimatedContainer(
-          key: Key('tipo-${tipo.codigo}'),
           duration: animar ? AppMovimiento.rapido : Duration.zero,
           decoration: BoxDecoration(
             color: elegido ? c.primaryContainer : c.surfaceContainerHighest.withValues(alpha: 0.5),
@@ -641,26 +773,30 @@ class _TarjetaTipo extends StatelessWidget {
               borderRadius: BorderRadius.circular(AppRadios.campo + 4),
               onTap: alElegir,
               child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: AppEspacios.m, horizontal: AppEspacios.xs),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
+                padding: const EdgeInsets.all(AppEspacios.m - 2),
+                child: Row(
                   children: [
-                    Icon(tipo.icono, size: 36, color: elegido ? c.primary : c.onSurfaceVariant),
-                    const SizedBox(height: AppEspacios.s),
-                    Text(
-                      tipo.nombre,
-                      textAlign: TextAlign.center,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: textos.titleSmall?.copyWith(color: colorTexto),
-                    ),
-                    if (tipo.categoria != null)
-                      Text(
-                        tipo.categoria!,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: textos.labelSmall?.copyWith(color: elegido ? c.onPrimaryContainer : c.onSurfaceVariant),
+                    Icon(icono, size: 34, color: elegido ? c.primary : c.onSurfaceVariant),
+                    const SizedBox(width: AppEspacios.m - 4),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            titulo,
+                            style: textos.titleMedium?.copyWith(color: elegido ? c.onPrimaryContainer : null),
+                          ),
+                          if (detalle.isNotEmpty)
+                            Text(
+                              'Pedidos: $detalle',
+                              style: textos.bodySmall?.copyWith(
+                                color: elegido ? c.onPrimaryContainer : c.onSurfaceVariant,
+                              ),
+                            ),
+                        ],
                       ),
+                    ),
+                    if (elegido) Icon(Icons.check_circle, color: c.primary),
                   ],
                 ),
               ),

@@ -8,11 +8,14 @@ import '../../../core/theme/app_espacios.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../carrito/domain/carrito.dart';
 import '../../carrito/presentation/carrito_controller.dart';
+import '../../catalogo/data/catalogo_repository.dart';
+import '../../catalogo/domain/tienda.dart';
 import '../data/pedidos_repository.dart';
 import '../domain/direccion.dart';
 import 'direccion_sheet.dart';
 
-/// Último paso: dónde entregar, cómo pagar y confirmar el pedido.
+/// Último paso: dónde entregar, cómo pagar (en efectivo, con cuánto, para el
+/// cambio), cuándo llega y confirmar el pedido.
 class CheckoutScreen extends ConsumerStatefulWidget {
   const CheckoutScreen({super.key});
 
@@ -22,7 +25,11 @@ class CheckoutScreen extends ConsumerStatefulWidget {
 
 class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   final _notas = TextEditingController();
+  final _pagaCon = TextEditingController();
   Direccion? _direccion;
+
+  /// Tiempo estimado hasta la dirección elegida (la API lo calcula).
+  EnvioTienda? _llegada;
   String _metodoPago = 'efectivo';
   Cotizacion? _cotizacion;
   String? _errorEnvio;
@@ -45,6 +52,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   @override
   void dispose() {
     _notas.dispose();
+    _pagaCon.dispose();
     super.dispose();
   }
 
@@ -54,15 +62,18 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     setState(() {
       _direccion = direccion;
       _cotizacion = null;
+      _llegada = null;
       _errorEnvio = null;
       _cotizando = true;
     });
+    // El tiempo de llegada no es imprescindible: si falla, no se muestra.
+    ref.read(catalogoRepositoryProvider).tienda(carrito.negocio.id, ubicacion: direccion.ubicacion).then((t) {
+      if (mounted && _direccion == direccion) setState(() => _llegada = t.tienda.envio);
+    }, onError: (_) {});
     try {
-      final cotizacion = await ref.read(pedidosRepositoryProvider).cotizar(
-            carrito.negocio.id,
-            direccion.ubicacion,
-            carrito.items.map((i) => i.producto.id).toList(),
-          );
+      final cotizacion = await ref
+          .read(pedidosRepositoryProvider)
+          .cotizar(carrito.negocio.id, direccion.ubicacion, carrito.items.map((i) => i.producto.id).toList());
       if (mounted && _direccion == direccion) setState(() => _cotizacion = cotizacion);
     } on ApiException catch (e) {
       if (mounted && _direccion == direccion) {
@@ -79,23 +90,25 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       _errorGeneral = null;
     });
     final router = GoRouter.of(context);
-    final mensajero = ScaffoldMessenger.of(context);
     try {
-      final pedido = await ref.read(pedidosRepositoryProvider).crear(
+      final pedido = await ref
+          .read(pedidosRepositoryProvider)
+          .crear(
             carrito,
             (direccionId: _direccion!.id, direccion: null, referencia: null, ubicacion: null),
             metodoPago: _metodoPago,
             notas: _notas.text,
+            pagaCon: _metodoPago == 'efectivo' ? _pagaConValor : null,
           );
       ref.read(carritoProvider.notifier).vaciar();
       ref.invalidate(misPedidosProvider);
       router.go('/inicio');
-      router.push('/pedido/${pedido.id}');
       if (_metodoPago == 'qr') {
         // Con QR se paga ahora: el negocio lo acepta recién cuando está pagado.
+        router.push('/pedido/${pedido.id}');
         router.push('/pedido/${pedido.id}/pagar-qr');
       } else {
-        mensajero.showSnackBar(const SnackBar(content: Text('¡Pedido enviado! Te avisaremos cuando el negocio lo acepte.')));
+        router.push('/pedido/${pedido.id}/enviado');
       }
     } on ApiException catch (e) {
       if (!mounted) return;
@@ -106,6 +119,9 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       });
     }
   }
+
+  /// Lo que escribió en "¿Con cuánto pagas?" (null si nada o no es un número).
+  double? get _pagaConValor => double.tryParse(_pagaCon.text.trim().replaceAll(',', '.'));
 
   @override
   Widget build(BuildContext context) {
@@ -119,7 +135,13 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     final direcciones = ref.watch(direccionesProvider);
     final textos = Theme.of(context).textTheme;
     final total = carrito.subtotal + (_cotizacion?.costoEnvio ?? 0) + (_cotizacion?.tarifaServicio ?? 0);
-    final listo = _direccion != null && _cotizacion != null && !_cotizando;
+    final pagaCon = _pagaConValor;
+    final faltaParaElTotal = _metodoPago == 'efectivo' && pagaCon != null && pagaCon < total;
+    final listo = _direccion != null && _cotizacion != null && !_cotizando && !faltaParaElTotal;
+    final ahorro = carrito.items.fold<double>(
+      0,
+      (t, i) => t + (i.producto.precio - i.producto.precioFinal) * i.cantidad,
+    );
 
     return Pantalla(
       titulo: 'Confirmar pedido',
@@ -137,7 +159,9 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         children: [
           const TituloSeccion('¿Dónde lo recibes?', Icons.place_outlined),
           direcciones.when(
-            loading: () => const Center(child: Padding(padding: EdgeInsets.all(AppEspacios.m), child: CircularProgressIndicator())),
+            loading: () => const Center(
+              child: Padding(padding: EdgeInsets.all(AppEspacios.m), child: CircularProgressIndicator()),
+            ),
             error: (e, _) => VistaError(error: e, alReintentar: () => ref.invalidate(direccionesProvider)),
             data: (lista) => Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -202,6 +226,37 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
               ],
             ),
           ),
+          // Efectivo: con cuánto paga, para que el repartidor lleve cambio (opcional).
+          if (_metodoPago == 'efectivo') ...[
+            TextField(
+              key: const Key('campo-paga-con'),
+              controller: _pagaCon,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: InputDecoration(
+                labelText: '¿Con cuánto pagas? (para tu cambio)',
+                prefixText: 'Bs ',
+                errorText: faltaParaElTotal && _cotizacion != null
+                    ? 'Tiene que ser al menos ${Formato.bs(total)}'
+                    : null,
+              ),
+              onChanged: (_) => setState(() {}),
+            ),
+            if (pagaCon != null && !faltaParaElTotal && _cotizacion != null)
+              Padding(
+                padding: const EdgeInsets.only(top: AppEspacios.xs, left: AppEspacios.s),
+                child: Text(
+                  pagaCon == total
+                      ? 'Pagas justo, sin cambio.'
+                      : 'El repartidor te dará ${Formato.bs(pagaCon - total)} de cambio.',
+                  key: const Key('texto-cambio'),
+                  style: textos.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.primary,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            const SizedBox(height: AppEspacios.m),
+          ],
           const SizedBox(height: AppEspacios.s),
           TextField(
             controller: _notas,
@@ -220,15 +275,36 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
               padding: const EdgeInsets.all(AppEspacios.m),
               child: Column(
                 children: [
-                  _Fila('${carrito.negocio.nombre} · ${carrito.unidades} producto${carrito.unidades == 1 ? '' : 's'}',
-                      Formato.bs(carrito.subtotal)),
+                  _Fila(
+                    '${carrito.negocio.nombre} · ${carrito.unidades} producto${carrito.unidades == 1 ? '' : 's'}',
+                    Formato.bs(carrito.subtotal),
+                  ),
                   _Fila(
                     _cotizacion == null ? 'Envío' : 'Envío (${_cotizacion!.distanciaKm.toStringAsFixed(1)} km)',
                     _cotizacion == null ? '—' : Formato.bs(_cotizacion!.costoEnvio),
                   ),
-                  if ((_cotizacion?.tarifaServicio ?? 0) > 0) _Fila('Servicio', Formato.bs(_cotizacion!.tarifaServicio)),
+                  if ((_cotizacion?.tarifaServicio ?? 0) > 0)
+                    _Fila('Servicio', Formato.bs(_cotizacion!.tarifaServicio)),
+                  if (ahorro > 0) _Fila('Ahorras con ofertas', '−${Formato.bs(ahorro)}', clave: 'ahorro-checkout'),
                   const Divider(height: AppEspacios.l),
-                  _Fila('Total', listo ? Formato.bs(total) : '—', fuerte: true),
+                  _Fila('Total', _cotizacion != null ? Formato.bs(total) : '—', fuerte: true),
+                  if (_llegada?.tiempoMin case final minimo?)
+                    Padding(
+                      padding: const EdgeInsets.only(top: AppEspacios.s),
+                      child: Row(
+                        children: [
+                          Icon(Icons.schedule, size: 18, color: Theme.of(context).colorScheme.primary),
+                          const SizedBox(width: AppEspacios.xs),
+                          Flexible(
+                            child: Text(
+                              'Llega entre ${_hora(minimo)} y ${_hora(_llegada!.tiempoMax ?? minimo)}',
+                              key: const Key('llega-entre'),
+                              style: textos.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -241,17 +317,25 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   }
 }
 
+/// "14:20": la hora dentro de [minutos].
+String _hora(int minutos) {
+  final h = DateTime.now().add(Duration(minutes: minutos));
+  return '${h.hour.toString().padLeft(2, '0')}:${h.minute.toString().padLeft(2, '0')}';
+}
+
 class _Fila extends StatelessWidget {
-  const _Fila(this.texto, this.valor, {this.fuerte = false});
+  const _Fila(this.texto, this.valor, {this.fuerte = false, this.clave});
 
   final String texto;
   final String valor;
   final bool fuerte;
+  final String? clave;
 
   @override
   Widget build(BuildContext context) {
     final estilo = fuerte ? Theme.of(context).textTheme.titleMedium : Theme.of(context).textTheme.bodyMedium;
     return Padding(
+      key: clave == null ? null : Key(clave!),
       padding: const EdgeInsets.symmetric(vertical: 3),
       child: Row(
         children: [

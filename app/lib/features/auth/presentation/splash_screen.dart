@@ -34,6 +34,14 @@ class SplashScreen extends ConsumerWidget {
                   style: textos.headlineLarge?.copyWith(color: Colors.white),
                 ),
               ),
+              const SizedBox(height: AppEspacios.s),
+              Aparecer(
+                orden: 4,
+                child: Text(
+                  'Todo Santa Cruz, a tu puerta',
+                  style: textos.titleMedium?.copyWith(color: Colors.white.withValues(alpha: 0.85)),
+                ),
+              ),
               const SizedBox(height: AppEspacios.xl),
               if (auth case AsyncError(:final error))
                 Aparecer(

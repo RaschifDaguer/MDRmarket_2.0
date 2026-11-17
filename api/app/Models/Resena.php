@@ -12,6 +12,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class Resena extends Model
 {
+    /** Etiquetas que el cliente puede marcar al calificar al repartidor. */
+    public const ETIQUETAS_REPARTIDOR = ['Puntual', 'Amable', 'Cuidó el paquete'];
+
     protected $table = 'resena';
 
     protected $fillable = [
@@ -22,6 +25,7 @@ class Resena extends Model
         'repartidor_id',
         'estrellas',
         'comentario',
+        'etiquetas',
         'respuesta',
         'respondido_en',
         'visible',
@@ -31,6 +35,7 @@ class Resena extends Model
     {
         return [
             'estrellas' => 'integer',
+            'etiquetas' => 'array',
             'visible' => 'boolean',
             'respondido_en' => 'datetime',
         ];

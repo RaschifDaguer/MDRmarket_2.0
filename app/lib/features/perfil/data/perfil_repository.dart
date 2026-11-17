@@ -6,6 +6,7 @@ import '../../../core/network/api_client.dart';
 import '../../../core/network/api_exception.dart';
 import '../../auth/domain/usuario.dart';
 import '../../auth/presentation/auth_controller.dart';
+import '../../comerciante/domain/documento_subido.dart';
 import '../domain/faltante.dart';
 
 /// Datos personales, lo que falta para cada rol y subida de documentos.
@@ -16,17 +17,15 @@ class PerfilRepository {
 
   /// Lo que le falta para usar `rol` ('repartidor' o 'comerciante'). Vacío = completo.
   Future<List<Faltante>> faltantes(String rol) => _llamar(() async {
-        final r = await _dio.get('/me/faltantes/$rol');
-        return ((r.data as Map)['faltantes'] as List)
-            .map((f) => Faltante.fromJson(f as Map<String, dynamic>))
-            .toList();
-      });
+    final r = await _dio.get('/me/faltantes/$rol');
+    return ((r.data as Map)['faltantes'] as List).map((f) => Faltante.fromJson(f as Map<String, dynamic>)).toList();
+  });
 
   /// Actualiza datos personales (solo los campos que se pasen).
   Future<Usuario> actualizar(Map<String, dynamic> datos) => _llamar(() async {
-        final r = await _dio.put('/me', data: datos);
-        return Usuario.fromJson(r.data as Map<String, dynamic>);
-      });
+    final r = await _dio.put('/me', data: datos);
+    return Usuario.fromJson(r.data as Map<String, dynamic>);
+  });
 
   /// Sube la foto de un documento (ej. tipo 'ci_anverso'). Queda "en revisión".
   Future<void> subirDocumento(String tipo, ArchivoElegido archivo, {int? negocioId, int? vehiculoId}) =>
@@ -42,6 +41,12 @@ class PerfilRepository {
         );
       });
 
+  /// Los documentos que subió y cómo va su revisión.
+  Future<List<DocumentoSubido>> documentos() => _llamar(() async {
+    final r = await _dio.get('/documentos');
+    return (r.data as List).map((d) => DocumentoSubido.fromJson(d as Map<String, dynamic>)).toList();
+  });
+
   Future<T> _llamar<T>(Future<T> Function() peticion) async {
     try {
       return await peticion();
@@ -55,6 +60,11 @@ final perfilRepositoryProvider = Provider<PerfilRepository>((ref) {
   ref.watch(usuarioSesionProvider); // otra cuenta: lo que le falta se vuelve a pedir
   return PerfilRepository(ref.watch(dioProvider));
 });
+
+/// Los documentos que subió el usuario. Invalidar después de subir uno.
+final misDocumentosProvider = FutureProvider<List<DocumentoSubido>>(
+  (ref) => ref.watch(perfilRepositoryProvider).documentos(),
+);
 
 /// Lo que le falta al usuario para un rol. Invalidar después de subir algo.
 final faltantesProvider = FutureProvider.family<List<Faltante>, String>(

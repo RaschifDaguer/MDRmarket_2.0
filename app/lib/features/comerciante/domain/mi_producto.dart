@@ -20,7 +20,11 @@ class MiProducto {
     this.rating,
     this.totalResenas = 0,
     this.totalVendidos = 0,
+    this.imagenes = const [],
   });
+
+  /// Hasta 4 fotos, la portada primero.
+  final List<FotoProducto> imagenes;
 
   final int id;
   final String nombre;
@@ -70,6 +74,23 @@ class MiProducto {
       rating: (json['rating_promedio'] as num?)?.toDouble(),
       totalResenas: (json['total_resenas'] as num?)?.toInt() ?? 0,
       totalVendidos: (json['total_vendidos'] as num?)?.toInt() ?? 0,
+      imagenes: [
+        for (final i in (json['imagenes'] as List?) ?? const [])
+          FotoProducto(
+            id: ((i as Map)['id'] as num).toInt(),
+            url: i['url'] as String,
+            portada: i['es_principal'] == true,
+          ),
+      ],
     );
   }
+}
+
+/// Una foto ya subida de un producto.
+class FotoProducto {
+  const FotoProducto({required this.id, required this.url, this.portada = false});
+
+  final int id;
+  final String url;
+  final bool portada;
 }

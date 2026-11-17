@@ -28,7 +28,8 @@ class PedidoController extends Controller
 
         $pedidos = $negocio->pedidos()
             ->whereIn('estado', self::GRUPOS[$grupo])
-            ->with(['negocio', 'comprador'])
+            // Con los productos y quién lo lleva, para la tarjeta de la lista.
+            ->with(['negocio', 'comprador', 'items.producto.imagenPrincipal', 'repartidor', 'vehiculo.tipo'])
             ->withCount('items')
             ->when($grupo === 'terminados', fn ($q) => $q->latest('id'), fn ($q) => $q->oldest('id'))
             ->paginate(30);
@@ -43,9 +44,10 @@ class PedidoController extends Controller
     }
 
     /**
-     * PUT /{pedido}/estado — aceptar, rechazar, preparando, listo o cancelar.
-     * "En camino" y "entregado" los hace el repartidor de la app (el local no
-     * tiene delivery propio).
+     * PUT /{pedido}/estado — aceptar o rechazar un pedido nuevo; después,
+     * preparando y listo. Una vez aceptado ya no se cancela. "En camino" y
+     * "entregado" los hace el repartidor de la app (el local no tiene delivery
+     * propio).
      */
     public function estado(Request $request, Negocio $negocio, Pedido $pedido): PedidoResource
     {
@@ -59,8 +61,32 @@ class PedidoController extends Controller
         if (in_array($datos['estado'], ['en_camino', 'entregado'], true)) {
             throw ValidationException::withMessages(['estado' => 'Solo el repartidor de la app recoge y entrega el pedido.']);
         }
+        if ($datos['estado'] === 'cancelado') {
+            throw ValidationException::withMessages(['estado' => $pedido->estado === 'pendiente'
+                ? 'Para no atender un pedido nuevo, recházalo y dile al cliente por qué.'
+                : 'Un pedido aceptado ya no se puede cancelar. Si tienes un problema, avisa a MDR Market.']);
+        }
 
         $pedido = FlujoPedido::cambiar($pedido, $datos['estado'], $request->user(), 'comerciante', $datos['motivo'] ?? null);
+
+        return new PedidoResource($this->conDetalle($pedido));
+    }
+
+    /**
+     * PATCH /{pedido}/items/{item}/alistado — marca o desmarca un producto
+     * como alistado (la lista "Alista los productos"). Solo mientras el pedido
+     * está aceptado o alistándose.
+     */
+    public function alistado(Request $request, Negocio $negocio, Pedido $pedido, int $item): PedidoResource
+    {
+        $datos = $request->validate(['alistado' => ['required', 'boolean']]);
+        if (! in_array($pedido->estado, ['confirmado', 'preparando'], true)) {
+            throw ValidationException::withMessages([
+                'alistado' => 'Solo se marcan los productos de un pedido aceptado que estás alistando.',
+            ]);
+        }
+
+        $pedido->items()->findOrFail($item)->forceFill(['alistado' => $datos['alistado']])->save();
 
         return new PedidoResource($this->conDetalle($pedido));
     }

@@ -40,6 +40,11 @@ class RepartidorPedidoTest extends TestCase
         $this->getJson('/api/repartidor/pedidos-disponibles')
             ->assertJsonFragment(['id' => $pedido->id, 'costo_envio' => '5.00', 'tamano' => 'Liviano'])
             ->assertJsonMissing(['codigo_entrega' => '1234']);
+        // Recorrido y tiempo: sin GPS, del negocio al cliente, a la velocidad configurada.
+        DB::table('configuracion')->updateOrInsert(['clave' => 'velocidad_promedio_kmh'], ['valor' => '20', 'tipo' => 'decimal']);
+        $fila = collect($this->getJson('/api/repartidor/pedidos-disponibles')->json())->firstWhere('id', $pedido->id);
+        $this->assertEqualsWithDelta((float) $pedido->distancia_km, $fila['recorrido_km'], 0.05);
+        $this->assertSame((int) ceil($fila['recorrido_km'] / 20 * 60), $fila['tiempo_estimado_min']);
 
         $this->postJson("/api/pedidos/{$pedido->id}/aceptar")
             ->assertOk()
@@ -211,13 +216,17 @@ class RepartidorPedidoTest extends TestCase
             $this->assertSame('listo', $pedido->refresh()->estado);
         }
 
-        // Sin repartidor: "Buscando repartidor…" y solo puede cancelarlo.
+        // Sin repartidor: "Buscando repartidor…" y sin botones (ya no lo puede cancelar).
         $detalle = "/api/negocios/{$this->negocio->id}/pedidos";
-        $this->getJson("$detalle/{$sinRepartidor->id}")->assertJsonPath('acciones', ['cancelado'])->assertJsonPath('repartidor', null);
+        $this->getJson("$detalle/{$sinRepartidor->id}")->assertJsonPath('acciones', [])->assertJsonPath('repartidor', null);
         // Con repartidor: ya va en camino a buscarlo, no tiene botones.
         $this->getJson("$detalle/{$conRepartidor->id}")->assertJsonPath('acciones', []);
-        $this->putJson($url($conRepartidor), ['estado' => 'cancelado', 'motivo' => 'Sin stock'])->assertUnprocessable();
-        $this->putJson($url($sinRepartidor), ['estado' => 'cancelado', 'motivo' => 'Sin stock'])->assertOk();
+        foreach ([$conRepartidor, $sinRepartidor] as $pedido) {
+            $this->putJson($url($pedido), ['estado' => 'cancelado', 'motivo' => 'Sin stock'])
+                ->assertUnprocessable()
+                ->assertJsonPath('errors.estado.0', 'Un pedido aceptado ya no se puede cancelar. Si tienes un problema, avisa a MDR Market.');
+            $this->assertSame('listo', $pedido->refresh()->estado);
+        }
     }
 
     public function test_un_repartidor_no_ve_ni_toca_pedidos_de_otro(): void

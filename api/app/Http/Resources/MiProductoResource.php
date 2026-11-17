@@ -38,6 +38,12 @@ class MiProductoResource extends JsonResource
             // Vehículo mínimo para llevarlo: 1 moto, 2 auto, 3 camión.
             'categoria_vehiculo_id' => (int) ($this->categoria_vehiculo_id ?? 1),
             'imagen_url' => Archivos::url($this->imagenPrincipal?->url),
+            // Todas sus fotos (hasta 4), la portada primero.
+            'imagenes' => $this->whenLoaded('imagenes', fn () => $this->imagenes->map(fn ($i) => [
+                'id' => $i->id,
+                'url' => Archivos::url($i->url),
+                'es_principal' => (bool) $i->es_principal,
+            ])->values()),
             'rating_promedio' => $this->rating_promedio,
             'total_resenas' => (int) $this->total_resenas,
             'total_vendidos' => (int) $this->total_vendidos,

@@ -1,33 +1,46 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter_map/flutter_map.dart' show TileProvider;
 
 import '../config/env.dart';
+import '../theme/app_movimiento.dart';
 import 'cargar_mapas_stub.dart' if (dart.library.js_interop) 'cargar_mapas_web.dart';
 
-/// Si el mapa de Google se puede mostrar en este dispositivo.
+/// Qué mapa se muestra.
 ///
-/// - Web: se carga el script de Google Maps con la clave de `GOOGLE_MAPS_KEY`.
-/// - Android: la misma clave la pone Gradle en el AndroidManifest al armar el
-///   APK (ver android/app/build.gradle.kts). Está restringida al paquete
+/// - Con `GOOGLE_MAPS_KEY`: Google Maps. En web se carga su script con la
+///   clave; en Android la pone Gradle en el AndroidManifest al armar el APK
+///   (ver android/app/build.gradle.kts), restringida al paquete
 ///   bo.mdrmarket.app y a la huella SHA-1 del certificado.
-/// Sin clave (o en otra plataforma), las pantallas usan solo el botón de GPS.
+/// - Sin clave (o si Google no carga): OpenStreetMap con flutter_map, gratis y
+///   sin clave (ver MapaMdr).
 class Mapas {
   Mapas._();
 
-  static bool _disponibles = false;
-  static bool get disponibles => _disponibles;
+  static bool _google = false;
+
+  /// Se usa Google Maps (hay clave y se pudo cargar).
+  static bool get google => _google;
+
+  /// Siempre hay mapa (Google u OpenStreetMap), salvo en las pruebas, que no
+  /// tienen internet: ahí solo si se pasan [teselasDePrueba].
+  static bool get disponibles => !AppMovimiento.enPruebas || teselasDePrueba != null;
+
+  /// Solo para las pruebas: teselas falsas para dibujar el mapa de
+  /// OpenStreetMap sin internet (en la app queda en null).
+  static TileProvider? teselasDePrueba;
 
   /// Se llama una vez al arrancar la app (en main.dart).
   static Future<void> preparar() async {
     if (Env.googleMapsKey.isEmpty) return;
     if (!kIsWeb) {
-      _disponibles = defaultTargetPlatform == TargetPlatform.android;
+      _google = defaultTargetPlatform == TargetPlatform.android;
       return;
     }
     try {
       await cargarGoogleMapsWeb(Env.googleMapsKey);
-      _disponibles = true;
+      _google = true;
     } catch (e) {
-      debugPrint('Google Maps no se pudo cargar: $e');
+      debugPrint('Google Maps no se pudo cargar (se usa OpenStreetMap): $e');
     }
   }
 }

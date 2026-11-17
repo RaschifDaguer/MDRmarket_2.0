@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Comerciante;
 
 use App\Http\Controllers\Controller;
+use App\Models\Configuracion;
 use App\Models\Negocio;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
@@ -21,16 +22,37 @@ class ReporteController extends Controller
     /** GET /api/negocios/{negocio}/resumen — la portada de la vista comerciante. */
     public function resumen(Negocio $negocio): JsonResponse
     {
-        $hoy = CarbonImmutable::now('America/La_Paz')->toDateString();
-        $inicioMes = CarbonImmutable::now('America/La_Paz')->startOfMonth()->toDateString();
+        $ahora = CarbonImmutable::now('America/La_Paz');
+        $hoy = $ahora->toDateString();
+        $ayer = $ahora->subDay()->toDateString();
+        $inicioMes = $ahora->startOfMonth()->toDateString();
 
         $productos = $negocio->productos();
+        $totalesHoy = $this->totales($this->filas($negocio, $hoy, $hoy, 'anio'));
+        $totalesAyer = $this->totales($this->filas($negocio, $ayer, $ayer, 'anio'));
+        $umbral = (int) Configuracion::valor('umbral_poco_stock', 5);
+        // Poco stock: visibles, con stock pero que ya se acaba (los de 0 van en "agotados").
+        $pocoStock = (clone $productos)->where('disponible', true)->whereBetween('stock', [1, $umbral]);
 
         return response()->json([
             'pedidos_nuevos' => $negocio->pedidos()->where('estado', 'pendiente')->count(),
             'pedidos_en_curso' => $negocio->pedidos()->whereIn('estado', ['confirmado', 'preparando', 'listo', 'en_camino'])->count(),
-            'hoy' => $this->totales($this->filas($negocio, $hoy, $hoy, 'anio')),
+            'pedidos_en_camino' => $negocio->pedidos()->where('estado', 'en_camino')->count(),
+            // Pedidos recibidos hoy (hora de Bolivia), sin contar rechazados ni cancelados.
+            'pedidos_hoy' => $negocio->pedidos()
+                ->whereNotIn('estado', ['cancelado', 'rechazado'])
+                ->where('created_at', '>=', $ahora->startOfDay()->utc())
+                ->count(),
+            'hoy' => $totalesHoy,
+            'ayer' => $totalesAyer,
+            // "+18 % que ayer". Null si ayer no vendió (no hay con qué comparar).
+            'variacion_ventas_pct' => $this->variacion((float) $totalesHoy['ventas'], (float) $totalesAyer['ventas']),
             'mes' => $this->totales($this->filas($negocio, $inicioMes, $hoy, 'anio')),
+            'umbral_poco_stock' => $umbral,
+            'productos_poco_stock' => (clone $pocoStock)->count(),
+            'poco_stock' => (clone $pocoStock)->orderBy('stock')->orderBy('nombre')->limit(10)
+                ->get(['id', 'nombre', 'stock'])
+                ->map(fn ($p) => ['id' => $p->id, 'nombre' => $p->nombre, 'stock' => (int) $p->stock]),
             'productos_activos' => (clone $productos)->where('disponible', true)->count(),
             'productos_sin_stock' => (clone $productos)->where('disponible', true)->where('stock', 0)->count(),
             // Para el aviso "Stock insuficiente: renueva…" (hasta 5 nombres).
@@ -117,6 +139,12 @@ class ReporteController extends Controller
     private function montos(object $fila): array
     {
         return collect(self::MONTOS)->mapWithKeys(fn ($campo) => [$campo => $this->dinero($fila->$campo)])->all();
+    }
+
+    /** % de cambio de $actual respecto de $anterior (null si $anterior es 0). */
+    private function variacion(float $actual, float $anterior): ?int
+    {
+        return $anterior > 0 ? (int) round(($actual - $anterior) / $anterior * 100) : null;
     }
 
     private function dinero(mixed $valor): string

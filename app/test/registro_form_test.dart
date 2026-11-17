@@ -26,8 +26,21 @@ void main() {
 
   Finder campo(String etiqueta) => find.widgetWithText(TextFormField, etiqueta);
 
+  /// El registro va en 3 pasos: llena los dos primeros y llega a "Cuenta".
+  Future<void> irAlPasoCuenta(WidgetTester tester) async {
+    await tester.enterText(campo('Nombre'), 'Lucía');
+    await tester.enterText(campo('Apellido'), 'Rojas');
+    await tester.tap(find.byKey(const Key('registro-siguiente')));
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.enterText(campo('Número de CI'), '9876543');
+    await tester.tap(find.byKey(const Key('registro-siguiente')));
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.text('Paso 3 de 3'), findsOneWidget);
+  }
+
   testWidgets('los requisitos se marcan mientras se escribe la contraseña', (tester) async {
     await abrirRegistro(tester);
+    await irAlPasoCuenta(tester);
     expect(find.byIcon(Icons.check_circle), findsNothing);
 
     await tester.enterText(campo('Contraseña'), 'secreta1');
@@ -41,9 +54,7 @@ void main() {
 
   testWidgets('avisa si las dos contraseñas no coinciden', (tester) async {
     await abrirRegistro(tester);
-    await tester.enterText(campo('Nombre'), 'Lucía');
-    await tester.enterText(campo('Apellido'), 'Rojas');
-    await tester.enterText(campo('Número de CI'), '9876543');
+    await irAlPasoCuenta(tester);
     await tester.enterText(campo('Correo electrónico'), 'lucia@correo.com');
     await tester.enterText(campo('Contraseña'), 'Secreta123');
     await tester.enterText(campo('Repetir contraseña'), 'Secreta124');

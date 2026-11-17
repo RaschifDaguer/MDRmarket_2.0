@@ -6,6 +6,7 @@ import '../../../core/formato/formato.dart';
 import '../../../core/theme/app_espacios.dart';
 import '../../../core/widgets/widgets.dart';
 import '../data/catalogo_repository.dart';
+import '../domain/producto.dart';
 import '../domain/tienda.dart';
 import 'widgets/tarjeta_resena.dart';
 import 'widgets/tarjetas_catalogo.dart';
@@ -37,40 +38,7 @@ class TiendaScreen extends ConsumerWidget {
                 padding: const EdgeInsets.all(AppEspacios.m),
                 sliver: SliverToBoxAdapter(child: _Cabecera(tienda: d.tienda)),
               ),
-              SliverPadding(
-                padding: const EdgeInsets.symmetric(horizontal: AppEspacios.m),
-                sliver: SliverToBoxAdapter(
-                  child: Text('Productos (${d.productos.length})', style: Theme.of(context).textTheme.titleMedium),
-                ),
-              ),
-              if (d.productos.isEmpty)
-                const SliverToBoxAdapter(
-                  child: EstadoVacio(icono: Icons.inventory_2_outlined, titulo: 'Todavía no tiene productos'),
-                )
-              else
-                SliverPadding(
-                  padding: const EdgeInsets.all(AppEspacios.m),
-                  sliver: SliverLayoutBuilder(builder: (context, limites) {
-                    final columnas = columnasPara(limites.crossAxisExtent);
-                    return SliverGrid(
-                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: columnas,
-                        mainAxisSpacing: AppEspacios.m - 4,
-                        crossAxisSpacing: AppEspacios.m - 4,
-                        mainAxisExtent: (limites.crossAxisExtent - (columnas - 1) * 12) / columnas * 3 / 4 +
-                            MediaQuery.textScalerOf(context).scale(104),
-                      ),
-                      delegate: SliverChildBuilderDelegate(
-                        (context, i) => TarjetaProducto(
-                          producto: d.productos[i],
-                          mostrarNegocio: false,
-                          alTocar: () => context.push('/producto/${d.productos[i].id}'),
-                        ),
-                        childCount: d.productos.length,
-                      ),
-                    );
-                  }),
-                ),
+              _Productos(productos: d.productos),
               SliverPadding(
                 padding: const EdgeInsets.fromLTRB(AppEspacios.m, AppEspacios.s, AppEspacios.m, AppEspacios.xl),
                 sliver: SliverList.list(children: [
@@ -138,8 +106,16 @@ class _Cabecera extends StatelessWidget {
             runSpacing: AppEspacios.xs,
             children: [
               if (tienda.direccion != null) _Dato(icono: Icons.place_outlined, texto: tienda.direccion!),
+              if (tienda.abierto && tienda.cierreDeHoy() != null)
+                _Dato(icono: Icons.schedule, texto: 'Abierto hasta ${tienda.cierreDeHoy()!.substring(0, 5)}'),
               if (tienda.tiempoPreparacionMin != null)
                 _Dato(icono: Icons.timer_outlined, texto: 'Listo en ~${tienda.tiempoPreparacionMin} min'),
+              // Con la dirección del cliente: cuánto tarda en llegar y el envío.
+              if (tienda.envio case final envio? when envio.enCobertura) ...[
+                _Dato(icono: Icons.delivery_dining_outlined, texto: 'Llega en ${envio.tiempoTexto}'),
+                _Dato(icono: Icons.payments_outlined, texto: 'Envío ${Formato.bs(envio.costoEnvio)}'),
+              ] else if (tienda.envio != null)
+                _Dato(icono: Icons.block, texto: 'No llega a tu dirección'),
               if (tienda.pedidoMinimo > 0)
                 _Dato(icono: Icons.shopping_basket_outlined, texto: 'Pedido mínimo ${Formato.bs(tienda.pedidoMinimo)}'),
               if (tienda.telefono != null) _Dato(icono: Icons.phone_outlined, texto: tienda.telefono!),
@@ -182,6 +158,95 @@ class _Dato extends StatelessWidget {
         Icon(icono, size: 18, color: Theme.of(context).colorScheme.onSurfaceVariant),
         const SizedBox(width: 4),
         Flexible(child: Text(texto, style: Theme.of(context).textTheme.bodySmall)),
+      ],
+    );
+  }
+}
+
+/// Productos de la tienda con chips por categoría ("Todo", "Farmacia"…).
+class _Productos extends StatefulWidget {
+  const _Productos({required this.productos});
+
+  final List<Producto> productos;
+
+  @override
+  State<_Productos> createState() => _ProductosState();
+}
+
+class _ProductosState extends State<_Productos> {
+  String? _categoria;
+
+  @override
+  Widget build(BuildContext context) {
+    final categorias = {for (final p in widget.productos) ?p.categoria}.toList()..sort();
+    final visibles = _categoria == null ? widget.productos : widget.productos.where((p) => p.categoria == _categoria).toList();
+
+    return SliverMainAxisGroup(
+      slivers: [
+        SliverPadding(
+          padding: const EdgeInsets.symmetric(horizontal: AppEspacios.m),
+          sliver: SliverToBoxAdapter(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text('Productos (${widget.productos.length})', style: Theme.of(context).textTheme.titleMedium),
+                if (categorias.length > 1) ...[
+                  const SizedBox(height: AppEspacios.s),
+                  SizedBox(
+                    height: 40,
+                    child: ListView(
+                      scrollDirection: Axis.horizontal,
+                      children: [
+                        ChoiceChip(
+                          label: const Text('Todo'),
+                          selected: _categoria == null,
+                          onSelected: (_) => setState(() => _categoria = null),
+                        ),
+                        for (final c in categorias) ...[
+                          const SizedBox(width: AppEspacios.s),
+                          ChoiceChip(
+                            key: Key('categoria-tienda-$c'),
+                            label: Text(c),
+                            selected: _categoria == c,
+                            onSelected: (_) => setState(() => _categoria = c),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+        if (visibles.isEmpty)
+          const SliverToBoxAdapter(
+            child: EstadoVacio(icono: Icons.inventory_2_outlined, titulo: 'Todavía no tiene productos'),
+          )
+        else
+          SliverPadding(
+            padding: const EdgeInsets.all(AppEspacios.m),
+            sliver: SliverLayoutBuilder(builder: (context, limites) {
+              final columnas = columnasPara(limites.crossAxisExtent);
+              return SliverGrid(
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: columnas,
+                  mainAxisSpacing: AppEspacios.m - 4,
+                  crossAxisSpacing: AppEspacios.m - 4,
+                  mainAxisExtent: (limites.crossAxisExtent - (columnas - 1) * 12) / columnas * 3 / 4 +
+                      MediaQuery.textScalerOf(context).scale(104),
+                ),
+                delegate: SliverChildBuilderDelegate(
+                  (context, i) => TarjetaProducto(
+                    producto: visibles[i],
+                    mostrarNegocio: false,
+                    alTocar: () => context.push('/producto/${visibles[i].id}'),
+                  ),
+                  childCount: visibles.length,
+                ),
+              );
+            }),
+          ),
       ],
     );
   }

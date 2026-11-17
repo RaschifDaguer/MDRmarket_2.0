@@ -1,16 +1,14 @@
-import 'package:flutter/foundation.dart';
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../theme/app_espacios.dart';
 import 'coordenada.dart';
+import 'mapa.dart';
 import 'mapas.dart';
 
-/// Elegir un punto: tocando el mapa, arrastrando el marcador o con el botón
-/// "Usar mi ubicación" (GPS). Si el mapa no está disponible (sin clave de
-/// Google), funciona solo con el GPS.
+/// Elegir un punto: tocando el mapa (con Google Maps también arrastrando el
+/// marcador) o con el botón "Usar mi ubicación" (GPS). Sin clave de Google se
+/// usa OpenStreetMap; solo en las pruebas no hay mapa y queda el GPS.
 class SelectorUbicacion extends StatefulWidget {
   const SelectorUbicacion({super.key, required this.valor, required this.alCambiar, this.error});
 
@@ -23,15 +21,8 @@ class SelectorUbicacion extends StatefulWidget {
 }
 
 class _SelectorUbicacionState extends State<SelectorUbicacion> {
-  GoogleMapController? _mapa;
   bool _buscando = false;
   String? _errorGps;
-
-  @override
-  void dispose() {
-    _mapa?.dispose();
-    super.dispose();
-  }
 
   Future<void> _usarMiUbicacion() async {
     setState(() {
@@ -50,23 +41,17 @@ class _SelectorUbicacionState extends State<SelectorUbicacion> {
         throw 'No diste permiso para usar tu ubicación. Puedes marcarla tocando el mapa.';
       }
       final posicion = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-          timeLimit: Duration(seconds: 20),
-        ),
+        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high, timeLimit: Duration(seconds: 20)),
       );
       final punto = Coordenada(posicion.latitude, posicion.longitude);
+      // El mapa se centra solo en el punto nuevo.
       widget.alCambiar(punto);
-      await _mapa?.animateCamera(CameraUpdate.newLatLngZoom(_latLng(punto), 17));
     } catch (e) {
       if (mounted) setState(() => _errorGps = e is String ? e : 'No se pudo obtener tu ubicación.');
     } finally {
       if (mounted) setState(() => _buscando = false);
     }
   }
-
-  static LatLng _latLng(Coordenada c) => LatLng(c.latitud, c.longitud);
-  static Coordenada _coordenada(LatLng p) => Coordenada(p.latitude, p.longitude);
 
   @override
   Widget build(BuildContext context) {
@@ -79,8 +64,7 @@ class _SelectorUbicacionState extends State<SelectorUbicacion> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (Mapas.disponibles) ...[
-          Text('Toca el mapa (o arrastra el marcador) donde está tu negocio.',
-              style: textos.bodySmall?.copyWith(color: c.onSurfaceVariant)),
+          Text('Toca el mapa en el lugar exacto.', style: textos.bodySmall?.copyWith(color: c.onSurfaceVariant)),
           const SizedBox(height: AppEspacios.s),
           ClipRRect(
             borderRadius: BorderRadius.circular(AppRadios.campo),
@@ -90,26 +74,12 @@ class _SelectorUbicacionState extends State<SelectorUbicacion> {
                 border: Border.all(color: widget.error != null ? c.error : c.outlineVariant, width: 1.5),
                 borderRadius: BorderRadius.circular(AppRadios.campo),
               ),
-              child: GoogleMap(
-                initialCameraPosition: CameraPosition(
-                  target: _latLng(valor ?? Coordenada.centroSantaCruz),
-                  zoom: valor == null ? 13 : 16,
-                ),
-                onMapCreated: (control) => _mapa = control,
-                onTap: (punto) => widget.alCambiar(_coordenada(punto)),
-                markers: {
-                  if (valor != null)
-                    Marker(
-                      markerId: const MarkerId('punto'),
-                      position: _latLng(valor),
-                      draggable: true,
-                      onDragEnd: (punto) => widget.alCambiar(_coordenada(punto)),
-                    ),
-                },
-                myLocationButtonEnabled: false,
-                mapToolbarEnabled: false,
-                // Dentro de un formulario con scroll, el mapa se queda con el gesto.
-                gestureRecognizers: {Factory<OneSequenceGestureRecognizer>(EagerGestureRecognizer.new)},
+              child: MapaMdr(
+                key: const Key('mapa-selector'),
+                puntos: [if (valor != null) PuntoMapa(TipoPunto.elegido, valor)],
+                centro: valor ?? Coordenada.centroSantaCruz,
+                zoom: valor == null ? 13 : 16,
+                alTocar: widget.alCambiar,
               ),
             ),
           ),

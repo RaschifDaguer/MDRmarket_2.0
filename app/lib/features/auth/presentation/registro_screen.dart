@@ -32,7 +32,18 @@ class RegistroScreen extends ConsumerStatefulWidget {
 }
 
 class _RegistroScreenState extends ConsumerState<RegistroScreen> {
-  final _form = GlobalKey<FormState>();
+  /// Un formulario por paso: Tus datos, Carnet y Cuenta.
+  final _forms = [GlobalKey<FormState>(), GlobalKey<FormState>(), GlobalKey<FormState>()];
+  int _paso = 0;
+
+  static const _pasos = ['Tus datos', 'Carnet', 'Cuenta'];
+
+  /// En qué paso está cada campo (para volver ahí si la API lo rechaza).
+  static int _pasoDe(String campo) => switch (campo) {
+    'nombre' || 'apellido' || 'telefono' => 0,
+    final c when c.startsWith('ci_') => 1,
+    _ => 2,
+  };
   final _nombre = TextEditingController();
   final _apellido = TextEditingController();
   final _email = TextEditingController();
@@ -72,24 +83,33 @@ class _RegistroScreenState extends ConsumerState<RegistroScreen> {
       _erroresApi = {};
       _errorGeneral = null;
     });
-    if (!_form.currentState!.validate()) {
+    if (!_forms[_paso].currentState!.validate()) {
       setState(() => _temblores++);
+      return;
+    }
+    // Pasos 1 y 2: siguiente. En el último, se crea la cuenta.
+    if (_paso < _pasos.length - 1) {
+      setState(() => _paso++);
       return;
     }
 
     setState(() => _enviando = true);
     try {
-      await ref.read(authControllerProvider.notifier).registro(DatosRegistro(
-            nombre: _nombre.text.trim(),
-            apellido: _apellido.text.trim(),
-            email: _email.text.trim(),
-            telefono: _telefono.text.trim(),
-            ciNumero: _ciNumero.text.trim(),
-            ciComplemento: _ciComplemento.text.trim().toUpperCase(),
-            ciExpedido: _ciExpedido,
-            password: _password.text,
-            passwordConfirmacion: _passwordRepetir.text,
-          ));
+      await ref
+          .read(authControllerProvider.notifier)
+          .registro(
+            DatosRegistro(
+              nombre: _nombre.text.trim(),
+              apellido: _apellido.text.trim(),
+              email: _email.text.trim(),
+              telefono: _telefono.text.trim(),
+              ciNumero: _ciNumero.text.trim(),
+              ciComplemento: _ciComplemento.text.trim().toUpperCase(),
+              ciExpedido: _ciExpedido,
+              password: _password.text,
+              passwordConfirmacion: _passwordRepetir.text,
+            ),
+          );
       // Si sale bien, el router lleva solo a la pantalla de inicio.
     } on ApiException catch (e) {
       if (!mounted) return;
@@ -99,6 +119,8 @@ class _RegistroScreenState extends ConsumerState<RegistroScreen> {
             if (e.errorDe(campo) != null) campo: e.errorDe(campo)!,
         };
         if (_erroresApi.isEmpty) _errorGeneral = e.mensaje;
+        // Lleva al primer paso con un error (ej. el carnet ya registrado).
+        if (_erroresApi.isNotEmpty) _paso = _erroresApi.keys.map(_pasoDe).reduce((a, b) => a < b ? a : b);
         _temblores++;
       });
     } finally {
@@ -124,52 +146,75 @@ class _RegistroScreenState extends ConsumerState<RegistroScreen> {
                   constraints: const BoxConstraints(maxWidth: 480),
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(
-                        AppEspacios.m + 4, AppEspacios.l, AppEspacios.m + 4, AppEspacios.xl),
+                      AppEspacios.m + 4,
+                      AppEspacios.l,
+                      AppEspacios.m + 4,
+                      AppEspacios.xl,
+                    ),
                     child: Temblor(
                       disparo: _temblores,
                       child: Tarjeta3D(
                         inclinacionMax: 2,
                         reaccionarAlDedo: false,
-                        child: Form(
-                          key: _form,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              Aparecer(orden: 1, child: _seccionDatos(espacio)),
-                              const SizedBox(height: AppEspacios.l + 4),
-                              Aparecer(orden: 2, child: _seccionCarnet(espacio)),
-                              const SizedBox(height: AppEspacios.l + 4),
-                              Aparecer(orden: 3, child: _seccionCuenta(espacio)),
-                              // El aviso de error se abre suavemente en vez de aparecer de golpe.
-                              AnimatedSize(
-                                duration: animar ? AppMovimiento.normal : Duration.zero,
-                                curve: AppMovimiento.curva,
-                                child: _errorGeneral == null
-                                    ? const SizedBox(width: double.infinity)
-                                    : Padding(
-                                        padding: const EdgeInsets.only(top: AppEspacios.m),
-                                        child: AvisoError(_errorGeneral!),
-                                      ),
-                              ),
-                              const SizedBox(height: AppEspacios.l + 4),
-                              Aparecer(
-                                orden: 4,
-                                child: BotonPrincipal(
-                                  texto: 'Crear cuenta',
-                                  cargando: _enviando,
-                                  onPressed: _registrar,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Aparecer(
+                              orden: 1,
+                              child: _Pasos(paso: _paso, nombres: _pasos),
+                            ),
+                            const SizedBox(height: AppEspacios.l),
+                            // Solo el paso actual; lo escrito en los otros se guarda igual.
+                            AnimatedSwitcher(
+                              duration: animar ? AppMovimiento.normal : Duration.zero,
+                              child: Form(
+                                key: _forms[_paso],
+                                child: KeyedSubtree(
+                                  key: ValueKey(_paso),
+                                  child: switch (_paso) {
+                                    0 => _seccionDatos(espacio),
+                                    1 => _seccionCarnet(espacio),
+                                    _ => _seccionCuenta(espacio),
+                                  },
                                 ),
                               ),
-                              const SizedBox(height: AppEspacios.s),
-                              Aparecer(
-                                orden: 5,
-                                child: TextButton(
-                                  onPressed: _enviando ? null : () => context.go('/login'),
-                                  child: const Text('¿Ya tienes cuenta? Inicia sesión'),
-                                ),
+                            ),
+                            // El aviso de error se abre suavemente en vez de aparecer de golpe.
+                            AnimatedSize(
+                              duration: animar ? AppMovimiento.normal : Duration.zero,
+                              curve: AppMovimiento.curva,
+                              child: _errorGeneral == null
+                                  ? const SizedBox(width: double.infinity)
+                                  : Padding(
+                                      padding: const EdgeInsets.only(top: AppEspacios.m),
+                                      child: AvisoError(_errorGeneral!),
+                                    ),
+                            ),
+                            const SizedBox(height: AppEspacios.l + 4),
+                            Aparecer(
+                              orden: 4,
+                              child: BotonPrincipal(
+                                key: const Key('registro-siguiente'),
+                                texto: _paso == _pasos.length - 1 ? 'Crear cuenta' : 'Siguiente',
+                                cargando: _enviando,
+                                onPressed: _registrar,
                               ),
-                            ],
-                          ),
+                            ),
+                            if (_paso > 0)
+                              TextButton(
+                                key: const Key('registro-atras'),
+                                onPressed: _enviando ? null : () => setState(() => _paso--),
+                                child: const Text('Atrás'),
+                              ),
+                            const SizedBox(height: AppEspacios.s),
+                            Aparecer(
+                              orden: 5,
+                              child: TextButton(
+                                onPressed: _enviando ? null : () => context.go('/login'),
+                                child: const Text('¿Ya tienes cuenta? Inicia sesión'),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
@@ -227,10 +272,7 @@ class _RegistroScreenState extends ConsumerState<RegistroScreen> {
         TextFormField(
           controller: _nombre,
           textCapitalization: TextCapitalization.words,
-          decoration: const InputDecoration(
-            labelText: 'Nombre',
-            prefixIcon: Icon(Icons.badge_outlined),
-          ),
+          decoration: const InputDecoration(labelText: 'Nombre', prefixIcon: Icon(Icons.badge_outlined)),
           forceErrorText: _erroresApi['nombre'],
           validator: (v) => _requerido(v, 'Escribe tu nombre'),
         ),
@@ -238,10 +280,7 @@ class _RegistroScreenState extends ConsumerState<RegistroScreen> {
         TextFormField(
           controller: _apellido,
           textCapitalization: TextCapitalization.words,
-          decoration: const InputDecoration(
-            labelText: 'Apellido',
-            prefixIcon: Icon(Icons.badge_outlined),
-          ),
+          decoration: const InputDecoration(labelText: 'Apellido', prefixIcon: Icon(Icons.badge_outlined)),
           forceErrorText: _erroresApi['apellido'],
           validator: (v) => _requerido(v, 'Escribe tu apellido'),
         ),
@@ -249,10 +288,7 @@ class _RegistroScreenState extends ConsumerState<RegistroScreen> {
         TextFormField(
           controller: _telefono,
           keyboardType: TextInputType.phone,
-          decoration: const InputDecoration(
-            labelText: 'Celular (opcional)',
-            prefixIcon: Icon(Icons.phone_iphone),
-          ),
+          decoration: const InputDecoration(labelText: 'Celular (opcional)', prefixIcon: Icon(Icons.phone_iphone)),
           forceErrorText: _erroresApi['telefono'],
         ),
       ],
@@ -297,14 +333,8 @@ class _RegistroScreenState extends ConsumerState<RegistroScreen> {
         DropdownButtonFormField<String>(
           initialValue: _ciExpedido,
           borderRadius: BorderRadius.circular(AppRadios.campo),
-          decoration: const InputDecoration(
-            labelText: 'Expedido en',
-            prefixIcon: Icon(Icons.location_on_outlined),
-          ),
-          items: [
-            for (final d in _departamentos.entries)
-              DropdownMenuItem(value: d.key, child: Text(d.value)),
-          ],
+          decoration: const InputDecoration(labelText: 'Expedido en', prefixIcon: Icon(Icons.location_on_outlined)),
+          items: [for (final d in _departamentos.entries) DropdownMenuItem(value: d.key, child: Text(d.value))],
           onChanged: (v) => setState(() => _ciExpedido = v),
         ),
       ],
@@ -320,16 +350,11 @@ class _RegistroScreenState extends ConsumerState<RegistroScreen> {
           controller: _email,
           keyboardType: TextInputType.emailAddress,
           autofillHints: const [AutofillHints.email],
-          decoration: const InputDecoration(
-            labelText: 'Correo electrónico',
-            prefixIcon: Icon(Icons.email_outlined),
-          ),
+          decoration: const InputDecoration(labelText: 'Correo electrónico', prefixIcon: Icon(Icons.email_outlined)),
           forceErrorText: _erroresApi['email'],
           validator: (v) {
             if (_requerido(v, '') != null) return 'Escribe tu correo';
-            return RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(v!.trim())
-                ? null
-                : 'Correo no válido';
+            return RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(v!.trim()) ? null : 'Correo no válido';
           },
         ),
         espacio,
@@ -347,8 +372,7 @@ class _RegistroScreenState extends ConsumerState<RegistroScreen> {
             ),
           ),
           forceErrorText: _erroresApi['password'],
-          validator: (v) =>
-              ReglasPassword.cumple(v ?? '') ? null : 'La contraseña no cumple los requisitos',
+          validator: (v) => ReglasPassword.cumple(v ?? '') ? null : 'La contraseña no cumple los requisitos',
         ),
         const SizedBox(height: AppEspacios.m - 4),
         RequisitosPassword(password: _password.text),
@@ -356,10 +380,7 @@ class _RegistroScreenState extends ConsumerState<RegistroScreen> {
         TextFormField(
           controller: _passwordRepetir,
           obscureText: !_verPassword,
-          decoration: const InputDecoration(
-            labelText: 'Repetir contraseña',
-            prefixIcon: Icon(Icons.key_outlined),
-          ),
+          decoration: const InputDecoration(labelText: 'Repetir contraseña', prefixIcon: Icon(Icons.key_outlined)),
           validator: (v) {
             if (v == null || v.isEmpty) return 'Vuelve a escribir la contraseña';
             return v == _password.text ? null : 'Las contraseñas no coinciden';
@@ -386,16 +407,64 @@ class _Titulo extends StatelessWidget {
         children: [
           Container(
             padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(
-              color: c.secondaryContainer,
-              borderRadius: BorderRadius.circular(10),
-            ),
+            decoration: BoxDecoration(color: c.secondaryContainer, borderRadius: BorderRadius.circular(10)),
             child: Icon(icono, size: 18, color: c.onSecondaryContainer),
           ),
           const SizedBox(width: AppEspacios.s + 2),
           Flexible(child: Text(texto, style: Theme.of(context).textTheme.titleMedium)),
         ],
       ),
+    );
+  }
+}
+
+/// "Paso 2 de 3" con la barra de avance y el nombre de cada paso.
+class _Pasos extends StatelessWidget {
+  const _Pasos({required this.paso, required this.nombres});
+
+  final int paso;
+  final List<String> nombres;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = Theme.of(context).colorScheme;
+    final textos = Theme.of(context).textTheme;
+    return Column(
+      key: const Key('registro-pasos'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text('Paso ${paso + 1} de ${nombres.length}', style: textos.labelLarge?.copyWith(color: c.primary)),
+        const SizedBox(height: AppEspacios.s),
+        Row(
+          children: [
+            for (var i = 0; i < nombres.length; i++) ...[
+              if (i > 0) const SizedBox(width: AppEspacios.s),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      height: 5,
+                      decoration: BoxDecoration(
+                        color: i <= paso ? c.primary : c.outlineVariant,
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      i < paso ? '✓ ${nombres[i]}' : nombres[i],
+                      style: textos.labelSmall?.copyWith(
+                        color: i <= paso ? c.primary : c.onSurfaceVariant,
+                        fontWeight: i == paso ? FontWeight.w700 : FontWeight.w400,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+      ],
     );
   }
 }

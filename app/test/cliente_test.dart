@@ -53,8 +53,9 @@ void main() {
     final pedidos = PedidosFalso();
     await abrirApp(tester, overridesFalsos(usuario: cliente, pedidos: pedidos));
 
-    // 1. Catálogo → detalle del producto (debajo de las invitaciones a vender y repartir).
-    await tester.ensureVisible(find.byKey(const Key('producto-10')));
+    // 1. Inicio → "Todos los productos" (debajo de categorías, tiendas y ofertas) → detalle.
+    await tester.scrollUntilVisible(find.byKey(const Key('producto-10')), 400,
+        scrollable: find.descendant(of: find.byType(CustomScrollView), matching: find.byType(Scrollable)).first);
     await tester.pump();
     await tester.tap(find.byKey(const Key('producto-10')));
     await esperar(tester);
@@ -82,14 +83,27 @@ void main() {
     expect(find.text('Confirmar pedido'), findsOneWidget);
     expect(find.text('Bs 5,00'), findsOneWidget); // envío cotizado a la dirección "Casa"
 
+    // En efectivo: con cuánto paga y su cambio (total 61 = 56 + 5 de envío).
+    await tester.enterText(find.byKey(const Key('campo-paga-con')), '50');
+    await tester.pump();
+    expect(find.text('Tiene que ser al menos Bs 61,00'), findsOneWidget);
+    await tester.enterText(find.byKey(const Key('campo-paga-con')), '100');
+    await tester.pump();
+    expect(find.text('El repartidor te dará Bs 39,00 de cambio.'), findsOneWidget);
+
     await tester.tap(find.textContaining('Hacer pedido'));
     await esperar(tester);
 
     expect(pedidos.creado!.destino.direccionId, 1);
     expect(pedidos.creado!.metodoPago, 'efectivo');
+    expect(pedidos.creado!.pagaCon, 100);
     expect(pedidos.creado!.carrito.items.single.cantidad, 2);
 
-    // 4. Se abre el pedido con el PIN y el carrito quedó vacío.
+    // 4. "¡Pedido enviado!" con el PIN; de ahí, a seguirlo.
+    expect(find.byKey(const Key('titulo-enviado')), findsOneWidget);
+    expect(find.byKey(const Key('pin-enviado')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('seguir-pedido')));
+    await esperar(tester);
     expect(find.byKey(const Key('pin-entrega')), findsOneWidget);
     expect(find.text('4821'), findsOneWidget);
     final contenedor = ProviderScope.containerOf(tester.element(find.byType(PedidoScreen)));
@@ -190,6 +204,8 @@ void main() {
     await abrirConFalsos(tester, const PedidoScreen(pedidoId: 42), overrides: overridesFalsos(usuario: cliente, pedidos: pedidos));
 
     expect(find.byKey(const Key('calificar-negocio')), findsOneWidget);
+    // Más abajo (arriba están calificar al repartidor y "¿Todo llegó como esperabas?").
+    await tester.scrollUntilVisible(find.text('Entrega'), 300);
     expect(find.text('Calificar producto'), findsNWidgets(2));
     expect(find.byKey(const Key('pin-entrega')), findsNothing); // ya no hace falta el PIN
     await cerrar(tester);

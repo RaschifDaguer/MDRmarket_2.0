@@ -8,11 +8,13 @@ use App\Http\Controllers\Api\DireccionController;
 use App\Http\Controllers\Api\DocumentoController;
 use App\Http\Controllers\Api\MultimediaController;
 use App\Http\Controllers\Api\NegocioController;
+use App\Http\Controllers\Api\NotificacionController;
 use App\Http\Controllers\Api\PedidoController;
 use App\Http\Controllers\Api\PerfilController;
 use App\Http\Controllers\Api\RastreoController;
 use App\Http\Controllers\Api\Repartidor;
 use App\Http\Controllers\Api\RepartidorController;
+use App\Http\Controllers\Api\ReporteProblemaController;
 use App\Http\Controllers\Api\ResenaController;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
@@ -32,8 +34,8 @@ Route::get('/', function () {
         $base = 'sin conexión (la base de datos está apagada o no responde)';
     }
 
-    // ¿storage/app es otro disco (el Volume de Railway)? Si es el mismo que el
-    // resto del contenedor, las fotos se pierden en cada despliegue.
+    // ¿storage/app es otro disco (el volumen `archivos` de docker-compose)? Si
+    // es el mismo que el resto del contenedor, las fotos se pierden al actualizar.
     $disco = @stat(storage_path('app'));
     $contenedor = @stat(storage_path());
     $permanente = $disco && $contenedor && $disco['dev'] !== $contenedor['dev'];
@@ -87,6 +89,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('repartidor/pedidos-disponibles', [Repartidor\PedidoController::class, 'disponibles']);
     Route::get('repartidor/pedido-actual', [Repartidor\PedidoController::class, 'actual']);
     Route::get('repartidor/entregas', [Repartidor\PedidoController::class, 'entregas']);
+    Route::get('repartidor/ganancias', [Repartidor\GananciaController::class, 'index']);
+    Route::get('notificaciones', [NotificacionController::class, 'index']);
+    Route::get('motivos-reporte', [ReporteProblemaController::class, 'motivos']);
     Route::get('multimedia', [MultimediaController::class, 'index']);
     // Rastreo en el mapa: la app lo consulta cada pocos segundos (límite general).
     Route::get('pedidos/{pedido}/seguimiento', [RastreoController::class, 'seguimiento']);
@@ -124,6 +129,10 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('repartidor/pedidos/{pedido}/estado', [Repartidor\PedidoController::class, 'estado']);
         // GPS del repartidor mientras lleva un pedido (además, una cada 3 s como máximo).
         Route::post('repartidor/ubicacion', [RastreoController::class, 'ubicacion']);
+        Route::put('repartidor/meta', [Repartidor\GananciaController::class, 'meta']);
+        Route::post('notificaciones/leidas', [NotificacionController::class, 'todasLeidas']);
+        Route::post('notificaciones/{id}/leida', [NotificacionController::class, 'leida'])->whereNumber('id');
+        Route::post('pedidos/{pedido}/reportes', [ReporteProblemaController::class, 'store']);
     });
 
     // ----- Todo lo de un negocio: solo su dueño (si no, 404) -----
@@ -150,7 +159,10 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::patch('productos/{producto}/disponible', [Comerciante\ProductoController::class, 'disponible']);
             Route::patch('productos/{producto}/stock', [Comerciante\ProductoController::class, 'stock']);
             Route::delete('productos/{producto}', [Comerciante\ProductoController::class, 'destroy']);
+            Route::delete('productos/{producto}/fotos/{imagen}', [Comerciante\ProductoController::class, 'borrarFoto'])->whereNumber('imagen');
+            Route::post('productos/{producto}/fotos/{imagen}/portada', [Comerciante\ProductoController::class, 'portada'])->whereNumber('imagen');
             Route::put('pedidos/{pedido}/estado', [Comerciante\PedidoController::class, 'estado']);
+            Route::patch('pedidos/{pedido}/items/{item}/alistado', [Comerciante\PedidoController::class, 'alistado'])->whereNumber('item');
             Route::post('registros', [Comerciante\RegistroController::class, 'store']);
             Route::delete('registros/{registro}', [Comerciante\RegistroController::class, 'destroy']);
             Route::put('resenas/{resena}/respuesta', [Comerciante\ResenaController::class, 'responder'])->withoutScopedBindings();
