@@ -380,6 +380,9 @@ class Fase2ApiTest extends TestCase
         $this->deleteJson("$url/fotos/{$fotos[2]['id']}")->assertOk()->assertJsonCount(3, 'imagenes')
             ->assertJsonPath('imagenes.0.es_principal', true);
         $this->assertSame(1, $producto->imagenes()->where('es_principal', true)->count());
+        // La lista del dueño trae todas las fotos (para editarlas).
+        $lista = collect($this->getJson("/api/negocios/{$producto->negocio_id}/productos")->assertOk()->json());
+        $this->assertCount(3, $lista->firstWhere('id', $producto->id)['imagenes']);
 
         // Una foto de otro producto no existe aquí.
         $otra = $this->crearProducto($this->negocio)->imagenes()->create(['url' => 'productos/x.png', 'es_principal' => true]);

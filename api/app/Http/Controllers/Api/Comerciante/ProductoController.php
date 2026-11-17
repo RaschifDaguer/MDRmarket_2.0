@@ -26,7 +26,8 @@ class ProductoController extends Controller
 
         return MiProductoResource::collection(
             $negocio->productos()
-                ->with(['categoria', 'imagenPrincipal'])
+                // Con todas sus fotos, para editarlas (hasta 4).
+                ->with(['categoria', 'imagenPrincipal', 'imagenes'])
                 ->when($texto, fn ($q) => $q->where('nombre', 'like', '%'.addcslashes($texto, '%_\\').'%'))
                 ->orderByDesc('disponible')
                 ->orderBy('nombre')
