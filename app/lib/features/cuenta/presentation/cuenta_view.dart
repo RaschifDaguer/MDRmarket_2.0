@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/network/api_exception.dart';
-import '../../../core/storage/preferencias.dart';
 import '../../../core/theme/app_espacios.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../auth/domain/usuario.dart';
@@ -112,7 +111,7 @@ class CuentaView extends ConsumerWidget {
                       onTap: () => context.push('/notificaciones'),
                     ),
                     const Divider(height: 1),
-                    const _ModoTema(),
+                    const SelectorTema(),
                     const Divider(height: 1),
                     ListTile(
                       key: const Key('cuenta-ayuda'),
@@ -243,44 +242,6 @@ class _Vistas extends ConsumerWidget {
                 : Text(rechazado ? 'Tu solicitud no fue aprobada: mira el motivo' : 'Gana dinero llevando pedidos'),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => tieneReparto ? cambiar(Vista.repartidor) : context.go('/registrar-repartidor'),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Tema: el del sistema, claro u oscuro (se guarda en el teléfono).
-class _ModoTema extends ConsumerWidget {
-  const _ModoTema();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final modo = ref.watch(modoTemaProvider);
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppEspacios.m, vertical: AppEspacios.s),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const Row(
-            children: [
-              Icon(Icons.dark_mode_outlined),
-              SizedBox(width: AppEspacios.m),
-              Text('Tema'),
-            ],
-          ),
-          const SizedBox(height: AppEspacios.s),
-          SegmentedButton<ThemeMode>(
-            key: const Key('selector-tema'),
-            showSelectedIcon: false,
-            style: SegmentedButton.styleFrom(visualDensity: VisualDensity.compact),
-            segments: const [
-              ButtonSegment(value: ThemeMode.system, label: Text('Auto')),
-              ButtonSegment(value: ThemeMode.light, label: Text('Claro')),
-              ButtonSegment(value: ThemeMode.dark, label: Text('Oscuro')),
-            ],
-            selected: {modo},
-            onSelectionChanged: (s) => ref.read(modoTemaProvider.notifier).cambiar(s.first),
           ),
         ],
       ),

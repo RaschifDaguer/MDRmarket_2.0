@@ -18,24 +18,36 @@ class LecturaGps {
 }
 
 /// Lee el GPS una vez. Las pruebas lo reemplazan.
-final leerGpsProvider = Provider<Future<LecturaGps> Function()>((ref) => () async {
-      try {
-        if (!await Geolocator.isLocationServiceEnabled()) return const LecturaGps(null, sinPermiso: true);
-        var permiso = await Geolocator.checkPermission();
-        if (permiso == LocationPermission.denied) permiso = await Geolocator.requestPermission();
-        if (permiso == LocationPermission.denied || permiso == LocationPermission.deniedForever) {
-          return const LecturaGps(null, sinPermiso: true);
-        }
-        final p = await Geolocator.getCurrentPosition(
-          locationSettings: const LocationSettings(accuracy: LocationAccuracy.high, timeLimit: Duration(seconds: 10)),
-        );
-        return LecturaGps(Coordenada(p.latitude, p.longitude));
-      } catch (_) {
-        return const LecturaGps(null); // sin señal por un momento: se intenta en la próxima vuelta
+final leerGpsProvider = Provider<Future<LecturaGps> Function()>(
+  (ref) => () async {
+    try {
+      if (!await Geolocator.isLocationServiceEnabled()) return const LecturaGps(null, sinPermiso: true);
+      var permiso = await Geolocator.checkPermission();
+      if (permiso == LocationPermission.denied) permiso = await Geolocator.requestPermission();
+      if (permiso == LocationPermission.denied || permiso == LocationPermission.deniedForever) {
+        return const LecturaGps(null, sinPermiso: true);
       }
-    });
+      final p = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high, timeLimit: Duration(seconds: 10)),
+      );
+      return LecturaGps(Coordenada(p.latitude, p.longitude));
+    } catch (_) {
+      return const LecturaGps(null); // sin señal por un momento: se intenta en la próxima vuelta
+    }
+  },
+);
 
 enum EstadoGps { inactivo, enviando, sinPermiso }
+
+/// La última posición del repartidor que se leyó del GPS (para su mapa).
+class MiUbicacion extends Notifier<Coordenada?> {
+  @override
+  Coordenada? build() => null;
+
+  void poner(Coordenada punto) => state = punto;
+}
+
+final miUbicacionProvider = NotifierProvider<MiUbicacion, Coordenada?>(MiUbicacion.new);
 
 /// Mientras el repartidor tiene un pedido activo (aceptado o en camino), manda
 /// su GPS cada [intervalo] para que el cliente lo vea moverse en el mapa. Deja
@@ -69,6 +81,7 @@ class EnvioUbicacion extends Notifier<EstadoGps> {
         return;
       }
       if (lectura.punto == null) return;
+      ref.read(miUbicacionProvider.notifier).poner(lectura.punto!);
       await ref.read(repartidorRepositoryProvider).enviarUbicacion(lectura.punto!);
       if (ref.mounted) state = EstadoGps.enviando;
     } on ApiException catch (e) {

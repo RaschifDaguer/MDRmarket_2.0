@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/theme/app_espacios.dart';
+import '../../../../core/widgets/widgets.dart';
 import '../../../auth/domain/usuario.dart';
 import '../../../auth/presentation/auth_controller.dart';
 import '../../data/mi_negocio_repository.dart';
@@ -144,6 +145,10 @@ class MasTab extends ConsumerWidget {
                       onTap: () => context.push(ruta),
                     ),
                   ),
+                const Card(
+                  margin: EdgeInsets.only(bottom: AppEspacios.s),
+                  child: SelectorTema(),
+                ),
                 const SizedBox(height: AppEspacios.m),
                 OutlinedButton.icon(
                   key: const Key('a-vista-cliente'),

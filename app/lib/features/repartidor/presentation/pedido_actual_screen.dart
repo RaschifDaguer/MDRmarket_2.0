@@ -12,6 +12,7 @@ import '../../pedidos/presentation/widgets/piezas_pedido.dart';
 import '../data/repartidor_repository.dart';
 import 'aviso_ubicacion.dart';
 import 'dialogo_pin.dart';
+import 'mapa_reparto.dart';
 
 /// El pedido que lleva el repartidor: dónde recogerlo, a quién entregarlo,
 /// cuánto cobrar y los botones "Recogido", "Entregado" (con el PIN) y
@@ -110,7 +111,10 @@ class _PedidoActualScreenState extends ConsumerState<PedidoActualScreen> {
 
     return pedido.when(
       skipLoadingOnRefresh: true,
-      loading: () => const Pantalla(titulo: titulo, child: Center(child: CircularProgressIndicator())),
+      loading: () => const Pantalla(
+        titulo: titulo,
+        child: Center(child: CircularProgressIndicator()),
+      ),
       error: (e, _) => Pantalla(
         titulo: titulo,
         child: VistaError(error: e, alReintentar: () => ref.invalidate(pedidoActualProvider)),
@@ -182,13 +186,17 @@ class _PedidoActualScreenState extends ConsumerState<PedidoActualScreen> {
         children: [
           // Manda su GPS al cliente (o avisa si falta el permiso de ubicación).
           const AvisoUbicacion(),
+          // Dónde está él, la tienda y la casa del cliente.
+          MapaReparto(pedido: p),
           // Qué hacer ahora.
           Card(
             color: c.secondaryContainer,
             child: ListTile(
               leading: Icon(recogido ? Icons.home_outlined : Icons.storefront_outlined, color: c.onSecondaryContainer),
-              title: Text(recogido ? 'Llévalo a la casa del cliente' : 'Ve al negocio a recogerlo',
-                  style: textos.titleMedium?.copyWith(color: c.onSecondaryContainer)),
+              title: Text(
+                recogido ? 'Llévalo a la casa del cliente' : 'Ve al negocio a recogerlo',
+                style: textos.titleMedium?.copyWith(color: c.onSecondaryContainer),
+              ),
               subtitle: Text(
                 recogido ? 'Al entregarlo, pídele su PIN de 4 números.' : 'Cuando te lo den, toca "Recogido".',
                 style: TextStyle(color: c.onSecondaryContainer),
@@ -219,7 +227,10 @@ class _PedidoActualScreenState extends ConsumerState<PedidoActualScreen> {
                 _Dato(icono: Icons.place_outlined, texto: p.direccionEntrega),
                 if (p.referenciaEntrega != null) _Dato(icono: Icons.info_outline, texto: p.referenciaEntrega!),
                 if (p.distanciaKm != null)
-                  _Dato(icono: Icons.route_outlined, texto: 'A unos ${p.distanciaKm!.toStringAsFixed(1)} km del negocio'),
+                  _Dato(
+                    icono: Icons.route_outlined,
+                    texto: 'A unos ${p.distanciaKm!.toStringAsFixed(1)} km del negocio',
+                  ),
                 if (p.notas != null) _Dato(icono: Icons.chat_bubble_outline, texto: 'Nota: ${p.notas}'),
               ],
             ),
@@ -228,14 +239,18 @@ class _PedidoActualScreenState extends ConsumerState<PedidoActualScreen> {
           Card(
             color: efectivo ? c.tertiaryContainer : c.surfaceContainerHighest,
             child: ListTile(
-              leading: Icon(efectivo ? Icons.payments_outlined : Icons.check_circle_outline,
-                  color: efectivo ? c.onTertiaryContainer : c.onSurfaceVariant),
+              leading: Icon(
+                efectivo ? Icons.payments_outlined : Icons.check_circle_outline,
+                color: efectivo ? c.onTertiaryContainer : c.onSurfaceVariant,
+              ),
               title: Text(
                 efectivo ? 'Cobra ${Formato.bs(p.total)} en efectivo' : '${p.metodoPagoTexto}: no cobres nada',
                 style: textos.titleSmall?.copyWith(color: efectivo ? c.onTertiaryContainer : c.onSurface),
               ),
-              subtitle: Text('Tu envío: ${Formato.bs(p.costoEnvio)}',
-                  style: TextStyle(color: efectivo ? c.onTertiaryContainer : c.onSurfaceVariant)),
+              subtitle: Text(
+                'Tu envío: ${Formato.bs(p.costoEnvio)}',
+                style: TextStyle(color: efectivo ? c.onTertiaryContainer : c.onSurfaceVariant),
+              ),
             ),
           ),
           const SizedBox(height: AppEspacios.m),

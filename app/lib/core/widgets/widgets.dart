@@ -15,6 +15,7 @@ export 'pantalla.dart';
 export 'reaccion_toque.dart';
 export 'selector_cantidad.dart';
 export 'selector_foto.dart';
+export 'selector_tema.dart';
 export 'tarjeta_3d.dart';
 export 'temblor.dart';
 export 'titulo_seccion.dart';

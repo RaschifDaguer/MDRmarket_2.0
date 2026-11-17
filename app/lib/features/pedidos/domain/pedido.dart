@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/formato/formato.dart';
+import '../../../core/maps/coordenada.dart';
 
 /// Estados de un pedido, con cómo se muestran y cómo se llama el botón que
 /// lleva a ese estado (para el comerciante).
@@ -145,6 +146,7 @@ class Pedido {
     this.aceptarAntes,
     this.repartidoresCerca,
     this.confirmado,
+    this.negocioUbicacion,
   });
 
   final int id;
@@ -224,6 +226,13 @@ class Pedido {
 
   /// Cuándo lo aceptó la tienda.
   final DateTime? confirmado;
+
+  /// Dónde está la tienda (para el mapa del repartidor).
+  final Coordenada? negocioUbicacion;
+
+  /// Dónde se entrega (null si la dirección no tiene ubicación).
+  Coordenada? get destino =>
+      latitudEntrega == null || longitudEntrega == null ? null : Coordenada(latitudEntrega!, longitudEntrega!);
 
   /// Cuántos productos (líneas) ya están alistados.
   int get alistados => items.where((i) => i.alistado).length;
@@ -324,6 +333,9 @@ class Pedido {
       aceptarAntes: Formato.fechaDe(json['aceptar_antes']),
       repartidoresCerca: (json['repartidores_cerca'] as num?)?.toInt(),
       confirmado: Formato.fechaDe(json['confirmado_en']),
+      negocioUbicacion: negocio['latitud'] == null || negocio['longitud'] == null
+          ? null
+          : Coordenada(Formato.numero(negocio['latitud']), Formato.numero(negocio['longitud'])),
     );
   }
 }

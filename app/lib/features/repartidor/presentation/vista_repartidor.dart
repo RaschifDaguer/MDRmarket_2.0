@@ -11,9 +11,10 @@ import '../../pedidos/presentation/widgets/piezas_pedido.dart';
 import '../data/repartidor_repository.dart';
 import '../domain/pedido_disponible.dart';
 import 'aviso_ubicacion.dart';
+import 'cuenta_repartidor.dart';
 
 /// Vista del repartidor aprobado: "Pedidos" (en línea, su pedido en curso y
-/// los disponibles para aceptar) y "Mis entregas" (pestañas abajo).
+/// los disponibles para aceptar), "Mis entregas" y "Cuenta" (pestañas abajo).
 class VistaRepartidor extends StatefulWidget {
   const VistaRepartidor({super.key});
 
@@ -32,7 +33,11 @@ class _VistaRepartidorState extends State<VistaRepartidor> {
           child: IndexedStack(
             index: _pestana,
             // "Mis entregas" se arma recién al abrirla.
-            children: [const _PedidosTab(), _pestana == 1 ? const _EntregasTab() : const SizedBox.shrink()],
+            children: [
+              const _PedidosTab(),
+              _pestana == 1 ? const _EntregasTab() : const SizedBox.shrink(),
+              const CuentaRepartidor(),
+            ],
           ),
         ),
         NavigationBar(
@@ -40,9 +45,16 @@ class _VistaRepartidorState extends State<VistaRepartidor> {
           onDestinationSelected: (i) => setState(() => _pestana = i),
           destinations: const [
             NavigationDestination(
-                icon: Icon(Icons.delivery_dining_outlined), selectedIcon: Icon(Icons.delivery_dining), label: 'Pedidos'),
+              icon: Icon(Icons.delivery_dining_outlined),
+              selectedIcon: Icon(Icons.delivery_dining),
+              label: 'Pedidos',
+            ),
             NavigationDestination(
-                icon: Icon(Icons.history_outlined), selectedIcon: Icon(Icons.history), label: 'Mis entregas'),
+              icon: Icon(Icons.history_outlined),
+              selectedIcon: Icon(Icons.history),
+              label: 'Mis entregas',
+            ),
+            NavigationDestination(icon: Icon(Icons.person_outline), selectedIcon: Icon(Icons.person), label: 'Cuenta'),
           ],
         ),
       ],
@@ -149,12 +161,18 @@ class _PedidosTabState extends ConsumerState<_PedidosTab> {
         key: const Key('interruptor-en-linea'),
         value: enLinea,
         onChanged: _cambiandoLinea ? null : _ponerEnLinea,
-        secondary: Icon(enLinea ? Icons.wifi_tethering : Icons.wifi_tethering_off,
-            color: enLinea ? c.onPrimaryContainer : c.onSurfaceVariant),
-        title: Text(enLinea ? 'En línea' : 'Desconectado',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(color: enLinea ? c.onPrimaryContainer : null)),
-        subtitle: Text(enLinea ? 'Recibes pedidos cerca de ti' : 'No recibes pedidos',
-            style: TextStyle(color: enLinea ? c.onPrimaryContainer : c.onSurfaceVariant)),
+        secondary: Icon(
+          enLinea ? Icons.wifi_tethering : Icons.wifi_tethering_off,
+          color: enLinea ? c.onPrimaryContainer : c.onSurfaceVariant,
+        ),
+        title: Text(
+          enLinea ? 'En línea' : 'Desconectado',
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(color: enLinea ? c.onPrimaryContainer : null),
+        ),
+        subtitle: Text(
+          enLinea ? 'Recibes pedidos cerca de ti' : 'No recibes pedidos',
+          style: TextStyle(color: enLinea ? c.onPrimaryContainer : c.onSurfaceVariant),
+        ),
       ),
     );
   }
@@ -163,7 +181,12 @@ class _PedidosTabState extends ConsumerState<_PedidosTab> {
     final disponibles = ref.watch(pedidosDisponiblesProvider);
     return disponibles.when(
       skipLoadingOnRefresh: true,
-      loading: () => const [Padding(padding: EdgeInsets.all(AppEspacios.xl), child: Center(child: CircularProgressIndicator()))],
+      loading: () => const [
+        Padding(
+          padding: EdgeInsets.all(AppEspacios.xl),
+          child: Center(child: CircularProgressIndicator()),
+        ),
+      ],
       error: (e, _) => [VistaError(error: e, alReintentar: () => ref.invalidate(pedidosDisponiblesProvider))],
       data: (lista) => lista.isEmpty
           ? const [
@@ -214,7 +237,10 @@ class _TarjetaEnCurso extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text('Tu pedido en curso', style: textos.titleMedium),
-                    Text('#${pedido.id} · ${pedido.negocioNombre}', style: textos.bodySmall?.copyWith(color: c.onSurfaceVariant)),
+                    Text(
+                      '#${pedido.id} · ${pedido.negocioNombre}',
+                      style: textos.bodySmall?.copyWith(color: c.onSurfaceVariant),
+                    ),
                   ],
                 ),
               ),
@@ -249,11 +275,11 @@ class _TarjetaDisponible extends StatelessWidget {
     final p = pedido;
 
     Widget chip(IconData icono, String texto) => Chip(
-          avatar: Icon(icono, size: 16, color: c.onSurfaceVariant),
-          label: Text(texto),
-          visualDensity: VisualDensity.compact,
-          side: BorderSide(color: c.outlineVariant),
-        );
+      avatar: Icon(icono, size: 16, color: c.onSurfaceVariant),
+      label: Text(texto),
+      visualDensity: VisualDensity.compact,
+      side: BorderSide(color: c.outlineVariant),
+    );
 
     return Card(
       key: Key('disponible-${p.id}'),
@@ -301,7 +327,8 @@ class _TarjetaDisponible extends StatelessWidget {
               children: [
                 if (p.distanciaAlNegocioKm != null)
                   chip(Icons.near_me_outlined, 'A ${p.distanciaAlNegocioKm!.toStringAsFixed(1)} km de ti'),
-                if (p.distanciaKm != null) chip(Icons.route_outlined, 'Recorrido ${p.distanciaKm!.toStringAsFixed(1)} km'),
+                if (p.distanciaKm != null)
+                  chip(Icons.route_outlined, 'Recorrido ${p.distanciaKm!.toStringAsFixed(1)} km'),
                 if (p.tamano != null) chip(Icons.inventory_2_outlined, p.tamano!),
                 if (p.metodoPago == 'efectivo') chip(Icons.payments_outlined, 'Cobrar ${Formato.bs(p.total)}'),
               ],
@@ -312,14 +339,19 @@ class _TarjetaDisponible extends StatelessWidget {
               Container(
                 key: Key('propio-${p.id}'),
                 padding: const EdgeInsets.all(AppEspacios.s + 2),
-                decoration: BoxDecoration(color: c.secondaryContainer, borderRadius: BorderRadius.circular(AppRadios.campo)),
+                decoration: BoxDecoration(
+                  color: c.secondaryContainer,
+                  borderRadius: BorderRadius.circular(AppRadios.campo),
+                ),
                 child: Row(
                   children: [
                     Icon(Icons.info_outline, size: 20, color: c.onSecondaryContainer),
                     const SizedBox(width: AppEspacios.s),
                     Expanded(
-                      child: Text('Es tu propio pedido: lo llevará otro repartidor.',
-                          style: textos.bodyMedium?.copyWith(color: c.onSecondaryContainer)),
+                      child: Text(
+                        'Es tu propio pedido: lo llevará otro repartidor.',
+                        style: textos.bodyMedium?.copyWith(color: c.onSecondaryContainer),
+                      ),
                     ),
                   ],
                 ),
@@ -372,8 +404,10 @@ class _EntregasTab extends ConsumerWidget {
                           datos.total == 1 ? '1 entrega' : '${datos.total} entregas',
                           style: textos.titleMedium?.copyWith(color: c.onPrimaryContainer),
                         ),
-                        subtitle: Text('${Formato.bs(datos.totalEnvios)} en envíos',
-                            style: TextStyle(color: c.onPrimaryContainer)),
+                        subtitle: Text(
+                          '${Formato.bs(datos.totalEnvios)} en envíos',
+                          style: TextStyle(color: c.onPrimaryContainer),
+                        ),
                       ),
                     ),
                     const SizedBox(height: AppEspacios.m),
@@ -390,7 +424,10 @@ class _EntregasTab extends ConsumerWidget {
                             leading: ImagenRed(p.negocioLogo, ancho: 40, alto: 40, radio: 10, icono: Icons.storefront),
                             title: Text(p.negocioNombre),
                             subtitle: Text('#${p.id} · ${Formato.fechaHora(p.entregado ?? p.creado)}'),
-                            trailing: Text(Formato.bs(p.costoEnvio), style: textos.titleSmall?.copyWith(color: c.primary)),
+                            trailing: Text(
+                              Formato.bs(p.costoEnvio),
+                              style: textos.titleSmall?.copyWith(color: c.primary),
+                            ),
                           ),
                         ),
                   ],

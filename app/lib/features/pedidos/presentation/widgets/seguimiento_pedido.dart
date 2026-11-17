@@ -1,22 +1,18 @@
 import 'dart:async';
-import 'dart:math' as math;
 
-import 'package:flutter/foundation.dart';
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
 
-import '../../../../core/maps/coordenada.dart';
+import '../../../../core/maps/mapa.dart';
 import '../../../../core/maps/mapas.dart';
 import '../../../../core/theme/app_espacios.dart';
 import '../../data/pedidos_repository.dart';
 import '../../domain/pedido.dart';
 import '../../domain/seguimiento.dart';
 
-/// Cómo se dibuja el mapa del seguimiento. Null = sin mapa (no hay clave de
-/// Google Maps): se muestra solo el texto con la distancia y el tiempo. Las
-/// pruebas lo reemplazan por un mapa falso.
+/// Cómo se dibuja el mapa del seguimiento (Google Maps con clave, si no
+/// OpenStreetMap). Null = sin mapa (en las pruebas): se muestra solo el texto
+/// con la distancia y el tiempo. Las pruebas lo reemplazan por un mapa falso.
 final mapaSeguimientoProvider = Provider<Widget Function(Seguimiento)?>(
   (ref) => Mapas.disponibles ? (s) => MapaSeguimiento(seguimiento: s) : null,
 );
@@ -68,7 +64,12 @@ class _SeguimientoPedidoState extends ConsumerState<SeguimientoPedido> {
     final textos = Theme.of(context).textTheme;
 
     if (seguimiento == null) {
-      return const Card(child: Padding(padding: EdgeInsets.all(AppEspacios.l), child: Center(child: CircularProgressIndicator())));
+      return const Card(
+        child: Padding(
+          padding: EdgeInsets.all(AppEspacios.l),
+          child: Center(child: CircularProgressIndicator()),
+        ),
+      );
     }
 
     final recogido = seguimiento.estado == EstadoPedido.enCamino;
@@ -79,8 +80,7 @@ class _SeguimientoPedidoState extends ConsumerState<SeguimientoPedido> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (mapa != null && seguimiento.repartidor != null)
-            SizedBox(height: 240, child: mapa(seguimiento)),
+          if (mapa != null) SizedBox(height: 240, child: mapa(seguimiento)),
           ListTile(
             leading: Icon(Icons.delivery_dining, color: c.primary, size: 32),
             title: Text(
@@ -107,8 +107,10 @@ class _SeguimientoPedidoState extends ConsumerState<SeguimientoPedido> {
                   Icon(Icons.map_outlined, size: 16, color: c.onSurfaceVariant),
                   const SizedBox(width: AppEspacios.xs + 2),
                   Expanded(
-                    child: Text('El mapa no está disponible en este dispositivo.',
-                        style: textos.labelSmall?.copyWith(color: c.onSurfaceVariant)),
+                    child: Text(
+                      'El mapa no está disponible en este dispositivo.',
+                      style: textos.labelSmall?.copyWith(color: c.onSurfaceVariant),
+                    ),
                   ),
                 ],
               ),
@@ -118,84 +120,31 @@ class _SeguimientoPedidoState extends ConsumerState<SeguimientoPedido> {
     );
   }
 
-  static String _hace(int segundos) =>
-      segundos < 60 ? 'hace $segundos s' : 'hace ${segundos ~/ 60} min';
+  static String _hace(int segundos) => segundos < 60 ? 'hace $segundos s' : 'hace ${segundos ~/ 60} min';
 }
 
-/// Mapa de Google con el negocio, la casa del cliente y el repartidor. Al
-/// llegar una posición nueva, el marcador se mueve y el mapa los encuadra a los tres.
-class MapaSeguimiento extends StatefulWidget {
+/// Mapa con la tienda, la casa del cliente y el repartidor (la moto). Cada
+/// vez que llega una posición nueva (cada pocos segundos, de
+/// `GET /api/pedidos/{id}/seguimiento`), la moto se mueve y el mapa encuadra a
+/// los tres. La línea va de la moto a la tienda (si todavía no lo recogió) y a la casa.
+class MapaSeguimiento extends StatelessWidget {
   const MapaSeguimiento({super.key, required this.seguimiento});
 
   final Seguimiento seguimiento;
 
   @override
-  State<MapaSeguimiento> createState() => _MapaSeguimientoState();
-}
-
-class _MapaSeguimientoState extends State<MapaSeguimiento> {
-  GoogleMapController? _mapa;
-
-  static LatLng _latLng(Coordenada c) => LatLng(c.latitud, c.longitud);
-
-  List<Coordenada> get _puntos => [
-        widget.seguimiento.negocio,
-        widget.seguimiento.destino,
-        ?widget.seguimiento.repartidor,
-      ];
-
-  LatLngBounds get _limites {
-    final lat = _puntos.map((p) => p.latitud);
-    final lng = _puntos.map((p) => p.longitud);
-    return LatLngBounds(
-      southwest: LatLng(lat.reduce(math.min), lng.reduce(math.min)),
-      northeast: LatLng(lat.reduce(math.max), lng.reduce(math.max)),
-    );
-  }
-
-  @override
-  void didUpdateWidget(covariant MapaSeguimiento anterior) {
-    super.didUpdateWidget(anterior);
-    if (anterior.seguimiento.repartidor != widget.seguimiento.repartidor) {
-      _mapa?.animateCamera(CameraUpdate.newLatLngBounds(_limites, 48));
-    }
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final s = widget.seguimiento;
-    return GoogleMap(
-      initialCameraPosition: CameraPosition(target: _latLng(s.repartidor ?? s.destino), zoom: 14),
-      onMapCreated: (control) {
-        _mapa = control;
-        control.moveCamera(CameraUpdate.newLatLngBounds(_limites, 48));
-      },
-      markers: {
-        Marker(
-          markerId: const MarkerId('negocio'),
-          position: _latLng(s.negocio),
-          infoWindow: InfoWindow(title: s.negocioNombre),
-          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange),
-        ),
-        Marker(
-          markerId: const MarkerId('casa'),
-          position: _latLng(s.destino),
-          infoWindow: const InfoWindow(title: 'Tu casa'),
-          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
-        ),
+    final s = seguimiento;
+    final recogido = s.estado == EstadoPedido.enCamino;
+    return MapaMdr(
+      key: const Key('mapa-seguimiento'),
+      puntos: [
+        PuntoMapa(TipoPunto.tienda, s.negocio, titulo: s.negocioNombre),
+        PuntoMapa(TipoPunto.casa, s.destino, titulo: 'Tu casa'),
         if (s.repartidor != null)
-          Marker(
-            markerId: const MarkerId('repartidor'),
-            position: _latLng(s.repartidor!),
-            infoWindow: InfoWindow(title: s.repartidorNombre ?? 'Repartidor'),
-            icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
-          ),
-      },
-      myLocationButtonEnabled: false,
-      mapToolbarEnabled: false,
-      zoomControlsEnabled: false,
-      // Dentro de una lista con scroll, el mapa se queda con el gesto.
-      gestureRecognizers: {Factory<OneSequenceGestureRecognizer>(EagerGestureRecognizer.new)},
+          PuntoMapa(TipoPunto.repartidor, s.repartidor!, titulo: s.repartidorNombre ?? 'Repartidor'),
+      ],
+      ruta: [?s.repartidor, if (!recogido) s.negocio, s.destino],
     );
   }
 }
