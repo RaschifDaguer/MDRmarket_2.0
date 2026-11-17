@@ -2,21 +2,39 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/formato/formato.dart';
+import '../../../core/maps/coordenada.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/theme/app_espacios.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../pedidos/domain/pedido.dart';
 import '../../pedidos/presentation/widgets/piezas_pedido.dart';
+import '../data/envio_ubicacion.dart';
 import '../data/repartidor_repository.dart';
 import 'aviso_ubicacion.dart';
-import 'dialogo_pin.dart';
 import 'mapa_reparto.dart';
+import 'vista_repartidor.dart' show km;
 
-/// El pedido que lleva el repartidor: dónde recogerlo, a quién entregarlo,
-/// cuánto cobrar y los botones "Recogido", "Entregado" (con el PIN) y
-/// "Soltar pedido" (solo antes de recogerlo).
+/// Abre un enlace fuera de la app (Google Maps). Las pruebas lo reemplazan.
+final abrirEnlaceProvider = Provider<Future<bool> Function(Uri)>(
+  (_) =>
+      (uri) => launchUrl(uri, mode: LaunchMode.externalApplication),
+);
+
+/// "Cómo llegar": Google Maps con el destino (por coordenadas o, si no hay,
+/// por la dirección escrita). En bicicleta, la ruta para bicicleta.
+Uri enlaceComoLlegar({Coordenada? destino, String? direccion, bool bicicleta = false}) =>
+    Uri.https('www.google.com', '/maps/dir/', {
+      'api': '1',
+      'destination': destino == null ? (direccion ?? '') : '${destino.latitud},${destino.longitud}',
+      'travelmode': bicicleta ? 'bicycling' : 'driving',
+    });
+
+/// El pedido que lleva el repartidor, en 2 pasos: 1 Recoger (mapa, la tienda,
+/// "Cómo llegar", "Ya lo recogí" y "Soltar pedido") y 2 Entregar (la casa del
+/// cliente, cuánto cobrar y "Entregar", que pide el PIN).
 class PedidoActualScreen extends ConsumerStatefulWidget {
   const PedidoActualScreen({super.key});
 
@@ -31,39 +49,11 @@ class _PedidoActualScreenState extends ConsumerState<PedidoActualScreen> {
     ref.invalidate(pedidoActualProvider);
     ref.invalidate(pedidosDisponiblesProvider);
     ref.invalidate(entregasProvider);
+    ref.invalidate(gananciasProvider);
   }
 
   Future<void> _recogido(Pedido p) async {
     await _hacer(() => ref.read(repartidorRepositoryProvider).cambiarEstado(p.id, EstadoPedido.enCamino));
-  }
-
-  Future<void> _entregar(Pedido p) async {
-    final mensajero = ScaffoldMessenger.of(context);
-    String? error;
-    // Si el PIN no coincide, se vuelve a pedir mostrando el error.
-    while (mounted) {
-      final pin = await pedirPin(context, error: error);
-      if (pin == null) return;
-      setState(() => _cambiando = true);
-      try {
-        await ref.read(repartidorRepositoryProvider).cambiarEstado(p.id, EstadoPedido.entregado, codigo: pin);
-      } on ApiException catch (e) {
-        if (!mounted) return;
-        setState(() => _cambiando = false);
-        error = e.errorDe('codigo');
-        if (error == null) {
-          mensajero.showSnackBar(SnackBar(content: Text(e.errorDe('estado') ?? e.mensaje)));
-          _refrescarTodo();
-          return;
-        }
-        continue;
-      }
-      _refrescarTodo();
-      if (!mounted) return;
-      mensajero.showSnackBar(const SnackBar(content: Text('¡Pedido entregado! Lo verás en "Mis entregas".')));
-      context.go('/inicio');
-      return;
-    }
   }
 
   Future<void> _soltar(Pedido p) async {
@@ -85,6 +75,20 @@ class _PedidoActualScreenState extends ConsumerState<PedidoActualScreen> {
     if (seguro != true || !mounted) return;
     final listo = await _hacer(() => ref.read(repartidorRepositoryProvider).soltar(p.id));
     if (listo && mounted) context.go('/inicio');
+  }
+
+  Future<void> _comoLlegar(Pedido p) async {
+    final recogido = p.estado == EstadoPedido.enCamino;
+    final vehiculo = ref.read(miRepartidorProvider).value?.vehiculo?.tipoCodigo;
+    final enlace = enlaceComoLlegar(
+      destino: recogido ? p.destino : p.negocioUbicacion,
+      direccion: recogido ? p.direccionEntrega : (p.negocioDireccion ?? p.negocioNombre),
+      bicicleta: vehiculo == 'bicicleta',
+    );
+    final mensajero = ScaffoldMessenger.of(context);
+    if (!await ref.read(abrirEnlaceProvider)(enlace)) {
+      mensajero.showSnackBar(const SnackBar(content: Text('No se pudo abrir Google Maps.')));
+    }
   }
 
   /// Ejecuta un cambio y refresca; los errores de la API van en un aviso abajo.
@@ -139,34 +143,52 @@ class _PedidoActualScreenState extends ConsumerState<PedidoActualScreen> {
 
   Widget _botones(Pedido p) {
     final c = Theme.of(context).colorScheme;
+    final recogido = p.estado == EstadoPedido.enCamino;
     return Padding(
       padding: const EdgeInsets.all(AppEspacios.m),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (p.estado == EstadoPedido.listo) ...[
-            BotonPrincipal(
-              key: const Key('boton-recogido'),
-              texto: 'Recogido',
-              icono: Icons.inventory_2_outlined,
-              cargando: _cambiando,
-              onPressed: () => _recogido(p),
-            ),
+          Row(
+            children: [
+              Expanded(
+                flex: 2,
+                child: OutlinedButton.icon(
+                  key: const Key('como-llegar'),
+                  style: OutlinedButton.styleFrom(minimumSize: const Size(0, 52)),
+                  onPressed: () => _comoLlegar(p),
+                  icon: const Icon(Icons.directions_outlined),
+                  label: const Text('Cómo llegar'),
+                ),
+              ),
+              const SizedBox(width: AppEspacios.s),
+              Expanded(
+                flex: 3,
+                child: p.estado == EstadoPedido.listo
+                    ? BotonPrincipal(
+                        key: const Key('boton-recogido'),
+                        texto: 'Ya lo recogí',
+                        icono: Icons.inventory_2_outlined,
+                        cargando: _cambiando,
+                        onPressed: () => _recogido(p),
+                      )
+                    : BotonPrincipal(
+                        key: const Key('boton-entregado'),
+                        texto: 'Entregar',
+                        icono: Icons.pin_outlined,
+                        onPressed: recogido ? () => context.push('/repartidor/entregar') : null,
+                      ),
+              ),
+            ],
+          ),
+          if (p.estado == EstadoPedido.listo)
             TextButton.icon(
               key: const Key('boton-soltar'),
               style: TextButton.styleFrom(foregroundColor: c.error),
               onPressed: _cambiando ? null : () => _soltar(p),
               icon: const Icon(Icons.undo),
               label: const Text('Soltar pedido'),
-            ),
-          ] else if (p.estado == EstadoPedido.enCamino)
-            BotonPrincipal(
-              key: const Key('boton-entregado'),
-              texto: 'Entregado',
-              icono: Icons.check_circle_outline,
-              cargando: _cambiando,
-              onPressed: () => _entregar(p),
             ),
         ],
       ),
@@ -178,6 +200,9 @@ class _PedidoActualScreenState extends ConsumerState<PedidoActualScreen> {
     final textos = Theme.of(context).textTheme;
     final recogido = p.estado == EstadoPedido.enCamino;
     final efectivo = p.metodoPago == 'efectivo';
+    final yo = ref.watch(miUbicacionProvider);
+    final hacia = recogido ? p.destino : p.negocioUbicacion;
+    final distancia = yo != null && hacia != null ? yo.distanciaKm(hacia) : null;
 
     return RefreshIndicator(
       onRefresh: () => ref.refresh(pedidoActualProvider.future),
@@ -186,77 +211,115 @@ class _PedidoActualScreenState extends ConsumerState<PedidoActualScreen> {
         children: [
           // Manda su GPS al cliente (o avisa si falta el permiso de ubicación).
           const AvisoUbicacion(),
-          // Dónde está él, la tienda y la casa del cliente.
-          MapaReparto(pedido: p),
-          // Qué hacer ahora.
+          // Dónde está él, la tienda y la casa del cliente, con la línea del recorrido.
+          MapaReparto(pedido: p, alto: 240),
+          const SizedBox(height: AppEspacios.s),
+          _Pasos(recogido: recogido),
+          const SizedBox(height: AppEspacios.m),
           Card(
+            key: Key(recogido ? 'destino-cliente' : 'destino-tienda'),
             color: c.secondaryContainer,
             child: ListTile(
-              leading: Icon(recogido ? Icons.home_outlined : Icons.storefront_outlined, color: c.onSecondaryContainer),
+              leading: recogido
+                  ? Icon(Icons.home_outlined, color: c.onSecondaryContainer, size: 32)
+                  : ImagenRed(p.negocioLogo, ancho: 44, alto: 44, radio: 12, icono: Icons.storefront),
               title: Text(
-                recogido ? 'Llévalo a la casa del cliente' : 'Ve al negocio a recogerlo',
+                recogido ? (p.clienteNombre ?? 'Cliente') : p.negocioNombre,
                 style: textos.titleMedium?.copyWith(color: c.onSecondaryContainer),
               ),
               subtitle: Text(
-                recogido ? 'Al entregarlo, pídele su PIN de 4 números.' : 'Cuando te lo den, toca "Recogido".',
+                [
+                  recogido ? p.direccionEntrega : (p.negocioDireccion ?? 'Ve a la tienda a recogerlo'),
+                  if (distancia != null) 'a ${km(distancia)}',
+                ].join(' · '),
+                key: const Key('destino-detalle'),
                 style: TextStyle(color: c.onSecondaryContainer),
               ),
               trailing: EtiquetaEstado(p.estado),
             ),
           ),
-          const SizedBox(height: AppEspacios.m),
-          const TituloSeccion('Recoger en', Icons.storefront_outlined),
-          Card(
-            child: Column(
-              children: [
-                ListTile(
-                  leading: ImagenRed(p.negocioLogo, ancho: 40, alto: 40, radio: 10, icono: Icons.storefront),
-                  title: Text(p.negocioNombre, style: textos.titleMedium),
-                ),
-                if (p.negocioTelefono != null) _Dato(icono: Icons.phone_outlined, texto: p.negocioTelefono!),
-              ],
+          if (recogido && p.referenciaEntrega != null)
+            _Dato(icono: Icons.info_outline, texto: 'Referencia: ${p.referenciaEntrega}'),
+          if (recogido && p.clienteTelefono != null) _Dato(icono: Icons.phone_outlined, texto: p.clienteTelefono!),
+          if (!recogido && p.negocioTelefono != null) _Dato(icono: Icons.phone_outlined, texto: p.negocioTelefono!),
+          if (!recogido)
+            _Dato(
+              icono: Icons.person_outline,
+              texto: 'Para ${p.clienteNombre ?? 'el cliente'} · ${p.direccionEntrega}',
             ),
-          ),
-          const SizedBox(height: AppEspacios.m),
-          const TituloSeccion('Entregar a', Icons.home_outlined),
-          Card(
-            child: Column(
-              children: [
-                _Dato(icono: Icons.person_outline, texto: p.clienteNombre ?? 'Cliente'),
-                if (p.clienteTelefono != null) _Dato(icono: Icons.phone_outlined, texto: p.clienteTelefono!),
-                _Dato(icono: Icons.place_outlined, texto: p.direccionEntrega),
-                if (p.referenciaEntrega != null) _Dato(icono: Icons.info_outline, texto: p.referenciaEntrega!),
-                if (p.distanciaKm != null)
-                  _Dato(
-                    icono: Icons.route_outlined,
-                    texto: 'A unos ${p.distanciaKm!.toStringAsFixed(1)} km del negocio',
+          if (p.notas != null) _Dato(icono: Icons.chat_bubble_outline, texto: 'Nota: ${p.notas}'),
+          const SizedBox(height: AppEspacios.s),
+          Row(
+            children: [
+              Expanded(
+                child: Card(
+                  child: ListTile(
+                    title: Text('Pedido', style: textos.bodySmall),
+                    subtitle: Text(
+                      '#${p.id} · ${p.unidades} producto${p.unidades == 1 ? '' : 's'}',
+                      style: textos.titleSmall,
+                    ),
                   ),
-                if (p.notas != null) _Dato(icono: Icons.chat_bubble_outline, texto: 'Nota: ${p.notas}'),
-              ],
-            ),
+                ),
+              ),
+              Expanded(
+                child: Card(
+                  key: const Key('cobras-al-cliente'),
+                  color: efectivo ? c.tertiaryContainer : null,
+                  child: ListTile(
+                    title: Text('Cobras al cliente', style: textos.bodySmall),
+                    subtitle: Text(
+                      efectivo ? '${Formato.bs(p.total)} efectivo' : 'Nada (pagó con QR)',
+                      style: textos.titleSmall?.copyWith(color: efectivo ? c.onTertiaryContainer : null),
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: AppEspacios.m),
-          Card(
-            color: efectivo ? c.tertiaryContainer : c.surfaceContainerHighest,
-            child: ListTile(
-              leading: Icon(
-                efectivo ? Icons.payments_outlined : Icons.check_circle_outline,
-                color: efectivo ? c.onTertiaryContainer : c.onSurfaceVariant,
-              ),
-              title: Text(
-                efectivo ? 'Cobra ${Formato.bs(p.total)} en efectivo' : '${p.metodoPagoTexto}: no cobres nada',
-                style: textos.titleSmall?.copyWith(color: efectivo ? c.onTertiaryContainer : c.onSurface),
-              ),
-              subtitle: Text(
-                'Tu envío: ${Formato.bs(p.costoEnvio)}',
-                style: TextStyle(color: efectivo ? c.onTertiaryContainer : c.onSurfaceVariant),
-              ),
-            ),
-          ),
+          Text('Tu envío: ${Formato.bs(p.costoEnvio)}', style: textos.bodySmall?.copyWith(color: c.onSurfaceVariant)),
           const SizedBox(height: AppEspacios.m),
           const TituloSeccion('Productos', Icons.shopping_bag_outlined),
           DetalleMontos(pedido: p),
           const SizedBox(height: AppEspacios.xl),
+        ],
+      ),
+    );
+  }
+}
+
+/// 1 Recoger → 2 Entregar.
+class _Pasos extends StatelessWidget {
+  const _Pasos({required this.recogido});
+
+  final bool recogido;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = Theme.of(context).colorScheme;
+    final textos = Theme.of(context).textTheme;
+    Widget paso(int numero, String texto, {required bool actual, required bool hecho}) => Expanded(
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 14,
+            backgroundColor: actual || hecho ? c.primary : c.surfaceContainerHighest,
+            child: hecho
+                ? Icon(Icons.check, size: 16, color: c.onPrimary)
+                : Text('$numero', style: textos.labelLarge?.copyWith(color: actual ? c.onPrimary : c.onSurfaceVariant)),
+          ),
+          const SizedBox(width: AppEspacios.s),
+          Text(texto, style: textos.titleSmall?.copyWith(color: actual ? c.primary : null)),
+        ],
+      ),
+    );
+    return Semantics(
+      label: recogido ? 'Paso 2 de 2: entregar' : 'Paso 1 de 2: recoger',
+      child: Row(
+        key: const Key('pasos-reparto'),
+        children: [
+          paso(1, 'Recoger', actual: !recogido, hecho: recogido),
+          paso(2, 'Entregar', actual: recogido, hecho: false),
         ],
       ),
     );

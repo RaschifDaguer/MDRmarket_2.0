@@ -18,7 +18,15 @@ class PedidoDisponible {
     this.tamano,
     this.totalItems,
     this.propio = false,
+    this.recorridoKm,
+    this.tiempoEstimadoMin,
   });
+
+  /// Todo el recorrido: de él a la tienda (si mandó su GPS) y de la tienda al cliente.
+  final double? recorridoKm;
+
+  /// Cuánto tarda ese recorrido (aprox.).
+  final int? tiempoEstimadoMin;
 
   final int id;
   final String negocioNombre;
@@ -60,6 +68,8 @@ class PedidoDisponible {
       tamano: json['tamano'] as String?,
       totalItems: (json['total_items'] as num?)?.toInt(),
       propio: json['propio'] == true,
+      recorridoKm: (json['recorrido_km'] as num?)?.toDouble(),
+      tiempoEstimadoMin: (json['tiempo_estimado_min'] as num?)?.toInt(),
     );
   }
 }

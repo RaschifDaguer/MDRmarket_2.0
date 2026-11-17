@@ -40,6 +40,7 @@ import 'package:mdrmarket/features/perfil/data/perfil_repository.dart';
 import 'package:mdrmarket/features/perfil/domain/faltante.dart';
 import 'package:mdrmarket/features/repartidor/data/envio_ubicacion.dart';
 import 'package:mdrmarket/features/repartidor/data/repartidor_repository.dart';
+import 'package:mdrmarket/features/repartidor/domain/ganancias.dart';
 import 'package:mdrmarket/features/repartidor/domain/pedido_disponible.dart';
 import 'package:mdrmarket/features/repartidor/domain/repartidor.dart';
 import 'package:mdrmarket/features/repartidor/domain/tipo_vehiculo.dart';
@@ -736,12 +737,55 @@ class RepartidorFalso extends RepartidorRepository {
   @override
   Future<Entregas> entregas() async => misEntregas;
 
+  /// Lo que gana (hoy Bs 12 con 2 entregas; la semana, con el sábado como mejor día).
+  Ganancias misGanancias = gananciasDePrueba;
+
+  /// Metas que eligió (null = la quitó).
+  final metas = <double?>[];
+
+  @override
+  Future<Ganancias> ganancias() async => misGanancias;
+
+  @override
+  Future<Ganancias> cambiarMeta(double? meta) async {
+    metas.add(meta);
+    return misGanancias = Ganancias(
+      ganadoHoy: misGanancias.ganadoHoy,
+      entregasHoy: misGanancias.entregasHoy,
+      metaDiaria: meta,
+      porDia: misGanancias.porDia,
+    );
+  }
+
   /// Posiciones que mandó (rastreo).
   final ubicacionesEnviadas = <Coordenada>[];
 
   @override
   Future<void> enviarUbicacion(Coordenada punto) async => ubicacionesEnviadas.add(punto);
 }
+
+/// Ganancias de prueba: hoy Bs 12 (2 entregas), meta Bs 150; la semana Bs 61 con el sábado como mejor día.
+final gananciasDePrueba = Ganancias(
+  entregasHoy: 2,
+  ganadoHoy: 12,
+  entregasSemana: 9,
+  ganadoSemana: 61,
+  metaDiaria: 150,
+  progresoMetaPct: 8,
+  calificacion: 4.9,
+  totalResenas: 20,
+  totalEntregas: 47,
+  mejorDia: DateTime(2026, 11, 14),
+  porDia: [
+    for (final (i, ganado) in [5.0, 0.0, 8.0, 12.0, 10.0, 26.0, 0.0].indexed)
+      DiaGanancia(
+        fecha: DateTime(2026, 11, 9 + i),
+        dia: const ['L', 'M', 'M', 'J', 'V', 'S', 'D'][i],
+        entregas: ganado > 0 ? 1 : 0,
+        ganado: ganado,
+      ),
+  ],
+);
 
 const repartidorAprobado = Usuario(
   id: 3,
@@ -792,6 +836,7 @@ List overridesFalsos({
   Widget Function(Seguimiento)? mapa,
   NotificacionesFalso? notificaciones,
   Preferencias? preferencias,
+  List<DocumentoSubido> documentos = const [],
 }) => [
   repartidorRepositoryProvider.overrideWithValue(repartidor ?? RepartidorFalso()),
   notificacionesRepositoryProvider.overrideWithValue(notificaciones ?? NotificacionesFalso()),
@@ -808,6 +853,7 @@ List overridesFalsos({
   miNegocioRepositoryProvider.overrideWithValue(miNegocio ?? MiNegocioFalso()),
   misNegociosProvider.overrideWith((ref) async => negocios),
   faltantesProvider.overrideWith((ref, rol) async => faltantes),
+  misDocumentosProvider.overrideWith((ref) async => documentos),
   elegirFotoProvider.overrideWithValue(() async => fotoDePrueba),
 ];
 

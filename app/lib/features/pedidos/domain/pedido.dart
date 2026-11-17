@@ -147,6 +147,7 @@ class Pedido {
     this.repartidoresCerca,
     this.confirmado,
     this.negocioUbicacion,
+    this.negocioDireccion,
   });
 
   final int id;
@@ -229,6 +230,7 @@ class Pedido {
 
   /// Dónde está la tienda (para el mapa del repartidor).
   final Coordenada? negocioUbicacion;
+  final String? negocioDireccion;
 
   /// Dónde se entrega (null si la dirección no tiene ubicación).
   Coordenada? get destino =>
@@ -333,6 +335,7 @@ class Pedido {
       aceptarAntes: Formato.fechaDe(json['aceptar_antes']),
       repartidoresCerca: (json['repartidores_cerca'] as num?)?.toInt(),
       confirmado: Formato.fechaDe(json['confirmado_en']),
+      negocioDireccion: negocio['direccion'] as String?,
       negocioUbicacion: negocio['latitud'] == null || negocio['longitud'] == null
           ? null
           : Coordenada(Formato.numero(negocio['latitud']), Formato.numero(negocio['longitud'])),

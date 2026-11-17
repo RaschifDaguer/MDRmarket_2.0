@@ -7,7 +7,11 @@ class DocumentoSubido {
     required this.estado,
     this.observacion,
     this.negocioId,
+    this.vehiculoId,
   });
+
+  /// Si es un documento del vehículo (RUAT, SOAT, foto de la placa…).
+  final int? vehiculoId;
 
   final int id;
 
@@ -40,5 +44,6 @@ class DocumentoSubido {
     estado: (json['estado'] as String?) ?? 'pendiente',
     observacion: json['observacion'] as String?,
     negocioId: (json['negocio_id'] as num?)?.toInt(),
+    vehiculoId: (json['vehiculo_id'] as num?)?.toInt(),
   );
 }
