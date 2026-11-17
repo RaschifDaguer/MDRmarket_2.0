@@ -8,6 +8,7 @@ use App\Models\Pedido;
 use App\Models\Repartidor;
 use App\Models\Vehiculo;
 use App\Support\Archivos;
+use App\Support\Envio;
 use App\Support\FlujoPedido;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -92,6 +93,8 @@ class PedidoController extends Controller
             ->get();
 
         return response()->json($pedidos->map(fn (Pedido $p) => [
+            // Todo el recorrido: hasta el negocio (si hay GPS) y del negocio al cliente, y cuánto tarda.
+            ...$this->recorrido($p),
             'id' => $p->id,
             'negocio' => [
                 'id' => $p->negocio->id,
@@ -199,6 +202,14 @@ class PedidoController extends Controller
                 'total_envios' => number_format((float) (clone $entregados)->sum('costo_envio'), 2, '.', ''),
             ],
         ]);
+    }
+
+    /** @return array{recorrido_km: float, tiempo_estimado_min: int} */
+    private function recorrido(Pedido $p): array
+    {
+        $km = round((float) ($p->distancia_al_negocio_km ?? 0) + (float) $p->distancia_km, 1);
+
+        return ['recorrido_km' => $km, 'tiempo_estimado_min' => Envio::minutosDeViaje($km)];
     }
 
     /** Su perfil de repartidor (403 si no es repartidor). */

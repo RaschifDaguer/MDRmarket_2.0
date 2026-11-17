@@ -40,6 +40,11 @@ class RepartidorPedidoTest extends TestCase
         $this->getJson('/api/repartidor/pedidos-disponibles')
             ->assertJsonFragment(['id' => $pedido->id, 'costo_envio' => '5.00', 'tamano' => 'Liviano'])
             ->assertJsonMissing(['codigo_entrega' => '1234']);
+        // Recorrido y tiempo: sin GPS, del negocio al cliente, a la velocidad configurada.
+        DB::table('configuracion')->updateOrInsert(['clave' => 'velocidad_promedio_kmh'], ['valor' => '20', 'tipo' => 'decimal']);
+        $fila = collect($this->getJson('/api/repartidor/pedidos-disponibles')->json())->firstWhere('id', $pedido->id);
+        $this->assertEqualsWithDelta((float) $pedido->distancia_km, $fila['recorrido_km'], 0.05);
+        $this->assertSame((int) ceil($fila['recorrido_km'] / 20 * 60), $fila['tiempo_estimado_min']);
 
         $this->postJson("/api/pedidos/{$pedido->id}/aceptar")
             ->assertOk()

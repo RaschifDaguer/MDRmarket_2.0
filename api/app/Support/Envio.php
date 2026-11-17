@@ -62,6 +62,14 @@ class Envio
     /** Si no hay valor en `configuracion`: velocidad media de reparto en la ciudad. */
     public const VELOCIDAD_KMH = 20;
 
+    /** Minutos de viaje para recorrer $km a la velocidad media de reparto (configurable). */
+    public static function minutosDeViaje(float $km): int
+    {
+        $velocidad = max(1, (float) Configuracion::valor('velocidad_promedio_kmh', self::VELOCIDAD_KMH));
+
+        return (int) ceil($km / $velocidad * 60);
+    }
+
     /** Minutos de preparación cuando el negocio no los cargó. */
     public const PREPARACION_MIN = 15;
 
