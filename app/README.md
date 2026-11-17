@@ -24,9 +24,9 @@ Usa la API de [`../api`](../api).
 Por defecto la app busca la API en `http://localhost:8001/api` (Chrome) o
 `http://10.0.2.2:8001/api` (emulador Android). Ver `lib/core/config/env.dart`.
 
-**Sin API local (lo normal para frontend):** usa el servidor de internet. En
+**Sin API local (lo normal para frontend):** usa el servidor de la universidad. En
 `dart_defines.local.json` pon
-`"API_URL": "https://api-mdrmarket-production.up.railway.app/api"` y ejecuta con
+`"API_URL": "https://DIRECCIÓN-DEL-SERVIDOR/api"` (ver el README principal) y ejecuta con
 `--dart-define-from-file=dart_defines.local.json` (ver abajo). Guía completa en el
 [README principal](../README.md#guía-para-el-equipo).
 

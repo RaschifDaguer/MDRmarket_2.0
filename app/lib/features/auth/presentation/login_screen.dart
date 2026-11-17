@@ -85,7 +85,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       const SizedBox(height: AppEspacios.xs),
                       Aparecer(
                         orden: 2,
-                        child: Text('Inicia sesión para continuar',
+                        child: Text('Bienvenido de nuevo. Pide lo que necesites, te lo llevamos.',
+                            textAlign: TextAlign.center,
                             style: textos.bodyLarge
                                 ?.copyWith(color: Colors.white.withValues(alpha: 0.85))),
                       ),

@@ -107,8 +107,22 @@ class CarritoScreen extends ConsumerWidget {
               Text(Formato.bs(carrito.subtotal), style: Theme.of(context).textTheme.titleMedium),
             ],
           ),
+          if (carrito.items.fold<double>(0, (t, i) => t + (i.producto.precio - i.producto.precioFinal) * i.cantidad)
+              case final ahorro when ahorro > 0)
+            Padding(
+              key: const Key('ahorro-carrito'),
+              padding: const EdgeInsets.only(top: AppEspacios.xs),
+              child: Row(children: [
+                Text('Ahorras', style: TextStyle(color: Theme.of(context).colorScheme.primary)),
+                const Spacer(),
+                Text('−${Formato.bs(ahorro)}',
+                    style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.w700)),
+              ]),
+            ),
           const SizedBox(height: AppEspacios.xs),
-          Text('El costo del envío se calcula en el siguiente paso.',
+          _EnvioEstimado(negocioId: carrito.negocio.id),
+          const SizedBox(height: AppEspacios.xs),
+          Text('El costo del envío se confirma en el siguiente paso.',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant)),
         ],
       ),
@@ -192,5 +206,26 @@ class _FilaItem extends StatelessWidget {
     );
     control.dispose();
     if (nota != null) controlador.notas(item.producto.id, nota);
+  }
+}
+
+/// "Envío a tu dirección: Bs 5" (con la dirección predeterminada del cliente).
+class _EnvioEstimado extends ConsumerWidget {
+  const _EnvioEstimado({required this.negocioId});
+
+  final int negocioId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final envio = ref.watch(tiendaDetalleProvider(negocioId)).value?.tienda.envio;
+    if (envio == null || !envio.enCobertura) return const SizedBox.shrink();
+    final textos = Theme.of(context).textTheme;
+    return Row(
+      key: const Key('envio-carrito'),
+      children: [
+        Expanded(child: Text('Envío a tu dirección', style: textos.bodyMedium)),
+        Text(Formato.bs(envio.costoEnvio), style: textos.bodyMedium),
+      ],
+    );
   }
 }

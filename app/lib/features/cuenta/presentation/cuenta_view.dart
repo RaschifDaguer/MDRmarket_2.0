@@ -259,11 +259,17 @@ class _ModoTema extends ConsumerWidget {
     final modo = ref.watch(modoTemaProvider);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: AppEspacios.m, vertical: AppEspacios.s),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Icon(Icons.dark_mode_outlined),
-          const SizedBox(width: AppEspacios.m),
-          const Expanded(child: Text('Tema')),
+          const Row(
+            children: [
+              Icon(Icons.dark_mode_outlined),
+              SizedBox(width: AppEspacios.m),
+              Text('Tema'),
+            ],
+          ),
+          const SizedBox(height: AppEspacios.s),
           SegmentedButton<ThemeMode>(
             key: const Key('selector-tema'),
             showSelectedIcon: false,

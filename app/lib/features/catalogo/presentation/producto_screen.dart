@@ -135,6 +135,8 @@ class _ProductoScreenState extends ConsumerState<ProductoScreen> {
                     ),
                     const SizedBox(height: AppEspacios.m),
                     _TarjetaNegocio(producto: p, pedidoMinimo: d.pedidoMinimo, tiempo: d.tiempoPreparacionMin),
+                    const SizedBox(height: AppEspacios.s),
+                    _Llegada(negocioId: p.negocio.id),
                     if (p.descripcion != null && p.descripcion!.isNotEmpty) ...[
                       const SizedBox(height: AppEspacios.m),
                       Text('Descripción', style: Theme.of(context).textTheme.titleMedium),
@@ -206,6 +208,36 @@ class _BotonCarrito extends StatelessWidget {
         label: Text('$unidades'),
         child: const Icon(Icons.shopping_cart_outlined),
       ),
+    );
+  }
+}
+
+/// "Llega en 30–40 min · Envío Bs 5 · Efectivo o QR" (con la dirección del cliente).
+class _Llegada extends ConsumerWidget {
+  const _Llegada({required this.negocioId});
+
+  final int negocioId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final envio = ref.watch(tiendaDetalleProvider(negocioId)).value?.tienda.envio;
+    final c = Theme.of(context).colorScheme;
+    Widget dato(IconData icono, String texto) => Chip(
+          avatar: Icon(icono, size: 18, color: c.primary),
+          label: Text(texto),
+          visualDensity: VisualDensity.compact,
+        );
+    return Wrap(
+      key: const Key('llegada-producto'),
+      spacing: AppEspacios.s,
+      runSpacing: AppEspacios.xs,
+      children: [
+        if (envio != null && envio.enCobertura) ...[
+          dato(Icons.schedule, 'Llega en ${envio.tiempoTexto}'),
+          dato(Icons.delivery_dining_outlined, 'Envío ${Formato.bs(envio.costoEnvio)}'),
+        ],
+        dato(Icons.verified_user_outlined, 'Efectivo o QR'),
+      ],
     );
   }
 }

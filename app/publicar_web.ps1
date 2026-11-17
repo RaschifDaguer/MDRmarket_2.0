@@ -1,6 +1,5 @@
 ﻿# Publica la versión web de la app dentro del servidor de la API, en /app/
-# (Railway: https://api-mdrmarket-production.up.railway.app/app/, y el
-# servidor de la universidad: ver servidor/README.md).
+# (en el servidor de la universidad: ver servidor/README.md).
 #
 # Uso (desde la carpeta app/, en PowerShell):
 #   .\publicar_web.ps1
@@ -9,8 +8,7 @@
 # Arma la app y la copia a api/public/app. Usa la API del mismo servidor desde
 # donde se abre (API_URL=mismo-servidor, ver lib/core/config/env.dart): no hay
 # que volver a armarla si cambia el dominio. Después hay que subir el cambio
-# (git add, commit y push); Railway la publica sola y en la universidad se
-# actualiza con servidor/actualizar.sh.
+# (git add, commit y push) y actualizar el servidor con servidor/actualizar.sh.
 param(
     [string]$ClaveMaps = ''
 )
@@ -24,7 +22,7 @@ $opciones = @(
 )
 # La clave queda dentro del código que descarga cualquier visitante (así
 # funciona Google Maps en la web): usa una restringida a "Sitios web" con los
-# dominios donde se publica (ej. https://api-mdrmarket-production.up.railway.app/*)
+# dominios donde se publica (ej. https://mdrmarket.sistemasunifranz.site/*)
 # y solo "Maps JavaScript API".
 if ($ClaveMaps) { $opciones += "--dart-define=GOOGLE_MAPS_KEY=$ClaveMaps" }
 

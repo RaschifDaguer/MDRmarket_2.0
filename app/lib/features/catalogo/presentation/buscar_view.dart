@@ -177,40 +177,36 @@ class _BuscarViewState extends ConsumerState<BuscarView> {
   }
 
   Widget _filtros() {
-    return SizedBox(
-      height: 40,
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        children: [
-          PopupMenuButton<String>(
-            tooltip: 'Ordenar',
-            initialValue: _filtro.orden,
-            onSelected: (orden) => _filtrar(orden: orden),
-            itemBuilder: (_) => const [
-              PopupMenuItem(value: 'populares', child: Text('Más vendidos')),
-              PopupMenuItem(value: 'recientes', child: Text('Más nuevos')),
-              PopupMenuItem(value: 'precio', child: Text('Precio: menor a mayor')),
-              PopupMenuItem(value: 'precio_desc', child: Text('Precio: mayor a menor')),
-              PopupMenuItem(value: 'rating', child: Text('Mejor calificados')),
-            ],
-            child: Chip(avatar: const Icon(Icons.sort, size: 18), label: Text(_textoOrden(_filtro.orden))),
-          ),
-          const SizedBox(width: AppEspacios.s),
-          FilterChip(
-            key: const Key('filtro-oferta'),
-            label: const Text('Con oferta'),
-            selected: _filtro.soloOfertas,
-            onSelected: (si) => _filtrar(soloOfertas: si),
-          ),
-          const SizedBox(width: AppEspacios.s),
-          FilterChip(
-            key: const Key('filtro-abierto'),
-            label: const Text('Abierto ahora'),
-            selected: _soloAbiertos,
-            onSelected: (si) => setState(() => _soloAbiertos = si),
-          ),
-        ],
-      ),
+    return Wrap(
+      spacing: AppEspacios.s,
+      runSpacing: AppEspacios.xs,
+      children: [
+        PopupMenuButton<String>(
+          tooltip: 'Ordenar',
+          initialValue: _filtro.orden,
+          onSelected: (orden) => _filtrar(orden: orden),
+          itemBuilder: (_) => const [
+            PopupMenuItem(value: 'populares', child: Text('Más vendidos')),
+            PopupMenuItem(value: 'recientes', child: Text('Más nuevos')),
+            PopupMenuItem(value: 'precio', child: Text('Precio: menor a mayor')),
+            PopupMenuItem(value: 'precio_desc', child: Text('Precio: mayor a menor')),
+            PopupMenuItem(value: 'rating', child: Text('Mejor calificados')),
+          ],
+          child: Chip(avatar: const Icon(Icons.sort, size: 18), label: Text(_textoOrden(_filtro.orden))),
+        ),
+        FilterChip(
+          key: const Key('filtro-oferta'),
+          label: const Text('Con oferta'),
+          selected: _filtro.soloOfertas,
+          onSelected: (si) => _filtrar(soloOfertas: si),
+        ),
+        FilterChip(
+          key: const Key('filtro-abierto'),
+          label: const Text('Abierto ahora'),
+          selected: _soloAbiertos,
+          onSelected: (si) => setState(() => _soloAbiertos = si),
+        ),
+      ],
     );
   }
 

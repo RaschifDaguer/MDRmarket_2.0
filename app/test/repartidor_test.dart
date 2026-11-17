@@ -3,7 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mdrmarket/core/network/api_exception.dart';
 import 'package:mdrmarket/core/theme/app_theme.dart';
 import 'package:mdrmarket/features/auth/domain/usuario.dart';
-import 'package:mdrmarket/features/inicio/presentation/vistas/inicio_cliente.dart';
+import 'package:mdrmarket/features/cuenta/presentation/cuenta_view.dart';
 import 'package:mdrmarket/features/inicio/presentation/vistas/inicio_repartidor.dart';
 import 'package:mdrmarket/features/repartidor/domain/repartidor.dart';
 import 'package:mdrmarket/features/repartidor/presentation/registrar_repartidor_screen.dart';
@@ -115,18 +115,19 @@ void main() {
     });
   });
 
-  group('Vista cliente', () {
+  group('Cuenta del cliente (Tus vistas)', () {
     testWidgets('invita a repartir si no es repartidor', (tester) async {
-      await abrirConFalsos(tester, const InicioCliente(usuario: cliente), overrides: overridesFalsos(usuario: cliente));
-      expect(find.text('¿Quieres repartir?'), findsOneWidget);
-      expect(find.text('Registrarme'), findsOneWidget);
+      await abrirConFalsos(tester, const CuentaView(usuario: cliente), overrides: overridesFalsos(usuario: cliente));
+      expect(find.text('Quiero repartir'), findsOneWidget);
+      expect(find.text('Gana dinero llevando pedidos'), findsOneWidget);
       expect(find.text('¿Tienes un negocio?'), findsOneWidget); // la del negocio sigue igual
     });
 
     testWidgets('no la muestra si ya es repartidor', (tester) async {
-      await abrirConFalsos(tester, const InicioCliente(usuario: repartidorEnRevision),
+      await abrirConFalsos(tester, const CuentaView(usuario: repartidorEnRevision),
           overrides: overridesFalsos(usuario: repartidorEnRevision));
-      expect(find.text('¿Quieres repartir?'), findsNothing);
+      expect(find.text('Quiero repartir'), findsNothing);
+      expect(find.text('Repartir'), findsOneWidget); // ya tiene la vista: la abre
     });
 
     testWidgets('si lo rechazaron, invita a revisar', (tester) async {
@@ -138,9 +139,8 @@ void main() {
         vistaGuardada: 'cliente',
         estadoRepartidor: 'rechazado',
       );
-      await abrirConFalsos(tester, const InicioCliente(usuario: rechazado), overrides: overridesFalsos(usuario: rechazado));
-      expect(find.text('Tu solicitud de repartidor no fue aprobada'), findsOneWidget);
-      expect(find.text('Revisar'), findsOneWidget);
+      await abrirConFalsos(tester, const CuentaView(usuario: rechazado), overrides: overridesFalsos(usuario: rechazado));
+      expect(find.text('Tu solicitud no fue aprobada: mira el motivo'), findsOneWidget);
     });
   });
 

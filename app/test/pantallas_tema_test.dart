@@ -67,7 +67,9 @@ void main() {
 
       testWidgets('el registro se dibuja', (tester) async {
         await abrir(tester, const RegistroScreen(), tema);
-        expect(find.widgetWithText(FilledButton, 'Crear cuenta'), findsOneWidget);
+        // En 3 pasos: el primero termina en "Siguiente".
+        expect(find.text('Paso 1 de 3'), findsOneWidget);
+        expect(find.widgetWithText(FilledButton, 'Siguiente'), findsOneWidget);
         expect(find.byIcon(Icons.check_circle), findsNothing);
         expect(tester.takeException(), isNull);
       });

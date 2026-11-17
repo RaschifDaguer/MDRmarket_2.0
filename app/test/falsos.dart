@@ -141,8 +141,10 @@ Pedido pedidoDeEjemplo({
   bool conRepartidor = false,
   String metodoPago = 'efectivo',
   String estadoPago = 'pendiente',
+  int? repartidorId,
 }) {
   return Pedido(
+    repartidorId: repartidorId,
     repartidorNombre: conRepartidor ? 'Diego Rodríguez' : null,
     repartidorVehiculo: conRepartidor ? 'Moto' : null,
     repartidorPlaca: conRepartidor ? '1234-ABC' : null,

@@ -15,8 +15,9 @@ class Env {
   ///
   /// App web publicada dentro del servidor de la API (en /app/, ver
   /// publicar_web.ps1): `API_URL=mismo-servidor` usa la API del mismo sitio
-  /// desde donde se abrió, así sirve igual en Railway, en el servidor de la
-  /// universidad o con cualquier dominio nuevo, sin volver a armarla.
+  /// desde donde se abrió, así sirve igual en el servidor de la universidad
+  /// con su dirección temporal, la definitiva o cualquier dominio nuevo, sin
+  /// volver a armarla.
   static String get apiUrl {
     const desdeComando = String.fromEnvironment('API_URL');
     if (desdeComando == 'mismo-servidor' && kIsWeb) {

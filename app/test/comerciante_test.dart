@@ -6,7 +6,7 @@ import 'package:mdrmarket/core/theme/app_theme.dart';
 import 'package:mdrmarket/features/comerciante/presentation/pestanas/ganancias_tab.dart';
 import 'package:mdrmarket/features/comerciante/presentation/producto_form_screen.dart';
 import 'package:mdrmarket/features/comerciante/presentation/registrar_negocio_screen.dart';
-import 'package:mdrmarket/features/inicio/presentation/vistas/inicio_cliente.dart';
+import 'package:mdrmarket/features/cuenta/presentation/cuenta_view.dart';
 import 'package:mdrmarket/features/inicio/presentation/vistas/inicio_comerciante.dart';
 import 'package:mdrmarket/features/pedidos/domain/pedido.dart';
 
@@ -84,14 +84,14 @@ void main() {
     });
   });
 
-  group('Vista cliente', () {
+  group('Cuenta del cliente (Tus vistas)', () {
     testWidgets('invita a registrar un negocio si no tiene', (tester) async {
-      await abrirConFalsos(tester, const InicioCliente(usuario: cliente), overrides: overridesFalsos(usuario: cliente));
+      await abrirConFalsos(tester, const CuentaView(usuario: cliente), overrides: overridesFalsos(usuario: cliente));
       expect(find.text('¿Tienes un negocio?'), findsOneWidget);
     });
 
     testWidgets('no lo muestra si ya es comerciante', (tester) async {
-      await abrirConFalsos(tester, const InicioCliente(usuario: comerciante), overrides: overridesFalsos(usuario: comerciante));
+      await abrirConFalsos(tester, const CuentaView(usuario: comerciante), overrides: overridesFalsos(usuario: comerciante));
       expect(find.text('¿Tienes un negocio?'), findsNothing);
     });
   });
