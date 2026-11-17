@@ -16,6 +16,11 @@ abstract final class AppColores {
   static const fondoSuave = Color(0xFFE1F5EE);
   static const blanco = Color(0xFFFFFFFF);
 
+  // --- Acento ámbar (estrellas, ofertas, "poco stock") ---
+  static const ambar = Color(0xFFEF9F27);
+  static const ambarSuave = Color(0xFFFAEEDA);
+  static const ambarTexto = Color(0xFF854F0B);
+
   // --- Neutros ---
   static const arena = Color(0xFFF1EFE8);
   static const gris = Color(0xFF888780);

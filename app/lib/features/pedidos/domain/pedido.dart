@@ -45,6 +45,7 @@ class ItemPedido {
     required this.subtotal,
     this.imagenUrl,
     this.notas,
+    this.precioOriginal,
   });
 
   final int productoId;
@@ -55,30 +56,38 @@ class ItemPedido {
   final String? imagenUrl;
   final String? notas;
 
+  /// Precio sin oferta al momento de la compra (para mostrar cuánto ahorró).
+  final double? precioOriginal;
+
   factory ItemPedido.fromJson(Map<String, dynamic> json) => ItemPedido(
-        productoId: (json['producto_id'] as num).toInt(),
-        nombre: json['nombre'] as String,
-        precioUnitario: Formato.numero(json['precio_unitario']),
-        cantidad: (json['cantidad'] as num).toInt(),
-        subtotal: Formato.numero(json['subtotal']),
-        imagenUrl: json['imagen_url'] as String?,
-        notas: json['notas'] as String?,
-      );
+    productoId: (json['producto_id'] as num).toInt(),
+    nombre: json['nombre'] as String,
+    precioUnitario: Formato.numero(json['precio_unitario']),
+    cantidad: (json['cantidad'] as num).toInt(),
+    subtotal: Formato.numero(json['subtotal']),
+    imagenUrl: json['imagen_url'] as String?,
+    notas: json['notas'] as String?,
+    precioOriginal: json['precio_original'] == null ? null : Formato.numero(json['precio_original']),
+  );
 }
 
 /// Lo que el comprador ya calificó de un pedido entregado.
 class MiResena {
-  const MiResena({required this.estrellas, this.comentario, this.productoId});
+  const MiResena({required this.estrellas, this.comentario, this.productoId, this.etiquetas = const []});
 
   final int estrellas;
   final String? comentario;
   final int? productoId;
 
+  /// Solo en la del repartidor: "Puntual", "Amable", "Cuidó el paquete".
+  final List<String> etiquetas;
+
   factory MiResena.fromJson(Map<String, dynamic> json) => MiResena(
-        estrellas: (json['estrellas'] as num).toInt(),
-        comentario: json['comentario'] as String?,
-        productoId: (json['producto_id'] as num?)?.toInt(),
-      );
+    estrellas: (json['estrellas'] as num).toInt(),
+    comentario: json['comentario'] as String?,
+    productoId: (json['producto_id'] as num?)?.toInt(),
+    etiquetas: ((json['etiquetas'] as List?) ?? const []).cast<String>(),
+  );
 }
 
 class Pedido {
@@ -93,6 +102,11 @@ class Pedido {
     required this.tarifaServicio,
     required this.total,
     required this.metodoPago,
+    this.pagaCon,
+    this.cambio,
+    this.ahorro = 0,
+    this.repartidorId,
+    this.resenaRepartidor,
     this.negocioLogo,
     this.negocioTelefono,
     this.clienteNombre,
@@ -143,6 +157,17 @@ class Pedido {
   final double total;
   final String metodoPago;
 
+  /// Efectivo: con cuánto paga el cliente y cuánto cambio le dan (null si no lo dijo).
+  final double? pagaCon;
+  final double? cambio;
+
+  /// Lo que se ahorró con las ofertas (precio sin oferta − precio cobrado).
+  final double ahorro;
+
+  /// El repartidor que lo entregó (para calificarlo) y lo que ya le puso.
+  final int? repartidorId;
+  final MiResena? resenaRepartidor;
+
   /// pendiente, pagado o reembolsado (devuelto al cancelar un pedido pagado con QR).
   final String estadoPago;
 
@@ -188,11 +213,11 @@ class Pedido {
   /// Hoy solo se paga en efectivo o con QR; transferencia y tarjeta quedan
   /// para mostrar pedidos antiguos.
   String get metodoPagoTexto => switch (metodoPago) {
-        'qr' => 'Pago con QR',
-        'transferencia' => 'Transferencia',
-        'tarjeta' => 'Tarjeta',
-        _ => 'Efectivo al recibir',
-      };
+    'qr' => 'Pago con QR',
+    'transferencia' => 'Transferencia',
+    'tarjeta' => 'Tarjeta',
+    _ => 'Efectivo al recibir',
+  };
 
   /// Pedido con QR que todavía no se pagó (y sigue activo): el negocio lo
   /// acepta recién cuando se pague.
@@ -200,10 +225,10 @@ class Pedido {
 
   /// Cómo va el pago, para mostrarlo junto al método (null si no hay nada que decir).
   String? get estadoPagoTexto => switch (estadoPago) {
-        'pagado' => 'Pagado',
-        'reembolsado' => 'Devuelto',
-        _ => esperandoPagoQr ? 'Esperando el pago' : null,
-      };
+    'pagado' => 'Pagado',
+    'reembolsado' => 'Devuelto',
+    _ => esperandoPagoQr ? 'Esperando el pago' : null,
+  };
 
   /// Cuándo pasó a [e] (null si todavía no).
   DateTime? fechaDe(EstadoPedido e) => historial.where((h) => h.estado == e).firstOrNull?.fecha;
@@ -234,6 +259,13 @@ class Pedido {
       tarifaServicio: Formato.numero(json['tarifa_servicio']),
       total: Formato.numero(json['total']),
       metodoPago: (json['metodo_pago'] as String?) ?? 'efectivo',
+      pagaCon: json['paga_con'] == null ? null : Formato.numero(json['paga_con']),
+      cambio: json['cambio'] == null ? null : Formato.numero(json['cambio']),
+      ahorro: Formato.numero(json['ahorro']),
+      repartidorId: (resenas?['repartidor_id'] as num?)?.toInt(),
+      resenaRepartidor: resenas?['repartidor'] is Map
+          ? MiResena.fromJson(resenas!['repartidor'] as Map<String, dynamic>)
+          : null,
       estadoPago: (json['estado_pago'] as String?) ?? 'pendiente',
       pagoQr: (json['pago_qr'] as Map?)?['contenido'] as String?,
       codigoEntrega: json['codigo_entrega'] as String?,

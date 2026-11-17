@@ -11,6 +11,9 @@ import '../domain/direccion.dart';
 import '../domain/pedido.dart';
 import '../domain/seguimiento.dart';
 
+/// Un motivo para reportar un problema ("Pedido incompleto o en mal estado").
+typedef MotivoReporte = ({String codigo, String nombre});
+
 /// Dónde entregar: una dirección guardada o una nueva (texto + punto en el mapa).
 typedef DestinoPedido = ({int? direccionId, String? direccion, String? referencia, Coordenada? ubicacion});
 
@@ -21,76 +24,130 @@ class PedidosRepository {
   final Dio _dio;
 
   Future<Cotizacion> cotizar(int negocioId, Coordenada destino, List<int> productos) => _llamar(() async {
-        final r = await _dio.post('/envio/cotizar', data: {
-          'negocio_id': negocioId,
-          'latitud': destino.latitud,
-          'longitud': destino.longitud,
-          'productos': productos,
-        });
-        return Cotizacion.fromJson(r.data as Map<String, dynamic>);
-      });
+    final r = await _dio.post(
+      '/envio/cotizar',
+      data: {'negocio_id': negocioId, 'latitud': destino.latitud, 'longitud': destino.longitud, 'productos': productos},
+    );
+    return Cotizacion.fromJson(r.data as Map<String, dynamic>);
+  });
 
   /// Hace el pedido con lo que hay en el carrito.
-  Future<Pedido> crear(Carrito carrito, DestinoPedido destino, {required String metodoPago, String? notas}) =>
-      _llamar(() async {
-        final r = await _dio.post('/pedidos', data: {
-          'negocio_id': carrito.negocio.id,
-          'direccion_id': ?destino.direccionId,
-          'direccion': ?destino.direccion,
-          'referencia': ?destino.referencia,
-          'latitud': ?destino.ubicacion?.latitud,
-          'longitud': ?destino.ubicacion?.longitud,
-          'metodo_pago': metodoPago,
-          if (notas != null && notas.trim().isNotEmpty) 'notas': notas.trim(),
-          'items': [
-            for (final item in carrito.items)
-              {
-                'producto_id': item.producto.id,
-                'cantidad': item.cantidad,
-                if (item.notas != null && item.notas!.trim().isNotEmpty) 'notas': item.notas!.trim(),
-              },
-          ],
-        });
-        return Pedido.fromJson(r.data as Map<String, dynamic>);
-      });
+  Future<Pedido> crear(
+    Carrito carrito,
+    DestinoPedido destino, {
+    required String metodoPago,
+    String? notas,
+    double? pagaCon,
+  }) => _llamar(() async {
+    final r = await _dio.post(
+      '/pedidos',
+      data: {
+        'negocio_id': carrito.negocio.id,
+        'direccion_id': ?destino.direccionId,
+        'direccion': ?destino.direccion,
+        'referencia': ?destino.referencia,
+        'latitud': ?destino.ubicacion?.latitud,
+        'longitud': ?destino.ubicacion?.longitud,
+        'metodo_pago': metodoPago,
+        // Efectivo: con cuánto paga (para que el repartidor lleve cambio).
+        'paga_con': ?pagaCon,
+        if (notas != null && notas.trim().isNotEmpty) 'notas': notas.trim(),
+        'items': [
+          for (final item in carrito.items)
+            {
+              'producto_id': item.producto.id,
+              'cantidad': item.cantidad,
+              if (item.notas != null && item.notas!.trim().isNotEmpty) 'notas': item.notas!.trim(),
+            },
+        ],
+      },
+    );
+    return Pedido.fromJson(r.data as Map<String, dynamic>);
+  });
 
   Future<Pagina<Pedido>> misPedidos({int pagina = 1}) => _llamar(() async {
-        final r = await _dio.get('/pedidos', queryParameters: {'page': pagina});
-        return Pagina.desdeJson(r.data as Map<String, dynamic>, Pedido.fromJson);
-      });
+    final r = await _dio.get('/pedidos', queryParameters: {'page': pagina});
+    return Pagina.desdeJson(r.data as Map<String, dynamic>, Pedido.fromJson);
+  });
 
   Future<Pedido> pedido(int id) => _llamar(() async {
-        final r = await _dio.get('/pedidos/$id');
-        return Pedido.fromJson(r.data as Map<String, dynamic>);
-      });
+    final r = await _dio.get('/pedidos/$id');
+    return Pedido.fromJson(r.data as Map<String, dynamic>);
+  });
 
   /// Dónde va el pedido: posición del repartidor y tiempo estimado (rastreo).
   Future<Seguimiento> seguimiento(int id) => _llamar(() async {
-        final r = await _dio.get('/pedidos/$id/seguimiento');
-        return Seguimiento.fromJson(r.data as Map<String, dynamic>);
-      });
+    final r = await _dio.get('/pedidos/$id/seguimiento');
+    return Seguimiento.fromJson(r.data as Map<String, dynamic>);
+  });
 
   Future<Pedido> cancelar(int id, {String? motivo}) => _llamar(() async {
-        final r = await _dio.post('/pedidos/$id/cancelar', data: {'motivo': ?motivo});
-        return Pedido.fromJson(r.data as Map<String, dynamic>);
-      });
+    final r = await _dio.post('/pedidos/$id/cancelar', data: {'motivo': ?motivo});
+    return Pedido.fromJson(r.data as Map<String, dynamic>);
+  });
 
   /// "Simular pago": procesa el cobro con QR (de prueba, no mueve dinero real).
   Future<Pedido> pagarQr(int id) => _llamar(() async {
-        final r = await _dio.post('/pedidos/$id/pago-qr');
-        return Pedido.fromJson(r.data as Map<String, dynamic>);
-      });
+    final r = await _dio.post('/pedidos/$id/pago-qr');
+    return Pedido.fromJson(r.data as Map<String, dynamic>);
+  });
 
   /// Crea o edita la reseña del usuario (una por producto o negocio).
   Future<void> calificar({int? productoId, int? negocioId, required int estrellas, String? comentario}) =>
       _llamar(() async {
-        await _dio.put('/resenas', data: {
-          'tipo': productoId != null ? 'producto' : 'negocio',
-          'producto_id': ?productoId,
-          'negocio_id': ?negocioId,
-          'estrellas': estrellas,
-          if (comentario != null && comentario.trim().isNotEmpty) 'comentario': comentario.trim(),
-        });
+        await _dio.put(
+          '/resenas',
+          data: {
+            'tipo': productoId != null ? 'producto' : 'negocio',
+            'producto_id': ?productoId,
+            'negocio_id': ?negocioId,
+            'estrellas': estrellas,
+            if (comentario != null && comentario.trim().isNotEmpty) 'comentario': comentario.trim(),
+          },
+        );
+      });
+
+  /// Califica al repartidor que le entregó un pedido, con etiquetas opcionales.
+  Future<void> calificarRepartidor({
+    required int repartidorId,
+    required int estrellas,
+    List<String> etiquetas = const [],
+    String? comentario,
+  }) => _llamar(() async {
+    await _dio.put(
+      '/resenas',
+      data: {
+        'tipo': 'repartidor',
+        'repartidor_id': repartidorId,
+        'estrellas': estrellas,
+        'etiquetas': etiquetas,
+        if (comentario != null && comentario.trim().isNotEmpty) 'comentario': comentario.trim(),
+      },
+    );
+  });
+
+  // ----- Reportar un problema -----
+
+  /// Motivos para reportar a la tienda ('negocio') o al repartidor.
+  Future<List<MotivoReporte>> motivosReporte(String sobre) => _llamar(() async {
+    final r = await _dio.get('/motivos-reporte', queryParameters: {'tipo': sobre});
+    return (r.data as List)
+        .map((m) => (codigo: (m as Map)['codigo'] as String, nombre: m['nombre'] as String))
+        .toList();
+  });
+
+  /// "Hubo un problema" con la tienda o el repartidor de un pedido. Devuelve el mensaje de la API.
+  Future<String> reportar(int pedidoId, {required String sobre, required String motivo, String? descripcion}) =>
+      _llamar(() async {
+        final r = await _dio.post(
+          '/pedidos/$pedidoId/reportes',
+          data: {
+            'sobre': sobre,
+            'motivo': motivo,
+            if (descripcion != null && descripcion.trim().isNotEmpty) 'descripcion': descripcion.trim(),
+          },
+        );
+        return (r.data as Map)['mensaje'] as String? ?? 'Gracias por avisarnos.';
       });
 
   // ----- Direcciones -----
@@ -98,13 +155,13 @@ class PedidosRepository {
   /// Direcciones guardadas. Las que no tienen coordenadas (datos viejos o de
   /// ejemplo) no sirven para calcular el envío: se omiten en vez de romper la lista.
   Future<List<Direccion>> direcciones() => _llamar(() async {
-        final r = await _dio.get('/direcciones');
-        return (r.data as List)
-            .cast<Map<String, dynamic>>()
-            .where((d) => d['latitud'] is num && d['longitud'] is num)
-            .map(Direccion.fromJson)
-            .toList();
-      });
+    final r = await _dio.get('/direcciones');
+    return (r.data as List)
+        .cast<Map<String, dynamic>>()
+        .where((d) => d['latitud'] is num && d['longitud'] is num)
+        .map(Direccion.fromJson)
+        .toList();
+  });
 
   Future<Direccion> guardarDireccion({
     int? id,
@@ -113,19 +170,20 @@ class PedidosRepository {
     String? referencia,
     required Coordenada ubicacion,
     bool predeterminada = false,
-  }) =>
-      _llamar(() async {
-        final datos = {
-          'etiqueta': etiqueta,
-          'direccion': direccion,
-          'referencia': referencia,
-          'latitud': ubicacion.latitud,
-          'longitud': ubicacion.longitud,
-          'predeterminada': predeterminada,
-        };
-        final r = id == null ? await _dio.post('/direcciones', data: datos) : await _dio.put('/direcciones/$id', data: datos);
-        return Direccion.fromJson(r.data as Map<String, dynamic>);
-      });
+  }) => _llamar(() async {
+    final datos = {
+      'etiqueta': etiqueta,
+      'direccion': direccion,
+      'referencia': referencia,
+      'latitud': ubicacion.latitud,
+      'longitud': ubicacion.longitud,
+      'predeterminada': predeterminada,
+    };
+    final r = id == null
+        ? await _dio.post('/direcciones', data: datos)
+        : await _dio.put('/direcciones/$id', data: datos);
+    return Direccion.fromJson(r.data as Map<String, dynamic>);
+  });
 
   Future<void> borrarDireccion(int id) => _llamar(() => _dio.delete('/direcciones/$id'));
 
@@ -144,13 +202,9 @@ final pedidosRepositoryProvider = Provider<PedidosRepository>((ref) {
 });
 
 /// Primera página de mis pedidos. Invalidar después de pedir o cancelar.
-final misPedidosProvider = FutureProvider<Pagina<Pedido>>(
-  (ref) => ref.watch(pedidosRepositoryProvider).misPedidos(),
-);
+final misPedidosProvider = FutureProvider<Pagina<Pedido>>((ref) => ref.watch(pedidosRepositoryProvider).misPedidos());
 
-final pedidoProvider = FutureProvider.family<Pedido, int>(
-  (ref, id) => ref.watch(pedidosRepositoryProvider).pedido(id),
-);
+final pedidoProvider = FutureProvider.family<Pedido, int>((ref, id) => ref.watch(pedidosRepositoryProvider).pedido(id));
 
 /// Rastreo de un pedido. La pantalla lo vuelve a pedir cada pocos segundos.
 final seguimientoProvider = FutureProvider.family<Seguimiento, int>(
@@ -160,3 +214,11 @@ final seguimientoProvider = FutureProvider.family<Seguimiento, int>(
 final direccionesProvider = FutureProvider<List<Direccion>>(
   (ref) => ref.watch(pedidosRepositoryProvider).direcciones(),
 );
+
+/// Dirección donde el cliente recibe: la predeterminada (o la primera
+/// guardada). Sirve para el "Entregar en…" del Inicio y para calcular envíos y
+/// tiempos. null si todavía no guardó ninguna.
+final entregaClienteProvider = FutureProvider<Direccion?>((ref) async {
+  final direcciones = await ref.watch(direccionesProvider.future);
+  return direcciones.where((d) => d.predeterminada).firstOrNull ?? direcciones.firstOrNull;
+});

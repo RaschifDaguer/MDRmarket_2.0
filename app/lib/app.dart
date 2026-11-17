@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/router/app_router.dart';
+import 'core/storage/preferencias.dart';
 import 'core/theme/app_theme.dart';
 
 class MdrMarketApp extends ConsumerWidget {
@@ -14,8 +15,8 @@ class MdrMarketApp extends ConsumerWidget {
       debugShowCheckedModeBanner: false,
       theme: AppTheme.claro,
       darkTheme: AppTheme.oscuro,
-      // Claro u oscuro según lo que tenga elegido el equipo de la persona.
-      themeMode: ThemeMode.system,
+      // Por defecto, el del equipo de la persona; en Cuenta puede elegir claro u oscuro.
+      themeMode: ref.watch(modoTemaProvider),
       routerConfig: ref.watch(routerProvider),
     );
   }

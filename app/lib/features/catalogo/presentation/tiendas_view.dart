@@ -5,11 +5,22 @@ import 'package:go_router/go_router.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/theme/app_espacios.dart';
 import '../../../core/widgets/widgets.dart';
+import '../../pedidos/data/pedidos_repository.dart';
 import '../data/catalogo_repository.dart';
 import '../domain/tienda.dart';
 import 'widgets/tarjetas_catalogo.dart';
 
-/// Pestaña "Tiendas": negocios aprobados, abiertos primero, con buscador.
+/// Pantalla "Tiendas" (desde el Inicio): negocios aprobados, abiertos
+/// primero, con buscador y rubros. Con la dirección del cliente, cada una
+/// muestra el tiempo y el envío.
+class TiendasScreen extends StatelessWidget {
+  const TiendasScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) => const Pantalla(titulo: 'Tiendas', child: TiendasView());
+}
+
+/// Lista de tiendas con buscador y rubros.
 class TiendasView extends ConsumerStatefulWidget {
   const TiendasView({super.key});
 
@@ -21,6 +32,7 @@ class _TiendasViewState extends ConsumerState<TiendasView> {
   final _busqueda = TextEditingController();
   final _tiendas = <Tienda>[];
   int _pagina = 0;
+  int? _categoria;
   bool _hayMas = false;
   bool _cargando = false;
   Object? _error;
@@ -47,7 +59,11 @@ class _TiendasViewState extends ConsumerState<TiendasView> {
       }
     });
     try {
-      final pagina = await ref.read(catalogoRepositoryProvider).tiendas(texto: _busqueda.text, pagina: _pagina + 1);
+      // Sin dirección guardada se listan igual, sin envío ni tiempo.
+      final entrega = await ref.read(entregaClienteProvider.future).catchError((_) => null);
+      final pagina = await ref
+          .read(catalogoRepositoryProvider)
+          .tiendas(texto: _busqueda.text, categoria: _categoria, pagina: _pagina + 1, ubicacion: entrega?.ubicacion);
       if (!mounted) return;
       setState(() {
         _tiendas.addAll(pagina.items);
@@ -59,6 +75,11 @@ class _TiendasViewState extends ConsumerState<TiendasView> {
     } finally {
       if (mounted) setState(() => _cargando = false);
     }
+  }
+
+  void _filtrar(int? categoria) {
+    setState(() => _categoria = categoria);
+    _cargar(desdeCero: true);
   }
 
   @override
@@ -80,16 +101,45 @@ class _TiendasViewState extends ConsumerState<TiendasView> {
                     decoration: const InputDecoration(hintText: 'Buscar un negocio', prefixIcon: Icon(Icons.search)),
                     onSubmitted: (_) => _cargar(desdeCero: true),
                   ),
+                  const SizedBox(height: AppEspacios.s),
+                  SizedBox(
+                    height: 40,
+                    child: ListView(
+                      scrollDirection: Axis.horizontal,
+                      children: [
+                        ChoiceChip(
+                          label: const Text('Todas'),
+                          selected: _categoria == null,
+                          onSelected: (_) => _filtrar(null),
+                        ),
+                        for (final categoria in ref.watch(categoriasProvider).value ?? const []) ...[
+                          const SizedBox(width: AppEspacios.s),
+                          ChoiceChip(
+                            key: Key('rubro-${categoria.id}'),
+                            label: Text(categoria.etiqueta),
+                            selected: _categoria == categoria.id,
+                            onSelected: (_) => _filtrar(categoria.id),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
                   const SizedBox(height: AppEspacios.m),
                   if (_tiendas.isEmpty && _cargando)
-                    const Padding(padding: EdgeInsets.all(AppEspacios.xl), child: Center(child: CircularProgressIndicator()))
+                    const Padding(
+                      padding: EdgeInsets.all(AppEspacios.xl),
+                      child: Center(child: CircularProgressIndicator()),
+                    )
                   else if (_tiendas.isEmpty && _error != null)
                     VistaError(error: _error!, alReintentar: () => _cargar(desdeCero: true))
                   else if (_tiendas.isEmpty)
                     const EstadoVacio(icono: Icons.storefront_outlined, titulo: 'No hay negocios con ese nombre')
                   else ...[
-                    for (final tienda in _tiendas) ...[
-                      TarjetaTienda(tienda: tienda, alTocar: () => context.push('/tienda/${tienda.id}')),
+                    for (final (i, tienda) in _tiendas.indexed) ...[
+                      Aparecer(
+                        orden: i.clamp(0, 8),
+                        child: TarjetaTienda(tienda: tienda, alTocar: () => context.push('/tienda/${tienda.id}')),
+                      ),
                       const SizedBox(height: AppEspacios.m - 4),
                     ],
                     if (_hayMas)

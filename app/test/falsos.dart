@@ -9,6 +9,7 @@ import 'package:mdrmarket/core/archivos/archivo_elegido.dart';
 import 'package:mdrmarket/core/maps/coordenada.dart';
 import 'package:mdrmarket/core/network/api_exception.dart';
 import 'package:mdrmarket/core/network/pagina.dart';
+import 'package:mdrmarket/core/storage/preferencias.dart';
 import 'package:mdrmarket/core/theme/app_theme.dart';
 import 'package:mdrmarket/features/auth/domain/usuario.dart';
 import 'package:mdrmarket/features/auth/presentation/auth_controller.dart';
@@ -24,6 +25,8 @@ import 'package:mdrmarket/features/comerciante/domain/finanzas.dart';
 import 'package:mdrmarket/features/comerciante/domain/horario.dart';
 import 'package:mdrmarket/features/comerciante/domain/mi_producto.dart';
 import 'package:mdrmarket/features/comerciante/domain/negocio.dart';
+import 'package:mdrmarket/features/notificaciones/data/notificaciones_repository.dart';
+import 'package:mdrmarket/features/notificaciones/domain/notificacion.dart';
 import 'package:mdrmarket/features/pedidos/data/pedidos_repository.dart';
 import 'package:mdrmarket/features/pedidos/domain/direccion.dart';
 import 'package:mdrmarket/features/pedidos/domain/pedido.dart';
@@ -171,6 +174,9 @@ Pedido pedidoDeEjemplo({
   );
 }
 
+/// Envío de prueba de una tienda hasta la dirección del cliente.
+const envioDePrueba = EnvioTienda(enCobertura: true, costoEnvio: 5, distanciaKm: 2.4, tiempoMin: 30, tiempoMax: 40);
+
 class CatalogoFalso extends CatalogoRepository {
   CatalogoFalso() : super(Dio());
 
@@ -195,17 +201,44 @@ class CatalogoFalso extends CatalogoRepository {
         resenas: [Resena(id: 1, tipo: 'producto', estrellas: 5, autor: 'Lucía R.', comentario: '¡Riquísimo!', fecha: DateTime(2026, 10, 1))],
       );
 
-  @override
-  Future<Pagina<Tienda>> tiendas({int? categoria, String? texto, int pagina = 1}) async => const Pagina(
-        items: [Tienda(id: 5, nombre: 'Pollos Marta', categoria: 'Alimentos y Bebidas', rating: 4.5, totalResenas: 3)],
-        pagina: 1,
-        ultimaPagina: 1,
-      );
+  /// Ubicaciones con las que se pidieron las tiendas (null = sin ubicación).
+  final ubicacionesTiendas = <Coordenada?>[];
 
   @override
-  Future<TiendaDetalle> tienda(int id) async => const TiendaDetalle(
-        tienda: Tienda(id: 5, nombre: 'Pollos Marta', pedidoMinimo: 20, tiempoPreparacionMin: 25),
-        productos: [pollo, papas],
+  Future<Pagina<Tienda>> tiendas({
+    int? categoria,
+    String? texto,
+    int pagina = 1,
+    Coordenada? ubicacion,
+    bool cerca = false,
+  }) async {
+    ubicacionesTiendas.add(ubicacion);
+    return Pagina(
+      items: [
+        Tienda(
+          id: 5,
+          nombre: 'Pollos Marta',
+          categoria: 'Alimentos y Bebidas',
+          rating: 4.5,
+          totalResenas: 3,
+          envio: ubicacion == null ? null : envioDePrueba,
+        ),
+      ],
+      pagina: 1,
+      ultimaPagina: 1,
+    );
+  }
+
+  @override
+  Future<TiendaDetalle> tienda(int id, {Coordenada? ubicacion}) async => TiendaDetalle(
+        tienda: Tienda(
+          id: 5,
+          nombre: 'Pollos Marta',
+          pedidoMinimo: 20,
+          tiempoPreparacionMin: 25,
+          envio: ubicacion == null ? null : envioDePrueba,
+        ),
+        productos: const [pollo, papas],
       );
 }
 
@@ -213,7 +246,7 @@ class PedidosFalso extends PedidosRepository {
   PedidosFalso({this.pedidoActual}) : super(Dio());
 
   Pedido? pedidoActual;
-  ({Carrito carrito, DestinoPedido destino, String metodoPago})? creado;
+  ({Carrito carrito, DestinoPedido destino, String metodoPago, double? pagaCon})? creado;
   int cancelados = 0;
 
   @override
@@ -224,8 +257,14 @@ class PedidosFalso extends PedidosRepository {
       const Cotizacion(costoEnvio: 5, tarifaServicio: 0, distanciaKm: 2.4, anillo: 3);
 
   @override
-  Future<Pedido> crear(Carrito carrito, DestinoPedido destino, {required String metodoPago, String? notas}) async {
-    creado = (carrito: carrito, destino: destino, metodoPago: metodoPago);
+  Future<Pedido> crear(
+    Carrito carrito,
+    DestinoPedido destino, {
+    required String metodoPago,
+    String? notas,
+    double? pagaCon,
+  }) async {
+    creado = (carrito: carrito, destino: destino, metodoPago: metodoPago, pagaCon: pagaCon);
     return pedidoActual = pedidoDeEjemplo(acciones: const [EstadoPedido.cancelado], metodoPago: metodoPago);
   }
 
@@ -256,11 +295,63 @@ class PedidosFalso extends PedidosRepository {
   Future<Seguimiento> seguimiento(int id) async =>
       seguimientos[math.min(consultasSeguimiento++, seguimientos.length - 1)];
 
+  /// Calificaciones al repartidor que se enviaron.
+  final calificacionesRepartidor = <({int repartidorId, int estrellas, List<String> etiquetas})>[];
+
+  @override
+  Future<void> calificarRepartidor({
+    required int repartidorId,
+    required int estrellas,
+    List<String> etiquetas = const [],
+    String? comentario,
+  }) async =>
+      calificacionesRepartidor.add((repartidorId: repartidorId, estrellas: estrellas, etiquetas: etiquetas));
+
+  @override
+  Future<List<MotivoReporte>> motivosReporte(String sobre) async => sobre == 'negocio'
+      ? const [(codigo: 'pedido_incompleto', nombre: 'Pedido incompleto o en mal estado'), (codigo: 'otro', nombre: 'Otro motivo')]
+      : const [(codigo: 'maltrato', nombre: 'Maltrato, insultos o acoso'), (codigo: 'otro', nombre: 'Otro motivo')];
+
+  /// Reportes enviados.
+  final reportes = <({int pedidoId, String sobre, String motivo, String? descripcion})>[];
+
+  @override
+  Future<String> reportar(int pedidoId, {required String sobre, required String motivo, String? descripcion}) async {
+    reportes.add((pedidoId: pedidoId, sobre: sobre, motivo: motivo, descripcion: descripcion));
+    return 'Gracias por avisarnos. El equipo de MDR Market lo va a revisar.';
+  }
+
   @override
   Future<Pedido> cancelar(int id, {String? motivo}) async {
     cancelados++;
     return pedidoActual = pedidoDeEjemplo(estado: EstadoPedido.cancelado);
   }
+}
+
+class NotificacionesFalso extends NotificacionesRepository {
+  NotificacionesFalso([List<Notificacion>? avisos])
+      : avisos = avisos ??
+            [
+              Notificacion(id: 1, tipo: 'pedido_en_camino', titulo: 'Tu pedido va en camino', pedidoId: 42, fecha: DateTime(2026, 11, 16, 14)),
+              Notificacion(id: 2, tipo: 'pedido_entregado', titulo: 'Pedido entregado. ¡Califícalo!', leida: true, fecha: DateTime(2026, 11, 15)),
+            ],
+        super(Dio());
+
+  List<Notificacion> avisos;
+  final leidas = <int>[];
+
+  @override
+  Future<({List<Notificacion> items, int noLeidas})> lista() async =>
+      (items: avisos, noLeidas: avisos.where((a) => !a.leida).length);
+
+  @override
+  Future<void> leer(int id) async {
+    leidas.add(id);
+    avisos = [for (final a in avisos) a.id == id ? a.leidaYa() : a];
+  }
+
+  @override
+  Future<void> leerTodas() async => avisos = [for (final a in avisos) a.leidaYa()];
 }
 
 class MiNegocioFalso extends MiNegocioRepository {
@@ -505,9 +596,14 @@ List overridesFalsos({
   List<Faltante> faltantes = const [],
   LecturaGps gps = const LecturaGps(Coordenada(-17.78, -63.18)),
   Widget Function(Seguimiento)? mapa,
+  NotificacionesFalso? notificaciones,
+  Preferencias? preferencias,
 }) =>
     [
       repartidorRepositoryProvider.overrideWithValue(repartidor ?? RepartidorFalso()),
+      notificacionesRepositoryProvider.overrideWithValue(notificaciones ?? NotificacionesFalso()),
+      // Preferencias (tema, búsquedas) en memoria: sin almacenamiento del teléfono.
+      preferenciasProvider.overrideWithValue(preferencias ?? PreferenciasEnMemoria()),
       // Sin GPS en las pruebas.
       ubicacionActualProvider.overrideWithValue(() async => null),
       leerGpsProvider.overrideWithValue(() async => gps),

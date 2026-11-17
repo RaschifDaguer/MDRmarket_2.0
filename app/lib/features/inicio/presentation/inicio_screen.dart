@@ -25,6 +25,14 @@ class InicioScreen extends ConsumerWidget {
 
     final vista = usuario.vistaActual;
 
+    // El cliente tiene su propia cabecera (Inicio) y su pestaña Cuenta, con el
+    // cambio de vista y cerrar sesión.
+    if (vista == Vista.cliente) {
+      return Scaffold(
+        body: FondoMarca(child: InicioCliente(usuario: usuario)),
+      );
+    }
+
     return Scaffold(
       body: FondoMarca(
         child: Column(
