@@ -17,6 +17,7 @@ import '../../features/catalogo/presentation/tienda_screen.dart';
 import '../../features/comerciante/domain/mi_producto.dart';
 import '../../features/comerciante/presentation/calificaciones_screen.dart';
 import '../../features/comerciante/presentation/horario_screen.dart';
+import '../../features/comerciante/presentation/documentos_negocio_screen.dart';
 import '../../features/comerciante/presentation/pedido_negocio_screen.dart';
 import '../../features/comerciante/presentation/perfil_negocio_screen.dart';
 import '../../features/comerciante/presentation/producto_form_screen.dart';
@@ -112,6 +113,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/negocio/calificaciones', builder: (_, _) => const CalificacionesScreen()),
       GoRoute(path: '/negocio/perfil', builder: (_, _) => const PerfilNegocioScreen()),
       GoRoute(path: '/negocio/horario', builder: (_, _) => const HorarioScreen()),
+      GoRoute(path: '/negocio/documentos', builder: (_, _) => const DocumentosNegocioScreen()),
     ],
   );
 });

@@ -15,7 +15,7 @@ import '../widgets/tarjeta_accion.dart';
 import '../widgets/tarjeta_rol.dart';
 
 /// Vista comerciante. Sin negocio: invita a registrarlo. Con negocio:
-/// Resumen, Productos, Pedidos, Ganancias y Más (pestañas abajo).
+/// Resumen, Pedidos, Productos, Ganancias y Más (pestañas abajo).
 class InicioComerciante extends ConsumerStatefulWidget {
   const InicioComerciante({super.key, required this.usuario});
 
@@ -30,9 +30,9 @@ class _InicioComercianteState extends ConsumerState<InicioComerciante> {
   final _abiertas = {0};
 
   void _ir(int pestana) => setState(() {
-        _pestana = pestana;
-        _abiertas.add(pestana);
-      });
+    _pestana = pestana;
+    _abiertas.add(pestana);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -85,8 +85,8 @@ class _InicioComercianteState extends ConsumerState<InicioComerciante> {
     final nuevos = ref.watch(resumenNegocioProvider(negocio.id)).value?.pedidosNuevos ?? 0;
     final paginas = [
       ResumenTab(negocio: negocio, alIrA: _ir),
-      ProductosTab(negocio: negocio),
       PedidosTab(negocio: negocio),
+      ProductosTab(negocio: negocio),
       GananciasTab(negocio: negocio),
       MasTab(negocio: negocio),
     ];
@@ -107,16 +107,33 @@ class _InicioComercianteState extends ConsumerState<InicioComerciante> {
           labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
           destinations: [
             const NavigationDestination(
-                icon: Icon(Icons.dashboard_outlined), selectedIcon: Icon(Icons.dashboard), label: 'Resumen'),
-            const NavigationDestination(
-                icon: Icon(Icons.inventory_2_outlined), selectedIcon: Icon(Icons.inventory_2), label: 'Productos'),
+              icon: Icon(Icons.dashboard_outlined),
+              selectedIcon: Icon(Icons.dashboard),
+              label: 'Resumen',
+            ),
             NavigationDestination(
-              icon: Badge(isLabelVisible: nuevos > 0, label: Text('$nuevos'), child: const Icon(Icons.receipt_long_outlined)),
-              selectedIcon: Badge(isLabelVisible: nuevos > 0, label: Text('$nuevos'), child: const Icon(Icons.receipt_long)),
+              icon: Badge(
+                isLabelVisible: nuevos > 0,
+                label: Text('$nuevos'),
+                child: const Icon(Icons.receipt_long_outlined),
+              ),
+              selectedIcon: Badge(
+                isLabelVisible: nuevos > 0,
+                label: Text('$nuevos'),
+                child: const Icon(Icons.receipt_long),
+              ),
               label: 'Pedidos',
             ),
             const NavigationDestination(
-                icon: Icon(Icons.insights_outlined), selectedIcon: Icon(Icons.insights), label: 'Ganancias'),
+              icon: Icon(Icons.inventory_2_outlined),
+              selectedIcon: Icon(Icons.inventory_2),
+              label: 'Productos',
+            ),
+            const NavigationDestination(
+              icon: Icon(Icons.insights_outlined),
+              selectedIcon: Icon(Icons.insights),
+              label: 'Ganancias',
+            ),
             const NavigationDestination(icon: Icon(Icons.menu), label: 'Más'),
           ],
         ),

@@ -12,6 +12,7 @@ import '../data/mi_negocio_repository.dart';
 import '../domain/mi_producto.dart';
 import '../domain/negocio.dart';
 import 'con_negocio.dart';
+import 'widgets/fotos_producto.dart';
 
 /// Crear o editar un producto. Con [producto] = editar.
 class ProductoFormScreen extends StatelessWidget {
@@ -22,7 +23,10 @@ class ProductoFormScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final titulo = producto == null ? 'Nuevo producto' : 'Editar producto';
-    return ConNegocio(titulo: titulo, builder: (negocio) => _Formulario(negocio: negocio, producto: producto, titulo: titulo));
+    return ConNegocio(
+      titulo: titulo,
+      builder: (negocio) => _Formulario(negocio: negocio, producto: producto, titulo: titulo),
+    );
   }
 }
 
@@ -53,15 +57,59 @@ class _FormularioState extends ConsumerState<_Formulario> {
   late DateTime? _ofertaFin = (p?.ofertaFin?.isAfter(DateTime.now()) ?? false) ? p!.ofertaFin : null;
   late bool _disponible = p?.disponible ?? true;
   late int _tamano = p?.tamano ?? 1;
-  ArchivoElegido? _foto;
+
+  /// Fotos nuevas que eligió (se suben al guardar) y las que ya tiene.
+  final _nuevas = <ArchivoElegido>[];
+  late List<FotoProducto> _subidas = [...?p?.imagenes];
   bool _guardando = false;
   Map<String, String> _errores = {};
   String? _errorGeneral;
 
-  static String _texto(double? v) => v == null ? '' : (v == v.roundToDouble() ? v.toStringAsFixed(0) : v.toStringAsFixed(2));
+  static String _texto(double? v) =>
+      v == null ? '' : (v == v.roundToDouble() ? v.toStringAsFixed(0) : v.toStringAsFixed(2));
 
   /// "12,50" o "12.50" → 12.5
   static double? _numero(String texto) => double.tryParse(texto.trim().replaceAll(',', '.'));
+
+  @override
+  void initState() {
+    super.initState();
+    // La ganancia se recalcula mientras escribe.
+    for (final c in [_precio, _costo, _precioOferta]) {
+      c.addListener(_recalcular);
+    }
+  }
+
+  void _recalcular() => setState(() {});
+
+  /// Lo que gana por cada uno: precio (o el de oferta) − lo que le costó.
+  ({double ganancia, double? porcentaje})? get _ganancia {
+    final precio = _enOferta ? (_numero(_precioOferta.text) ?? _numero(_precio.text)) : _numero(_precio.text);
+    final costo = _numero(_costo.text);
+    if (precio == null || costo == null) return null;
+    final ganancia = precio - costo;
+    return (ganancia: ganancia, porcentaje: precio > 0 ? ganancia / precio * 100 : null);
+  }
+
+  Future<void> _quitarSubida(FotoProducto foto) async {
+    try {
+      final producto = await ref.read(miNegocioRepositoryProvider).borrarFoto(widget.negocio.id, p!.id, foto.id);
+      if (mounted) setState(() => _subidas = producto.imagenes);
+      _refrescar();
+    } on ApiException catch (e) {
+      if (mounted) setState(() => _errorGeneral = e.mensaje);
+    }
+  }
+
+  Future<void> _hacerPortada(FotoProducto foto) async {
+    try {
+      final producto = await ref.read(miNegocioRepositoryProvider).portada(widget.negocio.id, p!.id, foto.id);
+      if (mounted) setState(() => _subidas = producto.imagenes);
+      _refrescar();
+    } on ApiException catch (e) {
+      if (mounted) setState(() => _errorGeneral = e.mensaje);
+    }
+  }
 
   @override
   void dispose() {
@@ -94,10 +142,14 @@ class _FormularioState extends ConsumerState<_Formulario> {
 
     setState(() => _guardando = true);
     try {
-      await ref.read(miNegocioRepositoryProvider).guardarProducto(widget.negocio.id, datos, productoId: p?.id, foto: _foto);
+      await ref
+          .read(miNegocioRepositoryProvider)
+          .guardarProducto(widget.negocio.id, datos, productoId: p?.id, fotos: _nuevas);
       _refrescar();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(p == null ? 'Producto agregado' : 'Cambios guardados')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(p == null ? 'Producto agregado' : 'Cambios guardados')));
       Navigator.of(context).pop();
     } on ApiException catch (e) {
       if (!mounted) return;
@@ -114,8 +166,10 @@ class _FormularioState extends ConsumerState<_Formulario> {
       context: context,
       builder: (contexto) => AlertDialog(
         title: Text('¿Eliminar «${p!.nombre}»?'),
-        content: const Text('Sale del catálogo. Los pedidos anteriores lo siguen mostrando. '
-            'Si solo quieres dejar de venderlo un tiempo, mejor ocúltalo.'),
+        content: const Text(
+          'Sale del catálogo. Los pedidos anteriores lo siguen mostrando. '
+          'Si solo quieres dejar de venderlo un tiempo, mejor ocúltalo.',
+        ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(contexto, false), child: const Text('Cancelar')),
           TextButton(onPressed: () => Navigator.pop(contexto, true), child: const Text('Eliminar')),
@@ -151,7 +205,7 @@ class _FormularioState extends ConsumerState<_Formulario> {
       abajo: Padding(
         padding: const EdgeInsets.all(AppEspacios.m),
         child: BotonPrincipal(
-          texto: p == null ? 'Agregar producto' : 'Guardar cambios',
+          texto: p == null ? 'Publicar producto' : 'Guardar cambios',
           icono: Icons.check,
           cargando: _guardando,
           onPressed: _guardar,
@@ -162,13 +216,14 @@ class _FormularioState extends ConsumerState<_Formulario> {
         child: ListView(
           padding: const EdgeInsets.all(AppEspacios.m),
           children: [
-            SelectorFoto(
-              valor: _foto,
-              urlActual: p?.imagenUrl,
-              texto: 'Foto del producto',
-              icono: Icons.add_photo_alternate_outlined,
-              error: _errores['foto'],
-              alElegir: (f) => setState(() => _foto = f),
+            FotosProducto(
+              subidas: _subidas,
+              nuevas: _nuevas,
+              error: _errores['fotos'] ?? _errores['foto'],
+              alAgregar: (f) => setState(() => _nuevas.add(f)),
+              alQuitarNueva: (i) => setState(() => _nuevas.removeAt(i)),
+              alQuitarSubida: p == null ? null : _quitarSubida,
+              alHacerPortada: p == null ? null : _hacerPortada,
             ),
             const SizedBox(height: AppEspacios.l),
             const TituloSeccion('Datos', Icons.inventory_2_outlined),
@@ -226,20 +281,24 @@ class _FormularioState extends ConsumerState<_Formulario> {
                 const SizedBox(width: AppEspacios.m - 4),
                 Expanded(
                   child: TextFormField(
+                    key: const Key('campo-costo'),
                     controller: _costo,
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
                     decoration: const InputDecoration(
-                      labelText: 'Costo (opcional)',
+                      labelText: 'Te costó (opcional)',
                       prefixText: 'Bs ',
-                      helperText: 'Lo que te cuesta. Sirve para tu ganancia.',
+                      helperText: 'Para calcular cuánto ganas.',
                       helperMaxLines: 2,
                     ),
                     forceErrorText: _errores['costo'],
-                    validator: (v) => (v != null && v.trim().isNotEmpty && _numero(v) == null) ? 'Número no válido' : null,
+                    validator: (v) =>
+                        (v != null && v.trim().isNotEmpty && _numero(v) == null) ? 'Número no válido' : null,
                   ),
                 ),
               ],
             ),
+            const SizedBox(height: AppEspacios.s),
+            _Ganancia(_ganancia),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
               value: _enOferta,
@@ -353,5 +412,55 @@ class _FormularioState extends ConsumerState<_Formulario> {
             child: Text('${sub.etiqueta}  ·  ${principal.nombre}', overflow: TextOverflow.ellipsis),
           ),
     ];
+  }
+}
+
+/// "Ganas Bs 70 por cada uno (29 %)", con el precio y lo que le costó.
+class _Ganancia extends StatelessWidget {
+  const _Ganancia(this.calculo);
+
+  final ({double ganancia, double? porcentaje})? calculo;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = Theme.of(context).colorScheme;
+    final textos = Theme.of(context).textTheme;
+    final calculo = this.calculo;
+    final pierde = calculo != null && calculo.ganancia < 0;
+    final fondo = calculo == null ? c.surfaceContainerHighest : (pierde ? c.errorContainer : c.primaryContainer);
+    final letra = calculo == null ? c.onSurfaceVariant : (pierde ? c.onErrorContainer : c.onPrimaryContainer);
+    final pct = calculo?.porcentaje;
+
+    return Container(
+      key: const Key('ganancia'),
+      padding: const EdgeInsets.all(AppEspacios.m - 4),
+      decoration: BoxDecoration(color: fondo, borderRadius: BorderRadius.circular(14)),
+      child: Row(
+        children: [
+          Icon(pierde ? Icons.trending_down : Icons.trending_up, color: letra),
+          const SizedBox(width: AppEspacios.s),
+          Expanded(
+            child: calculo == null
+                ? Text(
+                    'Escribe el precio y lo que te costó para ver cuánto ganas.',
+                    style: textos.bodyMedium?.copyWith(color: letra),
+                  )
+                : Text.rich(
+                    TextSpan(
+                      children: [
+                        TextSpan(text: pierde ? 'Pierdes ' : 'Ganas '),
+                        TextSpan(
+                          text: Formato.bs(calculo.ganancia.abs()),
+                          style: const TextStyle(fontWeight: FontWeight.w800),
+                        ),
+                        TextSpan(text: ' por cada uno${pct == null ? '' : ' (${pct.round()} %)'}'),
+                      ],
+                    ),
+                    style: textos.bodyMedium?.copyWith(color: letra),
+                  ),
+          ),
+        ],
+      ),
+    );
   }
 }

@@ -26,18 +26,27 @@ void main() {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
-    await tester.pumpWidget(ProviderScope(
-      retry: (_, _) => null,
-      overrides: overridesFalsos(usuario: comerciante, negocios: const [negocioAprobado], miNegocio: miNegocio).cast(),
-      child: const MdrMarketApp(),
-    ));
+    await tester.pumpWidget(
+      ProviderScope(
+        retry: (_, _) => null,
+        overrides: overridesFalsos(
+          usuario: comerciante,
+          negocios: const [negocioAprobado],
+          miNegocio: miNegocio,
+        ).cast(),
+        child: const MdrMarketApp(),
+      ),
+    );
     await esperar(tester);
   }
 
   group('Registrar mi negocio', () {
     testWidgets('sin datos, avisa todo lo que falta y no envía', (tester) async {
-      await abrirConFalsos(tester, const RegistrarNegocioScreen(),
-          overrides: overridesFalsos(usuario: cliente, faltantes: faltaIdentidad));
+      await abrirConFalsos(
+        tester,
+        const RegistrarNegocioScreen(),
+        overrides: overridesFalsos(usuario: cliente, faltantes: faltaIdentidad),
+      );
 
       final boton = find.widgetWithText(FilledButton, 'Registrar negocio');
       await tester.ensureVisible(boton);
@@ -56,8 +65,11 @@ void main() {
     });
 
     testWidgets('pide el carnet y la selfie (con la cámara) si faltan', (tester) async {
-      await abrirConFalsos(tester, const RegistrarNegocioScreen(),
-          overrides: overridesFalsos(usuario: cliente, faltantes: faltaIdentidad));
+      await abrirConFalsos(
+        tester,
+        const RegistrarNegocioScreen(),
+        overrides: overridesFalsos(usuario: cliente, faltantes: faltaIdentidad),
+      );
       expect(find.text('Verifica tu identidad'), findsOneWidget);
       expect(find.text('Toca para tomarte la foto'), findsOneWidget);
     });
@@ -86,12 +98,20 @@ void main() {
 
   group('Cuenta del cliente (Tus vistas)', () {
     testWidgets('invita a registrar un negocio si no tiene', (tester) async {
-      await abrirConFalsos(tester, const CuentaView(usuario: cliente), overrides: overridesFalsos(usuario: cliente));
+      await abrirConFalsos(
+        tester,
+        const CuentaView(usuario: cliente),
+        overrides: overridesFalsos(usuario: cliente),
+      );
       expect(find.text('¿Tienes un negocio?'), findsOneWidget);
     });
 
     testWidgets('no lo muestra si ya es comerciante', (tester) async {
-      await abrirConFalsos(tester, const CuentaView(usuario: comerciante), overrides: overridesFalsos(usuario: comerciante));
+      await abrirConFalsos(
+        tester,
+        const CuentaView(usuario: comerciante),
+        overrides: overridesFalsos(usuario: comerciante),
+      );
       expect(find.text('¿Tienes un negocio?'), findsNothing);
     });
   });
@@ -102,7 +122,11 @@ void main() {
         await abrirConFalsos(
           tester,
           const InicioComerciante(usuario: comerciante),
-          overrides: overridesFalsos(usuario: comerciante, negocios: const [negocioEnRevision], faltantes: faltaIdentidad),
+          overrides: overridesFalsos(
+            usuario: comerciante,
+            negocios: const [negocioEnRevision],
+            faltantes: faltaIdentidad,
+          ),
           tema: tema,
         );
         expect(find.text('Negocio en revisión'), findsOneWidget);
@@ -117,7 +141,11 @@ void main() {
         await abrirConFalsos(
           tester,
           const InicioComerciante(usuario: comerciante),
-          overrides: overridesFalsos(usuario: comerciante, negocios: const [negocioAprobado], faltantes: [faltaIdentidad.last]),
+          overrides: overridesFalsos(
+            usuario: comerciante,
+            negocios: const [negocioAprobado],
+            faltantes: [faltaIdentidad.last],
+          ),
           tema: tema,
         );
         expect(find.text('Te falta subir'), findsOneWidget);
@@ -133,20 +161,43 @@ void main() {
           overrides: overridesFalsos(usuario: comerciante, negocios: const [negocioAprobado]),
           tema: tema,
         );
-        expect(find.text('¡Tu negocio está activo!'), findsOneWidget);
+        // Activo: el saludo con su nombre y el de la tienda.
+        expect(find.byKey(const Key('saludo')), findsOneWidget);
+        expect(find.textContaining(', Marta'), findsOneWidget);
         expect(find.text('Para activar tu negocio te falta'), findsNothing);
+        // 2 pedidos nuevos: aviso para verlos.
+        expect(find.text('2 pedidos nuevos'), findsOneWidget);
+        // Ventas de hoy contra ayer y pedidos de hoy.
+        final scroll = find.byType(Scrollable).first;
+        await tester.scrollUntilVisible(find.byKey(const Key('ventas-hoy')), 300, scrollable: scroll);
+        expect(
+          find.descendant(of: find.byKey(const Key('ventas-hoy')), matching: find.text('Bs 350,00')),
+          findsOneWidget,
+        );
+        expect(find.text('+25 % que ayer'), findsOneWidget);
+        expect(find.descendant(of: find.byKey(const Key('pedidos-hoy')), matching: find.text('9')), findsOneWidget);
+        expect(find.text('2 en camino'), findsOneWidget);
+        // Gráfico de la semana (7 días: 350 en total).
+        await tester.scrollUntilVisible(find.byKey(const Key('grafico-semana')), 300, scrollable: scroll);
+        expect(tester.widget<Text>(find.byKey(const Key('total-semana'))).data, 'Bs 350,00');
         // Se agotó un producto: aviso de stock insuficiente para renovarlo.
-        await tester.scrollUntilVisible(find.byKey(const Key('aviso-stock')), 300, scrollable: find.byType(Scrollable).first);
+        await tester.scrollUntilVisible(find.byKey(const Key('aviso-stock')), 300, scrollable: scroll);
         expect(find.text('Stock insuficiente: 1 producto se agotó'), findsOneWidget);
         expect(find.textContaining('Papas fritas'), findsOneWidget);
-        await tester.scrollUntilVisible(find.text('Pedidos nuevos'), 300, scrollable: find.byType(Scrollable).first);
-        expect(find.text('Bs 350,00'), findsOneWidget); // ventas de hoy
+        // Poco stock, con "Renovar stock".
+        await tester.scrollUntilVisible(find.byKey(const Key('renovar-poco-stock')), 300, scrollable: scroll);
+        expect(find.text('Salsa picante'), findsOneWidget);
+        expect(find.text('Quedan 3'), findsOneWidget);
         expect(tester.takeException(), isNull);
       });
 
       testWidgets('sin negocio: botón para registrarlo', (tester) async {
-        await abrirConFalsos(tester, const InicioComerciante(usuario: comerciante),
-            overrides: overridesFalsos(usuario: comerciante), tema: tema);
+        await abrirConFalsos(
+          tester,
+          const InicioComerciante(usuario: comerciante),
+          overrides: overridesFalsos(usuario: comerciante),
+          tema: tema,
+        );
         expect(find.text('Todavía no tienes un negocio'), findsOneWidget);
         expect(find.widgetWithText(FilledButton, 'Registrar mi negocio'), findsOneWidget);
         expect(tester.takeException(), isNull);
@@ -187,7 +238,7 @@ void main() {
     expect(find.text('Nuevo producto'), findsOneWidget);
 
     // Sin datos: no guarda y dice qué falta.
-    await tester.tap(find.widgetWithText(FilledButton, 'Agregar producto'));
+    await tester.tap(find.widgetWithText(FilledButton, 'Publicar producto'));
     await tester.pump(const Duration(seconds: 1));
     expect(find.text('Escribe el nombre del producto'), findsOneWidget);
     expect(find.text('Escribe el precio'), findsOneWidget);
@@ -203,7 +254,7 @@ void main() {
     await tester.tap(find.text('Está en oferta'));
     await tester.pump();
     await tester.enterText(find.byKey(const Key('campo-oferta')), '35');
-    await tester.tap(find.widgetWithText(FilledButton, 'Agregar producto'));
+    await tester.tap(find.widgetWithText(FilledButton, 'Publicar producto'));
     await tester.pump(const Duration(seconds: 1));
     expect(find.text('Tiene que ser menor al precio normal'), findsOneWidget);
 
@@ -226,10 +277,10 @@ void main() {
     await tester.tap(find.byKey(const Key('pedido-negocio-42')));
     await esperar(tester);
     expect(find.text('Lucía Rojas'), findsOneWidget);
-    expect(find.text('Nota: Sin sal'), findsOneWidget);
-
     expect(find.byKey(const Key('buscando-repartidor')), findsOneWidget);
     expect(find.text('Buscando repartidor…'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('Nota: Sin sal'), 300, scrollable: find.byType(Scrollable).last);
+    expect(find.text('Nota: Sin sal'), findsOneWidget);
     // Sin botones para sacarlo ni entregarlo, ni PIN; aceptado, ya no lo puede cancelar.
     expect(find.byKey(const Key('accion-en_camino')), findsNothing);
     expect(find.byKey(const Key('accion-entregado')), findsNothing);
@@ -321,7 +372,7 @@ void main() {
     await tester.tap(find.text('Más'));
     await esperar(tester);
 
-    expect(find.textContaining('Las entregas las hace un repartidor de MDR Market'), findsOneWidget);
+    expect(find.text('Las entregas las hace un repartidor de MDR Market.'), findsOneWidget);
     expect(find.textContaining('propio delivery'), findsNothing);
     expect(tester.takeException(), isNull);
     await cerrarApp(tester);
@@ -346,16 +397,19 @@ void main() {
     await cerrarApp(tester);
   });
 
-  testWidgets('ganancias: totales, gráfico y por producto', (tester) async {
+  testWidgets('ganancias: lo que quedó limpio, de dónde sale, gráfico y lo más vendido', (tester) async {
     await abrirApp(tester);
     await tester.tap(find.text('Ganancias'));
     await esperar(tester);
 
-    expect(find.text('Ganancia neta'), findsOneWidget);
-    expect(find.text('Bs 100,00'), findsOneWidget);
-    expect(find.text('Ventas y ganancia'), findsOneWidget);
-    await tester.scrollUntilVisible(find.text('Pollo a la broaster'), 300,
-        scrollable: find.descendant(of: find.byType(GananciasTab), matching: find.byType(Scrollable)).first);
+    expect(find.text('Te quedó limpio'), findsOneWidget);
+    expect(
+      find.descendant(of: find.byKey(const Key('te-quedo-limpio')), matching: find.text('Bs 100,00')),
+      findsOneWidget,
+    );
+    expect(find.text('Ventas y ganancia por día'), findsOneWidget);
+    final scroll = find.descendant(of: find.byType(GananciasTab), matching: find.byType(Scrollable)).first;
+    await tester.scrollUntilVisible(find.byKey(const Key('vendido-10')), 300, scrollable: scroll);
     expect(find.text('43% margen'), findsOneWidget);
     expect(tester.takeException(), isNull);
     await cerrarApp(tester);

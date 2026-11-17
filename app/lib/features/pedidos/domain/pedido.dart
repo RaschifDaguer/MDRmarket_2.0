@@ -46,8 +46,12 @@ class ItemPedido {
     this.imagenUrl,
     this.notas,
     this.precioOriginal,
+    this.id = 0,
+    this.alistado = false,
   });
 
+  /// Id de la línea del pedido (para marcarla como alistada).
+  final int id;
   final int productoId;
   final String nombre;
   final double precioUnitario;
@@ -59,7 +63,12 @@ class ItemPedido {
   /// Precio sin oferta al momento de la compra (para mostrar cuánto ahorró).
   final double? precioOriginal;
 
+  /// La tienda ya lo puso en la bolsa ("Alista los productos").
+  final bool alistado;
+
   factory ItemPedido.fromJson(Map<String, dynamic> json) => ItemPedido(
+    id: (json['id'] as num?)?.toInt() ?? 0,
+    alistado: json['alistado'] == true,
     productoId: (json['producto_id'] as num).toInt(),
     nombre: json['nombre'] as String,
     precioUnitario: Formato.numero(json['precio_unitario']),
@@ -133,6 +142,9 @@ class Pedido {
     this.repartidorVehiculo,
     this.repartidorPlaca,
     this.tamano,
+    this.aceptarAntes,
+    this.repartidoresCerca,
+    this.confirmado,
   });
 
   final int id;
@@ -202,6 +214,22 @@ class Pedido {
 
   /// Tamaño de vehículo que necesita: Liviano, Mediano o Grande.
   final String? tamano;
+
+  /// Pedido nuevo: hasta cuándo puede aceptarlo la tienda (después se
+  /// rechaza solo). Null si el plazo todavía no corre (QR sin pagar).
+  final DateTime? aceptarAntes;
+
+  /// Listo y sin repartidor: cuántos repartidores en línea hay cerca de la tienda.
+  final int? repartidoresCerca;
+
+  /// Cuándo lo aceptó la tienda.
+  final DateTime? confirmado;
+
+  /// Cuántos productos (líneas) ya están alistados.
+  int get alistados => items.where((i) => i.alistado).length;
+
+  /// Todos los productos alistados: ya se puede marcar como listo.
+  bool get todoAlistado => items.isNotEmpty && items.every((i) => i.alistado);
 
   bool get tieneRepartidor => repartidorNombre != null;
 
@@ -293,6 +321,9 @@ class Pedido {
       repartidorVehiculo: repartidor?['vehiculo'] as String?,
       repartidorPlaca: repartidor?['placa'] as String?,
       tamano: json['tamano'] as String?,
+      aceptarAntes: Formato.fechaDe(json['aceptar_antes']),
+      repartidoresCerca: (json['repartidores_cerca'] as num?)?.toInt(),
+      confirmado: Formato.fechaDe(json['confirmado_en']),
     );
   }
 }

@@ -1,11 +1,13 @@
 // Datos y repositorios falsos para probar las pantallas sin internet.
 import 'dart:math' as math;
+import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mdrmarket/core/archivos/archivo_elegido.dart';
+import 'package:mdrmarket/core/formato/formato.dart';
 import 'package:mdrmarket/core/maps/coordenada.dart';
 import 'package:mdrmarket/core/network/api_exception.dart';
 import 'package:mdrmarket/core/network/pagina.dart';
@@ -21,10 +23,12 @@ import 'package:mdrmarket/features/catalogo/domain/resena.dart';
 import 'package:mdrmarket/features/catalogo/domain/tienda.dart';
 import 'package:mdrmarket/features/comerciante/data/mi_negocio_repository.dart';
 import 'package:mdrmarket/features/comerciante/data/negocio_repository.dart';
+import 'package:mdrmarket/features/comerciante/domain/documento_subido.dart';
 import 'package:mdrmarket/features/comerciante/domain/finanzas.dart';
 import 'package:mdrmarket/features/comerciante/domain/horario.dart';
 import 'package:mdrmarket/features/comerciante/domain/mi_producto.dart';
 import 'package:mdrmarket/features/comerciante/domain/negocio.dart';
+import 'package:mdrmarket/features/comerciante/presentation/widgets/fotos_producto.dart';
 import 'package:mdrmarket/features/notificaciones/data/notificaciones_repository.dart';
 import 'package:mdrmarket/features/notificaciones/domain/notificacion.dart';
 import 'package:mdrmarket/features/pedidos/data/pedidos_repository.dart';
@@ -72,8 +76,16 @@ const comerciante = Usuario(
 
 // Sin emojis en los nombres: en las pruebas no hay fuente de emojis.
 const categoriasDePrueba = [
-  Categoria(id: 1, nombre: 'Alimentos y Bebidas', subcategorias: [Categoria(id: 101, nombre: 'Restaurantes')]),
-  Categoria(id: 2, nombre: 'Salud y Belleza', subcategorias: [Categoria(id: 201, nombre: 'Farmacia')]),
+  Categoria(
+    id: 1,
+    nombre: 'Alimentos y Bebidas',
+    subcategorias: [Categoria(id: 101, nombre: 'Restaurantes')],
+  ),
+  Categoria(
+    id: 2,
+    nombre: 'Salud y Belleza',
+    subcategorias: [Categoria(id: 201, nombre: 'Farmacia')],
+  ),
 ];
 
 const polleria = NegocioResumen(id: 5, nombre: 'Pollos Marta', rating: 4.5);
@@ -142,6 +154,9 @@ Pedido pedidoDeEjemplo({
   String metodoPago = 'efectivo',
   String estadoPago = 'pendiente',
   int? repartidorId,
+  DateTime? aceptarAntes,
+  int? repartidoresCerca,
+  Set<int> alistados = const {},
 }) {
   return Pedido(
     repartidorId: repartidorId,
@@ -166,9 +181,28 @@ Pedido pedidoDeEjemplo({
     pagoQr: metodoPago == 'qr' && !paraNegocio ? 'https://mdrmarket.test/pago-qr/QR-${'a' * 32}' : null,
     codigoEntrega: paraNegocio ? null : '4821',
     distanciaKm: 2.4,
-    items: const [
-      ItemPedido(productoId: 10, nombre: 'Pollo a la broaster', precioUnitario: 28, cantidad: 2, subtotal: 56),
-      ItemPedido(productoId: 11, nombre: 'Papas fritas', precioUnitario: 12, cantidad: 1, subtotal: 12, notas: 'Sin sal'),
+    aceptarAntes: aceptarAntes,
+    repartidoresCerca: repartidoresCerca,
+    items: [
+      ItemPedido(
+        id: 501,
+        productoId: 10,
+        nombre: 'Pollo a la broaster',
+        precioUnitario: 28,
+        cantidad: 2,
+        subtotal: 56,
+        alistado: alistados.contains(501),
+      ),
+      ItemPedido(
+        id: 502,
+        productoId: 11,
+        nombre: 'Papas fritas',
+        precioUnitario: 12,
+        cantidad: 1,
+        subtotal: 12,
+        notas: 'Sin sal',
+        alistado: alistados.contains(502),
+      ),
     ],
     historial: [(estado: EstadoPedido.pendiente, fecha: DateTime(2026, 10, 9, 12, 30), motivo: null)],
     acciones: acciones ?? const [],
@@ -197,11 +231,20 @@ class CatalogoFalso extends CatalogoRepository {
 
   @override
   Future<ProductoDetalle> producto(int id) async => ProductoDetalle(
-        producto: [pollo, papas, jarabe].firstWhere((p) => p.id == id),
-        pedidoMinimo: 20,
-        tiempoPreparacionMin: 25,
-        resenas: [Resena(id: 1, tipo: 'producto', estrellas: 5, autor: 'Lucía R.', comentario: '¡Riquísimo!', fecha: DateTime(2026, 10, 1))],
-      );
+    producto: [pollo, papas, jarabe].firstWhere((p) => p.id == id),
+    pedidoMinimo: 20,
+    tiempoPreparacionMin: 25,
+    resenas: [
+      Resena(
+        id: 1,
+        tipo: 'producto',
+        estrellas: 5,
+        autor: 'Lucía R.',
+        comentario: '¡Riquísimo!',
+        fecha: DateTime(2026, 10, 1),
+      ),
+    ],
+  );
 
   /// Ubicaciones con las que se pidieron las tiendas (null = sin ubicación).
   final ubicacionesTiendas = <Coordenada?>[];
@@ -233,15 +276,15 @@ class CatalogoFalso extends CatalogoRepository {
 
   @override
   Future<TiendaDetalle> tienda(int id, {Coordenada? ubicacion}) async => TiendaDetalle(
-        tienda: Tienda(
-          id: 5,
-          nombre: 'Pollos Marta',
-          pedidoMinimo: 20,
-          tiempoPreparacionMin: 25,
-          envio: ubicacion == null ? null : envioDePrueba,
-        ),
-        productos: const [pollo, papas],
-      );
+    tienda: Tienda(
+      id: 5,
+      nombre: 'Pollos Marta',
+      pedidoMinimo: 20,
+      tiempoPreparacionMin: 25,
+      envio: ubicacion == null ? null : envioDePrueba,
+    ),
+    productos: const [pollo, papas],
+  );
 }
 
 class PedidosFalso extends PedidosRepository {
@@ -276,15 +319,22 @@ class PedidosFalso extends PedidosRepository {
   @override
   Future<Pedido> pagarQr(int id) async {
     pagosQr++;
-    return pedidoActual = pedidoDeEjemplo(acciones: const [EstadoPedido.cancelado], metodoPago: 'qr', estadoPago: 'pagado');
+    return pedidoActual = pedidoDeEjemplo(
+      acciones: const [EstadoPedido.cancelado],
+      metodoPago: 'qr',
+      estadoPago: 'pagado',
+    );
   }
 
   @override
   Future<Pagina<Pedido>> misPedidos({int pagina = 1}) async => Pagina(
-        items: [pedidoDeEjemplo(), pedidoDeEjemplo(estado: EstadoPedido.entregado)],
-        pagina: 1,
-        ultimaPagina: 1,
-      );
+    items: [
+      pedidoDeEjemplo(),
+      pedidoDeEjemplo(estado: EstadoPedido.entregado),
+    ],
+    pagina: 1,
+    ultimaPagina: 1,
+  );
 
   @override
   Future<Pedido> pedido(int id) async => pedidoActual ?? pedidoDeEjemplo();
@@ -306,12 +356,14 @@ class PedidosFalso extends PedidosRepository {
     required int estrellas,
     List<String> etiquetas = const [],
     String? comentario,
-  }) async =>
-      calificacionesRepartidor.add((repartidorId: repartidorId, estrellas: estrellas, etiquetas: etiquetas));
+  }) async => calificacionesRepartidor.add((repartidorId: repartidorId, estrellas: estrellas, etiquetas: etiquetas));
 
   @override
   Future<List<MotivoReporte>> motivosReporte(String sobre) async => sobre == 'negocio'
-      ? const [(codigo: 'pedido_incompleto', nombre: 'Pedido incompleto o en mal estado'), (codigo: 'otro', nombre: 'Otro motivo')]
+      ? const [
+          (codigo: 'pedido_incompleto', nombre: 'Pedido incompleto o en mal estado'),
+          (codigo: 'otro', nombre: 'Otro motivo'),
+        ]
       : const [(codigo: 'maltrato', nombre: 'Maltrato, insultos o acoso'), (codigo: 'otro', nombre: 'Otro motivo')];
 
   /// Reportes enviados.
@@ -332,12 +384,25 @@ class PedidosFalso extends PedidosRepository {
 
 class NotificacionesFalso extends NotificacionesRepository {
   NotificacionesFalso([List<Notificacion>? avisos])
-      : avisos = avisos ??
-            [
-              Notificacion(id: 1, tipo: 'pedido_en_camino', titulo: 'Tu pedido va en camino', pedidoId: 42, fecha: DateTime(2026, 11, 16, 14)),
-              Notificacion(id: 2, tipo: 'pedido_entregado', titulo: 'Pedido entregado. ¡Califícalo!', leida: true, fecha: DateTime(2026, 11, 15)),
-            ],
-        super(Dio());
+    : avisos =
+          avisos ??
+          [
+            Notificacion(
+              id: 1,
+              tipo: 'pedido_en_camino',
+              titulo: 'Tu pedido va en camino',
+              pedidoId: 42,
+              fecha: DateTime(2026, 11, 16, 14),
+            ),
+            Notificacion(
+              id: 2,
+              tipo: 'pedido_entregado',
+              titulo: 'Pedido entregado. ¡Califícalo!',
+              leida: true,
+              fecha: DateTime(2026, 11, 15),
+            ),
+          ],
+      super(Dio());
 
   List<Notificacion> avisos;
   final leidas = <int>[];
@@ -371,17 +436,23 @@ class MiNegocioFalso extends MiNegocioRepository {
 
   @override
   Future<ResumenNegocio> resumen(int negocioId) async => const ResumenNegocio(
-        pedidosNuevos: 2,
-        pedidosEnCurso: 1,
-        hoy: _montos,
-        mes: _montos,
-        productosActivos: 8,
-        productosSinStock: 1,
-        productosAgotados: ['Papas fritas'],
-        unidadesEnStock: 8,
-        rating: 4.5,
-        totalResenas: 3,
-      );
+    pedidosNuevos: 2,
+    pedidosEnCurso: 1,
+    hoy: _montos,
+    mes: _montos,
+    productosActivos: 8,
+    productosSinStock: 1,
+    productosAgotados: ['Papas fritas'],
+    unidadesEnStock: 8,
+    rating: 4.5,
+    totalResenas: 3,
+    ayer: Montos(ventas: 280),
+    variacionVentasPct: 25,
+    pedidosHoy: 9,
+    pedidosEnCamino: 2,
+    pocoStock: [(id: 13, nombre: 'Salsa picante', stock: 3)],
+    productosPocoStock: 1,
+  );
 
   /// Renovaciones de stock: (producto, unidades).
   final renovados = <(int, int)>[];
@@ -394,52 +465,150 @@ class MiNegocioFalso extends MiNegocioRepository {
 
   @override
   Future<List<MiProducto>> productos(int negocioId) async => const [
-        MiProducto(id: 10, nombre: 'Pollo a la broaster', precio: 35, precioOferta: 28, enOferta: true, stock: 8, categoriaId: 101),
-        MiProducto(id: 11, nombre: 'Papas fritas', precio: 12, stock: 0, categoriaId: 101),
-        MiProducto(id: 12, nombre: 'Refresco 2 L', precio: 15, disponible: false, categoriaId: 101),
-      ];
+    MiProducto(
+      id: 10,
+      nombre: 'Pollo a la broaster',
+      precio: 35,
+      precioOferta: 28,
+      enOferta: true,
+      stock: 8,
+      categoriaId: 101,
+    ),
+    MiProducto(id: 11, nombre: 'Papas fritas', precio: 12, stock: 0, categoriaId: 101),
+    MiProducto(id: 12, nombre: 'Refresco 2 L', precio: 15, disponible: false, categoriaId: 101),
+  ];
+
+  /// Lo que se guardó: (datos, cuántas fotos nuevas).
+  final guardados = <(DatosProducto, int)>[];
+  final fotosBorradas = <int>[];
 
   @override
-  Future<MiProducto> guardarProducto(int negocioId, DatosProducto datos, {int? productoId, ArchivoElegido? foto}) async =>
-      MiProducto(id: productoId ?? 99, nombre: datos.nombre, precio: datos.precio);
+  Future<MiProducto> guardarProducto(
+    int negocioId,
+    DatosProducto datos, {
+    int? productoId,
+    List<ArchivoElegido> fotos = const [],
+  }) async {
+    guardados.add((datos, fotos.length));
+    return MiProducto(id: productoId ?? 99, nombre: datos.nombre, precio: datos.precio);
+  }
 
   @override
-  Future<Pagina<Pedido>> pedidos(int negocioId, String grupo, {int pagina = 1}) async => Pagina(
-        items: [pedidoDeEjemplo(paraNegocio: true)],
-        pagina: 1,
-        ultimaPagina: 1,
-      );
+  Future<MiProducto> borrarFoto(int negocioId, int productoId, int imagenId) async {
+    fotosBorradas.add(imagenId);
+    return MiProducto(
+      id: productoId,
+      nombre: 'Pollo a la broaster',
+      precio: 35,
+      imagenes: const [FotoProducto(id: 2, url: 'https://mdrmarket.test/b.png', portada: true)],
+    );
+  }
+
+  /// Pedidos que muestra la lista (por defecto, uno listo sin repartidor).
+  List<Pedido>? lista;
+
+  /// Productos marcados como alistados: (línea, alistado).
+  final marcados = <(int, bool)>[];
+
+  @override
+  Future<Pedido> marcarAlistado(int negocioId, int pedidoId, int itemId, bool alistado) async {
+    marcados.add((itemId, alistado));
+    final hechos = {for (final (id, si) in marcados) id: si};
+    pedidoMostrado = pedidoDeEjemplo(
+      paraNegocio: true,
+      estado: EstadoPedido.preparando,
+      acciones: const [EstadoPedido.listo],
+      alistados: {
+        for (final e in hechos.entries)
+          if (e.value) e.key,
+      },
+    );
+    return pedidoMostrado!;
+  }
+
+  @override
+  Future<List<DocumentoSubido>> documentos() async => const [
+    DocumentoSubido(id: 1, tipo: 'nit', nombre: 'NIT', estado: 'aprobado', negocioId: 5),
+    DocumentoSubido(
+      id: 2,
+      tipo: 'licencia_funcionamiento',
+      nombre: 'Licencia de funcionamiento',
+      estado: 'rechazado',
+      observacion: 'La foto está borrosa',
+      negocioId: 5,
+    ),
+    DocumentoSubido(id: 3, tipo: 'ci_anverso', nombre: 'Carnet (frente)', estado: 'pendiente'),
+  ];
+
+  @override
+  Future<Pagina<Pedido>> pedidos(int negocioId, String grupo, {int pagina = 1}) async =>
+      Pagina(items: lista ?? [pedidoDeEjemplo(paraNegocio: true)], pagina: 1, ultimaPagina: 1);
 
   // El local llega hasta "listo": recoger y entregar lo hace el repartidor.
   // Listo ya no tiene botones: aceptado, el local no lo puede cancelar.
   @override
   Future<Pedido> pedido(int negocioId, int pedidoId) async =>
-      cambios.isNotEmpty
-          ? pedidoDeEjemplo(paraNegocio: true, estado: cambios.last)
-          : pedidoMostrado ?? pedidoDeEjemplo(paraNegocio: true, estado: EstadoPedido.listo);
+      pedidoMostrado ??
+      (cambios.isNotEmpty
+          ? pedidoDeEjemplo(paraNegocio: true, estado: cambios.last, acciones: _siguientes(cambios.last))
+          : pedidoDeEjemplo(paraNegocio: true, estado: EstadoPedido.listo));
+
+  static List<EstadoPedido> _siguientes(EstadoPedido e) => switch (e) {
+    EstadoPedido.confirmado => const [EstadoPedido.preparando],
+    EstadoPedido.preparando => const [EstadoPedido.listo],
+    _ => const [],
+  };
 
   @override
-  Future<Pedido> cambiarEstado(int negocioId, int pedidoId, EstadoPedido estado, {String? motivo, String? codigo}) async {
+  Future<Pedido> cambiarEstado(
+    int negocioId,
+    int pedidoId,
+    EstadoPedido estado, {
+    String? motivo,
+    String? codigo,
+  }) async {
     cambios.add(estado);
     motivos.add(motivo);
-    return pedidoDeEjemplo(paraNegocio: true, estado: estado);
+    pedidoMostrado = null;
+    return pedidoDeEjemplo(paraNegocio: true, estado: estado, acciones: _siguientes(estado));
   }
 
   @override
-  Future<Reporte> reporte(int negocioId, DateTime desde, DateTime hasta, String agrupar) async => const Reporte(
-        totales: _montos,
-        agrupar: 'dia',
-        periodos: [
-          (periodo: '2026-10-07', montos: Montos(ventas: 100, gananciaBruta: 40)),
-          (periodo: '2026-10-08', montos: Montos(ventas: 150, gananciaBruta: 60)),
-          (periodo: '2026-10-09', montos: Montos(ventas: 100, gananciaBruta: 40)),
-        ],
-      );
+  Future<Reporte> reporte(int negocioId, DateTime desde, DateTime hasta, String agrupar) async {
+    // Los 3 últimos días del rango (así caen en "Esta semana" del resumen).
+    String dia(int antes) => Formato.fechaApi(hasta.subtract(Duration(days: antes)));
+    return Reporte(
+      totales: _montos,
+      agrupar: 'dia',
+      periodos: [
+        (periodo: dia(2), montos: const Montos(ventas: 100, gananciaBruta: 40)),
+        (periodo: dia(1), montos: const Montos(ventas: 150, gananciaBruta: 60)),
+        (periodo: dia(0), montos: const Montos(ventas: 100, gananciaBruta: 40)),
+      ],
+    );
+  }
 
   @override
   Future<List<ReporteProducto>> reporteProductos(int negocioId, DateTime desde, DateTime hasta) async => const [
-        ReporteProducto(productoId: 10, producto: 'Pollo a la broaster', unidadesVendidas: 10, ventas: 280, ganancia: 120, gastoEnCompras: 0, margenPct: 42.9),
-      ];
+    ReporteProducto(
+      productoId: 10,
+      producto: 'Pollo a la broaster',
+      unidadesVendidas: 10,
+      ventas: 280,
+      ganancia: 120,
+      gastoEnCompras: 0,
+      margenPct: 42.9,
+    ),
+    ReporteProducto(
+      productoId: 11,
+      producto: 'Papas fritas',
+      unidadesVendidas: 25,
+      ventas: 300,
+      ganancia: 90,
+      gastoEnCompras: 0,
+      margenPct: 30,
+    ),
+  ];
 }
 
 const repartidorEnRevision = Usuario(
@@ -455,8 +624,22 @@ const repartidorEnRevision = Usuario(
 
 /// Los 5 tipos de vehículo, como los manda `GET /api/tipos-vehiculo`.
 const tiposDePrueba = [
-  TipoVehiculo(id: 1, codigo: 'moto', nombre: 'Moto', categoria: 'Liviano', descripcion: 'Motos y bicicletas: paquetes chicos y comida'),
-  TipoVehiculo(id: 2, codigo: 'bicicleta', nombre: 'Bicicleta', requierePlaca: false, requiereRuat: false, requiereLicencia: false, categoria: 'Liviano'),
+  TipoVehiculo(
+    id: 1,
+    codigo: 'moto',
+    nombre: 'Moto',
+    categoria: 'Liviano',
+    descripcion: 'Motos y bicicletas: paquetes chicos y comida',
+  ),
+  TipoVehiculo(
+    id: 2,
+    codigo: 'bicicleta',
+    nombre: 'Bicicleta',
+    requierePlaca: false,
+    requiereRuat: false,
+    requiereLicencia: false,
+    categoria: 'Liviano',
+  ),
   TipoVehiculo(id: 3, codigo: 'auto', nombre: 'Auto', categoria: 'Mediano'),
   TipoVehiculo(id: 4, codigo: 'camioneta', nombre: 'Camioneta', categoria: 'Mediano'),
   TipoVehiculo(id: 5, codigo: 'camion', nombre: 'Camión', categoria: 'Grande'),
@@ -466,7 +649,12 @@ const tiposDePrueba = [
 const faltaMoto = [
   ...faltaIdentidad,
   Faltante(codigo: 'documento.licencia_conducir', texto: 'Foto: Licencia de conducir', documento: 'licencia_conducir'),
-  Faltante(codigo: 'documento.foto_vehiculo:vehiculo4', texto: 'Foto del vehículo', documento: 'foto_vehiculo', vehiculoId: 4),
+  Faltante(
+    codigo: 'documento.foto_vehiculo:vehiculo4',
+    texto: 'Foto del vehículo',
+    documento: 'foto_vehiculo',
+    vehiculoId: 4,
+  ),
   Faltante(codigo: 'documento.foto_placa:vehiculo4', texto: 'Foto de la placa', documento: 'foto_placa', vehiculoId: 4),
   Faltante(codigo: 'documento.ruat:vehiculo4', texto: 'Foto: RUAT del vehículo', documento: 'ruat', vehiculoId: 4),
 ];
@@ -533,9 +721,13 @@ class RepartidorFalso extends RepartidorRepository {
     if (codigo != null) {
       pinesProbados.add(codigo);
       if (codigo != '4821') {
-        throw ApiException('Datos inválidos', statusCode: 422, errores: {
-          'codigo': ['El PIN no coincide. Pídeselo de nuevo al cliente.'],
-        });
+        throw ApiException(
+          'Datos inválidos',
+          statusCode: 422,
+          errores: {
+            'codigo': ['El PIN no coincide. Pídeselo de nuevo al cliente.'],
+          },
+        );
       }
     }
     return actual = pedidoDeEjemplo(estado: estado, paraNegocio: true);
@@ -600,24 +792,92 @@ List overridesFalsos({
   Widget Function(Seguimiento)? mapa,
   NotificacionesFalso? notificaciones,
   Preferencias? preferencias,
-}) =>
-    [
-      repartidorRepositoryProvider.overrideWithValue(repartidor ?? RepartidorFalso()),
-      notificacionesRepositoryProvider.overrideWithValue(notificaciones ?? NotificacionesFalso()),
-      // Preferencias (tema, búsquedas) en memoria: sin almacenamiento del teléfono.
-      preferenciasProvider.overrideWithValue(preferencias ?? PreferenciasEnMemoria()),
-      // Sin GPS en las pruebas.
-      ubicacionActualProvider.overrideWithValue(() async => null),
-      leerGpsProvider.overrideWithValue(() async => gps),
-      // Sin clave de Google Maps (como en las pruebas); se puede pasar un mapa falso.
-      mapaSeguimientoProvider.overrideWithValue(mapa),
-      authControllerProvider.overrideWith(() => SesionFalsa(usuario)),
-      catalogoRepositoryProvider.overrideWithValue(catalogo ?? CatalogoFalso()),
-      pedidosRepositoryProvider.overrideWithValue(pedidos ?? PedidosFalso()),
-      miNegocioRepositoryProvider.overrideWithValue(miNegocio ?? MiNegocioFalso()),
-      misNegociosProvider.overrideWith((ref) async => negocios),
-      faltantesProvider.overrideWith((ref, rol) async => faltantes),
-    ];
+}) => [
+  repartidorRepositoryProvider.overrideWithValue(repartidor ?? RepartidorFalso()),
+  notificacionesRepositoryProvider.overrideWithValue(notificaciones ?? NotificacionesFalso()),
+  // Preferencias (tema, búsquedas) en memoria: sin almacenamiento del teléfono.
+  preferenciasProvider.overrideWithValue(preferencias ?? PreferenciasEnMemoria()),
+  // Sin GPS en las pruebas.
+  ubicacionActualProvider.overrideWithValue(() async => null),
+  leerGpsProvider.overrideWithValue(() async => gps),
+  // Sin clave de Google Maps (como en las pruebas); se puede pasar un mapa falso.
+  mapaSeguimientoProvider.overrideWithValue(mapa),
+  authControllerProvider.overrideWith(() => SesionFalsa(usuario)),
+  catalogoRepositoryProvider.overrideWithValue(catalogo ?? CatalogoFalso()),
+  pedidosRepositoryProvider.overrideWithValue(pedidos ?? PedidosFalso()),
+  miNegocioRepositoryProvider.overrideWithValue(miNegocio ?? MiNegocioFalso()),
+  misNegociosProvider.overrideWith((ref) async => negocios),
+  faltantesProvider.overrideWith((ref, rol) async => faltantes),
+  elegirFotoProvider.overrideWithValue(() async => fotoDePrueba),
+];
+
+/// Una imagen PNG de 1×1 para elegir "de la galería" en las pruebas.
+final fotoDePrueba = ArchivoElegido(
+  bytes: Uint8List.fromList(const [
+    0x89,
+    0x50,
+    0x4E,
+    0x47,
+    0x0D,
+    0x0A,
+    0x1A,
+    0x0A,
+    0x00,
+    0x00,
+    0x00,
+    0x0D,
+    0x49,
+    0x48,
+    0x44,
+    0x52,
+    0x00,
+    0x00,
+    0x00,
+    0x01, //
+    0x00,
+    0x00,
+    0x00,
+    0x01,
+    0x08,
+    0x06,
+    0x00,
+    0x00,
+    0x00,
+    0x1F,
+    0x15,
+    0xC4,
+    0x89,
+    0x00,
+    0x00,
+    0x00,
+    0x0D,
+    0x49,
+    0x44,
+    0x41, //
+    0x54,
+    0x78,
+    0x9C,
+    0x63,
+    0xF8,
+    0xCF,
+    0xC0,
+    0xF0,
+    0x1F,
+    0x00,
+    0x05,
+    0x00,
+    0x01,
+    0xFF,
+    0x89,
+    0x99,
+    0x3D,
+    0x1D,
+    0x00,
+    0x00, //
+    0x00, 0x00, 0x49, 0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82,
+  ]),
+  nombre: 'foto.png',
+);
 
 /// Abre [pantalla] en tamaño de celular con los datos falsos.
 Future<void> abrirConFalsos(
@@ -630,11 +890,16 @@ Future<void> abrirConFalsos(
   tester.view.physicalSize = tamano;
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
-  await tester.pumpWidget(ProviderScope(
-    retry: (_, _) => null,
-    overrides: overrides.cast(),
-    child: MaterialApp(theme: tema ?? AppTheme.claro, home: Scaffold(body: pantalla)),
-  ));
+  await tester.pumpWidget(
+    ProviderScope(
+      retry: (_, _) => null,
+      overrides: overrides.cast(),
+      child: MaterialApp(
+        theme: tema ?? AppTheme.claro,
+        home: Scaffold(body: pantalla),
+      ),
+    ),
+  );
   await tester.pump();
   await tester.pump(const Duration(seconds: 1));
 }

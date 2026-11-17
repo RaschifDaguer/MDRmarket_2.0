@@ -1,9 +1,13 @@
+import 'dart:math' as math;
+
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/formato/formato.dart';
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/theme/app_espacios.dart';
+import '../../../../core/theme/app_movimiento.dart';
 import '../../../../core/widgets/widgets.dart';
 import '../../../auth/presentation/auth_controller.dart';
 import '../../../inicio/presentation/widgets/plantilla_vista.dart';
@@ -13,6 +17,7 @@ import '../../../perfil/domain/faltante.dart';
 import '../../../perfil/presentation/subir_documento_sheet.dart';
 import '../../data/mi_negocio_repository.dart';
 import '../../data/negocio_repository.dart';
+import '../../domain/finanzas.dart';
 import '../../domain/negocio.dart';
 
 /// Portada del comerciante: estado de revisión, el negocio (abierto o
@@ -22,72 +27,372 @@ class ResumenTab extends ConsumerWidget {
 
   final Negocio negocio;
 
-  /// Cambia de pestaña (1 productos, 2 pedidos, 3 ganancias).
+  /// Cambia de pestaña (1 pedidos, 2 productos, 3 ganancias).
   final ValueChanged<int> alIrA;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final faltantes = ref.watch(faltantesProvider('comerciante')).value ?? const <Faltante>[];
     final resumen = ref.watch(resumenNegocioProvider(negocio.id)).value;
+    final semana = ref.watch(semanaNegocioProvider(negocio.id)).value;
+    final nombre = ref.watch(authControllerProvider).value?.nombre;
+    final aprobado = negocio.estado == EstadoNegocio.aprobado;
 
     return RefreshIndicator(
       onRefresh: () {
         ref.invalidate(misNegociosProvider);
         ref.invalidate(faltantesProvider('comerciante'));
+        ref.invalidate(semanaNegocioProvider(negocio.id));
         return ref.refresh(resumenNegocioProvider(negocio.id).future);
       },
       child: PlantillaVista(
-        tarjeta: _tarjetaEstado(negocio.estado),
+        tarjeta: aprobado ? _Saludo(nombre: nombre, negocio: negocio) : _tarjetaEstado(negocio.estado),
         extra: [
+          if (resumen != null && resumen.pedidosNuevos > 0)
+            _AvisoNuevos(cantidad: resumen.pedidosNuevos, alVer: () => alIrA(1)),
           _TarjetaNegocio(negocio),
-          if (faltantes.isNotEmpty) _TarjetaFaltantes(faltantes, activo: negocio.estado == EstadoNegocio.aprobado),
+          if (faltantes.isNotEmpty) _TarjetaFaltantes(faltantes, activo: aprobado),
+          if (resumen != null) _Hoy(resumen: resumen, alVerPedidos: () => alIrA(1), alVerGanancias: () => alIrA(3)),
+          if (semana != null) _Semana(semana),
           if (resumen != null && resumen.productosSinStock > 0)
-            _AvisoStock(cantidad: resumen.productosSinStock, nombres: resumen.productosAgotados, alRenovar: () => alIrA(1)),
-          if (resumen != null)
-            _Numeros(
-              celdas: [
-                _Celda('Pedidos nuevos', '${resumen.pedidosNuevos}', Icons.notifications_active_outlined,
-                    destacar: resumen.pedidosNuevos > 0, alTocar: () => alIrA(2)),
-                _Celda('En curso', '${resumen.pedidosEnCurso}', Icons.delivery_dining_outlined, alTocar: () => alIrA(2)),
-                _Celda('Ventas de hoy', Formato.bs(resumen.hoy.ventas), Icons.point_of_sale_outlined, alTocar: () => alIrA(3)),
-                _Celda('Ganancia del mes', Formato.bs(resumen.mes.gananciaNeta), Icons.trending_up, alTocar: () => alIrA(3)),
-                _Celda('Productos activos', '${resumen.productosActivos}', Icons.inventory_2_outlined, alTocar: () => alIrA(1)),
-                _Celda('Sin stock', '${resumen.productosSinStock}', Icons.production_quantity_limits,
-                    destacar: resumen.productosSinStock > 0, alTocar: () => alIrA(1)),
-              ],
+            _AvisoStock(
+              cantidad: resumen.productosSinStock,
+              nombres: resumen.productosAgotados,
+              alRenovar: () => alIrA(2),
             ),
+          if (resumen != null && resumen.pocoStock.isNotEmpty) _PocoStock(resumen: resumen, alRenovar: () => alIrA(2)),
         ],
       ),
     );
   }
 
   static Widget _tarjetaEstado(EstadoNegocio estado) => switch (estado) {
-        EstadoNegocio.pendiente => const TarjetaRol(
-            icono: Icons.hourglass_top,
-            titulo: 'Negocio en revisión',
-            texto: 'Estamos revisando tus datos. Mientras tanto, ve cargando tus productos: '
-                'aparecerán en el catálogo cuando tu negocio esté activo.',
-            tono: TonoRol.espera,
+    EstadoNegocio.pendiente => const TarjetaRol(
+      icono: Icons.hourglass_top,
+      titulo: 'Negocio en revisión',
+      texto:
+          'Estamos revisando tus datos. Mientras tanto, ve cargando tus productos: '
+          'aparecerán en el catálogo cuando tu negocio esté activo.',
+      tono: TonoRol.espera,
+    ),
+    EstadoNegocio.aprobado => const TarjetaRol(
+      icono: Icons.storefront_outlined,
+      titulo: '¡Tu negocio está activo!',
+      texto: 'Tus productos ya aparecen en el catálogo y puedes recibir pedidos.',
+      tono: TonoRol.comerciante,
+    ),
+    EstadoNegocio.rechazado => const TarjetaRol(
+      icono: Icons.block,
+      titulo: 'Registro rechazado',
+      texto: 'Revisa tus datos y documentos, o escríbenos a soporte.',
+      tono: TonoRol.alerta,
+    ),
+    EstadoNegocio.suspendido => const TarjetaRol(
+      icono: Icons.block,
+      titulo: 'Negocio suspendido',
+      texto: 'Comunícate con soporte para más información.',
+      tono: TonoRol.alerta,
+    ),
+  };
+}
+
+/// "Buen día, Carlos" con el nombre de la tienda (negocio activo).
+class _Saludo extends StatelessWidget {
+  const _Saludo({required this.nombre, required this.negocio});
+
+  final String? nombre;
+  final Negocio negocio;
+
+  @override
+  Widget build(BuildContext context) {
+    final textos = Theme.of(context).textTheme;
+    final c = Theme.of(context).colorScheme;
+    final hora = DateTime.now().hour;
+    final saludo = hora < 12 ? 'Buen día' : (hora < 19 ? 'Buenas tardes' : 'Buenas noches');
+    return SizedBox(
+      key: const Key('saludo'),
+      width: double.infinity,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            nombre == null ? saludo : '$saludo, $nombre',
+            style: textos.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
           ),
-        EstadoNegocio.aprobado => const TarjetaRol(
-            icono: Icons.storefront_outlined,
-            titulo: '¡Tu negocio está activo!',
-            texto: 'Tus productos ya aparecen en el catálogo y puedes recibir pedidos.',
-            tono: TonoRol.comerciante,
+          Text(negocio.nombre, style: textos.bodyMedium?.copyWith(color: c.onSurfaceVariant)),
+        ],
+      ),
+    );
+  }
+}
+
+/// "2 pedidos nuevos · Acéptalos antes de que se acabe el tiempo".
+class _AvisoNuevos extends StatelessWidget {
+  const _AvisoNuevos({required this.cantidad, required this.alVer});
+
+  final int cantidad;
+  final VoidCallback alVer;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = Theme.of(context).colorScheme;
+    return Card(
+      key: const Key('aviso-nuevos'),
+      color: c.primary,
+      child: ListTile(
+        onTap: alVer,
+        leading: Icon(Icons.notifications_active, color: c.onPrimary),
+        title: Text(
+          cantidad == 1 ? '1 pedido nuevo' : '$cantidad pedidos nuevos',
+          style: TextStyle(color: c.onPrimary, fontWeight: FontWeight.w700),
+        ),
+        subtitle: Text('Acéptalos antes de que se acabe el tiempo', style: TextStyle(color: c.onPrimary)),
+        trailing: Text(
+          'Ver',
+          style: TextStyle(color: c.onPrimary, fontWeight: FontWeight.w700),
+        ),
+      ),
+    );
+  }
+}
+
+/// Ventas de hoy (contra ayer) y pedidos de hoy (cuántos en camino).
+class _Hoy extends StatelessWidget {
+  const _Hoy({required this.resumen, required this.alVerPedidos, required this.alVerGanancias});
+
+  final ResumenNegocio resumen;
+  final VoidCallback alVerPedidos;
+  final VoidCallback alVerGanancias;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = Theme.of(context).colorScheme;
+    final variacion = resumen.variacionVentasPct;
+    final comparacion = variacion == null
+        ? (resumen.hoy.ventas > 0 ? 'Ayer no vendiste' : 'Todavía sin ventas')
+        : '${variacion >= 0 ? '+' : '−'}${variacion.abs().round()} % que ayer';
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: _Numero(
+            clave: 'ventas-hoy',
+            titulo: 'Ventas de hoy',
+            valor: Formato.bs(resumen.hoy.ventas),
+            detalle: comparacion,
+            colorDetalle: variacion == null ? null : (variacion >= 0 ? c.primary : c.error),
+            alTocar: alVerGanancias,
           ),
-        EstadoNegocio.rechazado => const TarjetaRol(
-            icono: Icons.block,
-            titulo: 'Registro rechazado',
-            texto: 'Revisa tus datos y documentos, o escríbenos a soporte.',
-            tono: TonoRol.alerta,
+        ),
+        const SizedBox(width: AppEspacios.s),
+        Expanded(
+          child: _Numero(
+            clave: 'pedidos-hoy',
+            titulo: 'Pedidos hoy',
+            valor: '${resumen.pedidosHoy}',
+            detalle: resumen.pedidosEnCamino == 0 ? 'Ninguno en camino' : '${resumen.pedidosEnCamino} en camino',
+            alTocar: alVerPedidos,
           ),
-        EstadoNegocio.suspendido => const TarjetaRol(
-            icono: Icons.block,
-            titulo: 'Negocio suspendido',
-            texto: 'Comunícate con soporte para más información.',
-            tono: TonoRol.alerta,
+        ),
+      ],
+    );
+  }
+}
+
+class _Numero extends StatelessWidget {
+  const _Numero({
+    required this.clave,
+    required this.titulo,
+    required this.valor,
+    required this.detalle,
+    required this.alTocar,
+    this.colorDetalle,
+  });
+
+  final String clave;
+  final String titulo;
+  final String valor;
+  final String detalle;
+  final Color? colorDetalle;
+  final VoidCallback alTocar;
+
+  @override
+  Widget build(BuildContext context) {
+    final textos = Theme.of(context).textTheme;
+    return Card(
+      key: Key(clave),
+      child: InkWell(
+        onTap: alTocar,
+        child: Padding(
+          padding: const EdgeInsets.all(AppEspacios.m - 4),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(titulo, style: textos.bodySmall),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(valor, style: textos.headlineSmall?.copyWith(fontWeight: FontWeight.w800)),
+              ),
+              Text(
+                detalle,
+                style: textos.bodySmall?.copyWith(color: colorDetalle, fontWeight: FontWeight.w600),
+              ),
+            ],
           ),
-      };
+        ),
+      ),
+    );
+  }
+}
+
+/// "Esta semana": lo vendido en total y una barra por día (últimos 7 días).
+class _Semana extends StatelessWidget {
+  const _Semana(this.reporte);
+
+  final Reporte reporte;
+
+  static const _dias = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
+
+  @override
+  Widget build(BuildContext context) {
+    final c = Theme.of(context).colorScheme;
+    final textos = Theme.of(context).textTheme;
+    // La API solo manda los días con movimiento: se completan los 7.
+    final hoy = DateTime.now();
+    final porDia = {for (final p in reporte.periodos) p.periodo: p.montos.ventas};
+    final dias = [
+      for (var i = 6; i >= 0; i--)
+        (
+          dia: DateTime(hoy.year, hoy.month, hoy.day - i),
+          ventas: porDia[Formato.fechaApi(DateTime(hoy.year, hoy.month, hoy.day - i))] ?? 0.0,
+        ),
+    ];
+    final maximo = dias.fold<double>(1, (m, d) => math.max(m, d.ventas));
+    final total = dias.fold<double>(0, (t, d) => t + d.ventas);
+
+    return Card(
+      key: const Key('grafico-semana'),
+      child: Padding(
+        padding: const EdgeInsets.all(AppEspacios.m),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Esta semana', style: textos.bodySmall),
+            Text(
+              Formato.bs(total),
+              key: const Key('total-semana'),
+              style: textos.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: AppEspacios.m),
+            SizedBox(
+              height: 120,
+              child: Semantics(
+                label:
+                    'Ventas por día: ${dias.map((d) => '${Formato.fecha(d.dia)} ${Formato.bs(d.ventas)}').join(', ')}',
+                child: BarChart(
+                  BarChartData(
+                    maxY: maximo * 1.1,
+                    gridData: const FlGridData(show: false),
+                    borderData: FlBorderData(show: false),
+                    barTouchData: BarTouchData(
+                      touchTooltipData: BarTouchTooltipData(
+                        getTooltipColor: (_) => c.inverseSurface,
+                        getTooltipItem: (_, _, barra, _) =>
+                            BarTooltipItem(Formato.bs(barra.toY), TextStyle(color: c.onInverseSurface, fontSize: 12)),
+                      ),
+                    ),
+                    titlesData: FlTitlesData(
+                      topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                      rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                      leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                      bottomTitles: AxisTitles(
+                        sideTitles: SideTitles(
+                          showTitles: true,
+                          reservedSize: 22,
+                          getTitlesWidget: (valor, meta) => SideTitleWidget(
+                            meta: meta,
+                            child: Text(_dias[dias[valor.toInt()].dia.weekday - 1], style: textos.labelSmall),
+                          ),
+                        ),
+                      ),
+                    ),
+                    barGroups: [
+                      for (var i = 0; i < dias.length; i++)
+                        BarChartGroupData(
+                          x: i,
+                          barRods: [
+                            BarChartRodData(
+                              toY: dias[i].ventas,
+                              width: 18,
+                              // Hoy, más fuerte.
+                              color: i == dias.length - 1 ? c.primary : c.primary.withValues(alpha: 0.45),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                          ],
+                        ),
+                    ],
+                  ),
+                  // Con "reducir movimiento", sin la animación de las barras.
+                  duration: AppMovimiento.activo(context) ? AppMovimiento.normal : Duration.zero,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Productos que se están acabando, con "Renovar stock".
+class _PocoStock extends StatelessWidget {
+  const _PocoStock({required this.resumen, required this.alRenovar});
+
+  final ResumenNegocio resumen;
+  final VoidCallback alRenovar;
+
+  @override
+  Widget build(BuildContext context) {
+    final textos = Theme.of(context).textTheme;
+    final c = Theme.of(context).colorScheme;
+    return Card(
+      key: const Key('poco-stock'),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: AppEspacios.s),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(AppEspacios.m, AppEspacios.xs, AppEspacios.m, 0),
+              child: Text('Poco stock', style: textos.titleMedium),
+            ),
+            for (final p in resumen.pocoStock.take(5))
+              ListTile(
+                key: Key('poco-stock-${p.id}'),
+                leading: Icon(Icons.inventory_2_outlined, color: c.tertiary),
+                title: Text(p.nombre, maxLines: 1, overflow: TextOverflow.ellipsis),
+                subtitle: Text(p.stock == 1 ? 'Queda 1' : 'Quedan ${p.stock}'),
+              ),
+            if (resumen.productosPocoStock > 5)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: AppEspacios.m),
+                child: Text('y ${resumen.productosPocoStock - 5} más', style: textos.bodySmall),
+              ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(AppEspacios.m, AppEspacios.xs, AppEspacios.m, AppEspacios.xs),
+              child: OutlinedButton.icon(
+                key: const Key('renovar-poco-stock'),
+                onPressed: alRenovar,
+                icon: const Icon(Icons.add_box_outlined),
+                label: const Text('Renovar stock'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 /// Foto, nombre, rubro, dirección, estado y el interruptor abierto/cerrado.
@@ -296,8 +601,10 @@ class _AvisoStock extends StatelessWidget {
                 Icon(Icons.production_quantity_limits, color: c.onErrorContainer),
                 const SizedBox(width: AppEspacios.s),
                 Expanded(
-                  child: Text('Stock insuficiente: $cantidad $varios',
-                      style: textos.titleSmall?.copyWith(color: c.onErrorContainer)),
+                  child: Text(
+                    'Stock insuficiente: $cantidad $varios',
+                    style: textos.titleSmall?.copyWith(color: c.onErrorContainer),
+                  ),
                 ),
               ],
             ),
@@ -312,7 +619,11 @@ class _AvisoStock extends StatelessWidget {
               alignment: Alignment.centerLeft,
               child: FilledButton.icon(
                 key: const Key('ir-a-renovar'),
-                style: FilledButton.styleFrom(minimumSize: const Size(0, 40), backgroundColor: c.error, foregroundColor: c.onError),
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size(0, 40),
+                  backgroundColor: c.error,
+                  foregroundColor: c.onError,
+                ),
                 onPressed: alRenovar,
                 icon: const Icon(Icons.add_box_outlined, size: 18),
                 label: const Text('Renovar productos'),
@@ -322,64 +633,5 @@ class _AvisoStock extends StatelessWidget {
         ),
       ),
     );
-  }
-}
-
-class _Celda {
-  const _Celda(this.titulo, this.valor, this.icono, {this.destacar = false, required this.alTocar});
-
-  final String titulo;
-  final String valor;
-  final IconData icono;
-  final bool destacar;
-  final VoidCallback alTocar;
-}
-
-/// Cuadritos con los números del negocio (2 o 3 por fila según el ancho).
-class _Numeros extends StatelessWidget {
-  const _Numeros({required this.celdas});
-
-  final List<_Celda> celdas;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = Theme.of(context).colorScheme;
-    final textos = Theme.of(context).textTheme;
-    return LayoutBuilder(builder: (context, limites) {
-      final columnas = limites.maxWidth > 480 ? 3 : 2;
-      final ancho = (limites.maxWidth - (columnas - 1) * AppEspacios.s) / columnas;
-      return Wrap(
-        spacing: AppEspacios.s,
-        runSpacing: AppEspacios.s,
-        children: [
-          for (final celda in celdas)
-            SizedBox(
-              width: ancho,
-              child: Card(
-                color: celda.destacar ? c.primaryContainer : null,
-                child: InkWell(
-                  onTap: celda.alTocar,
-                  child: Padding(
-                    padding: const EdgeInsets.all(AppEspacios.m - 4),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Icon(celda.icono, color: c.primary),
-                        const SizedBox(height: AppEspacios.s),
-                        FittedBox(
-                          fit: BoxFit.scaleDown,
-                          alignment: Alignment.centerLeft,
-                          child: Text(celda.valor, style: textos.titleLarge),
-                        ),
-                        Text(celda.titulo, style: textos.bodySmall, maxLines: 1, overflow: TextOverflow.ellipsis),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-        ],
-      );
-    });
   }
 }

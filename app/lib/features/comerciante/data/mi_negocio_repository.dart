@@ -10,6 +10,7 @@ import '../../../core/network/api_exception.dart';
 import '../../../core/network/pagina.dart';
 import '../../catalogo/domain/resena.dart';
 import '../../pedidos/domain/pedido.dart';
+import '../domain/documento_subido.dart';
 import '../domain/finanzas.dart';
 import '../domain/horario.dart';
 import '../domain/mi_producto.dart';
@@ -85,80 +86,108 @@ class MiNegocioRepository {
   // ----- Perfil -----
 
   Future<Negocio> actualizarPerfil(int negocioId, DatosPerfil datos, {ArchivoElegido? foto}) => _llamar(() async {
-        final r = await _dio.post('/negocios/$negocioId', data: FormData.fromMap({
-          'nombre': datos.nombre.trim(),
-          'categoria_id': datos.categoriaId,
-          'direccion': datos.direccion.trim(),
-          'latitud': datos.ubicacion.latitud,
-          'longitud': datos.ubicacion.longitud,
-          'descripcion': datos.descripcion?.trim() ?? '',
-          'telefono': datos.telefono?.trim() ?? '',
-          'referencia': datos.referencia?.trim() ?? '',
-          'nit': datos.nit?.trim() ?? '',
-          'razon_social': datos.razonSocial?.trim() ?? '',
-          'tiempo_preparacion_min': datos.tiempoPreparacionMin?.toString() ?? '',
-          'pedido_minimo': datos.pedidoMinimo?.toString() ?? '',
-          if (foto != null) 'foto': MultipartFile.fromBytes(foto.bytes, filename: foto.nombre),
-        }));
-        return Negocio.fromJson(r.data as Map<String, dynamic>);
-      });
+    final r = await _dio.post(
+      '/negocios/$negocioId',
+      data: FormData.fromMap({
+        'nombre': datos.nombre.trim(),
+        'categoria_id': datos.categoriaId,
+        'direccion': datos.direccion.trim(),
+        'latitud': datos.ubicacion.latitud,
+        'longitud': datos.ubicacion.longitud,
+        'descripcion': datos.descripcion?.trim() ?? '',
+        'telefono': datos.telefono?.trim() ?? '',
+        'referencia': datos.referencia?.trim() ?? '',
+        'nit': datos.nit?.trim() ?? '',
+        'razon_social': datos.razonSocial?.trim() ?? '',
+        'tiempo_preparacion_min': datos.tiempoPreparacionMin?.toString() ?? '',
+        'pedido_minimo': datos.pedidoMinimo?.toString() ?? '',
+        if (foto != null) 'foto': MultipartFile.fromBytes(foto.bytes, filename: foto.nombre),
+      }),
+    );
+    return Negocio.fromJson(r.data as Map<String, dynamic>);
+  });
 
   Future<Negocio> abierto(int negocioId, bool abierto) => _llamar(() async {
-        final r = await _dio.patch('/negocios/$negocioId/abierto', data: {'abierto': abierto});
-        return Negocio.fromJson(r.data as Map<String, dynamic>);
-      });
+    final r = await _dio.patch('/negocios/$negocioId/abierto', data: {'abierto': abierto});
+    return Negocio.fromJson(r.data as Map<String, dynamic>);
+  });
 
   Future<Negocio> horario(int negocioId, List<Horario> horarios) => _llamar(() async {
-        final r = await _dio.put('/negocios/$negocioId/horario', data: {
-          'horarios': horarios.map((h) => h.toJson()).toList(),
-        });
-        return Negocio.fromJson(r.data as Map<String, dynamic>);
-      });
+    final r = await _dio.put(
+      '/negocios/$negocioId/horario',
+      data: {'horarios': horarios.map((h) => h.toJson()).toList()},
+    );
+    return Negocio.fromJson(r.data as Map<String, dynamic>);
+  });
 
   Future<ResumenNegocio> resumen(int negocioId) => _llamar(() async {
-        final r = await _dio.get('/negocios/$negocioId/resumen');
-        return ResumenNegocio.fromJson(r.data as Map<String, dynamic>);
-      });
+    final r = await _dio.get('/negocios/$negocioId/resumen');
+    return ResumenNegocio.fromJson(r.data as Map<String, dynamic>);
+  });
 
   // ----- Productos -----
 
   Future<List<MiProducto>> productos(int negocioId) => _llamar(() async {
-        final r = await _dio.get('/negocios/$negocioId/productos');
-        return (r.data as List).map((p) => MiProducto.fromJson(p as Map<String, dynamic>)).toList();
-      });
+    final r = await _dio.get('/negocios/$negocioId/productos');
+    return (r.data as List).map((p) => MiProducto.fromJson(p as Map<String, dynamic>)).toList();
+  });
 
-  /// Crea (sin [productoId]) o edita un producto. La foto es opcional.
-  Future<MiProducto> guardarProducto(int negocioId, DatosProducto datos, {int? productoId, ArchivoElegido? foto}) =>
-      _llamar(() async {
-        String numero(double? v) => v == null ? '' : v.toStringAsFixed(2);
-        final ruta = '/negocios/$negocioId/productos${productoId == null ? '' : '/$productoId'}';
-        final r = await _dio.post(ruta, data: FormData.fromMap({
-          'nombre': datos.nombre.trim(),
-          'categoria_id': datos.categoriaId,
-          'descripcion': datos.descripcion?.trim() ?? '',
-          'precio': numero(datos.precio),
-          'costo': numero(datos.costo),
-          'precio_oferta': numero(datos.precioOferta),
-          'oferta_fin': datos.ofertaFin == null ? '' : '${Formato.fechaApi(datos.ofertaFin!)} 23:59:59',
-          'stock': datos.stock?.toString() ?? '',
-          // Laravel acepta 1/0 como booleano (no "true"/"false").
-          'disponible': datos.disponible ? '1' : '0',
-          'categoria_vehiculo_id': datos.tamano,
-          if (foto != null) 'foto': MultipartFile.fromBytes(foto.bytes, filename: foto.nombre),
-        }));
-        return MiProducto.fromJson(r.data as Map<String, dynamic>);
-      });
+  /// Crea (sin [productoId]) o edita un producto. [fotos] se agregan a las
+  /// que ya tenga (hasta 4 en total); en uno nuevo, la primera es la portada.
+  Future<MiProducto> guardarProducto(
+    int negocioId,
+    DatosProducto datos, {
+    int? productoId,
+    List<ArchivoElegido> fotos = const [],
+  }) => _llamar(() async {
+    String numero(double? v) => v == null ? '' : v.toStringAsFixed(2);
+    final ruta = '/negocios/$negocioId/productos${productoId == null ? '' : '/$productoId'}';
+    final formulario = FormData.fromMap({
+      'nombre': datos.nombre.trim(),
+      'categoria_id': datos.categoriaId,
+      'descripcion': datos.descripcion?.trim() ?? '',
+      'precio': numero(datos.precio),
+      'costo': numero(datos.costo),
+      'precio_oferta': numero(datos.precioOferta),
+      'oferta_fin': datos.ofertaFin == null ? '' : '${Formato.fechaApi(datos.ofertaFin!)} 23:59:59',
+      'stock': datos.stock?.toString() ?? '',
+      // Laravel acepta 1/0 como booleano (no "true"/"false").
+      'disponible': datos.disponible ? '1' : '0',
+      'categoria_vehiculo_id': datos.tamano,
+    });
+    // Laravel recibe la lista como "fotos[]".
+    for (final f in fotos) {
+      formulario.files.add(MapEntry('fotos[]', MultipartFile.fromBytes(f.bytes, filename: f.nombre)));
+    }
+    final r = await _dio.post(ruta, data: formulario);
+    return MiProducto.fromJson(r.data as Map<String, dynamic>);
+  });
+
+  /// Quita una foto del producto (si era la portada, pasa a serlo la siguiente).
+  Future<MiProducto> borrarFoto(int negocioId, int productoId, int imagenId) => _llamar(() async {
+    final r = await _dio.delete('/negocios/$negocioId/productos/$productoId/fotos/$imagenId');
+    return MiProducto.fromJson(r.data as Map<String, dynamic>);
+  });
+
+  /// Esa foto pasa a ser la portada.
+  Future<MiProducto> portada(int negocioId, int productoId, int imagenId) => _llamar(() async {
+    final r = await _dio.post('/negocios/$negocioId/productos/$productoId/fotos/$imagenId/portada');
+    return MiProducto.fromJson(r.data as Map<String, dynamic>);
+  });
 
   Future<MiProducto> disponible(int negocioId, int productoId, bool disponible) => _llamar(() async {
-        final r = await _dio.patch('/negocios/$negocioId/productos/$productoId/disponible', data: {'disponible': disponible});
-        return MiProducto.fromJson(r.data as Map<String, dynamic>);
-      });
+    final r = await _dio.patch(
+      '/negocios/$negocioId/productos/$productoId/disponible',
+      data: {'disponible': disponible},
+    );
+    return MiProducto.fromJson(r.data as Map<String, dynamic>);
+  });
 
   /// "Renovar stock": cuántas unidades hay ahora (sin editar lo demás).
   Future<MiProducto> renovarStock(int negocioId, int productoId, int stock) => _llamar(() async {
-        final r = await _dio.patch('/negocios/$negocioId/productos/$productoId/stock', data: {'stock': stock});
-        return MiProducto.fromJson(r.data as Map<String, dynamic>);
-      });
+    final r = await _dio.patch('/negocios/$negocioId/productos/$productoId/stock', data: {'stock': stock});
+    return MiProducto.fromJson(r.data as Map<String, dynamic>);
+  });
 
   Future<void> borrarProducto(int negocioId, int productoId) =>
       _llamar(() => _dio.delete('/negocios/$negocioId/productos/$productoId'));
@@ -167,57 +196,86 @@ class MiNegocioRepository {
 
   /// grupo: nuevos · en_curso · terminados
   Future<Pagina<Pedido>> pedidos(int negocioId, String grupo, {int pagina = 1}) => _llamar(() async {
-        final r = await _dio.get('/negocios/$negocioId/pedidos', queryParameters: {'grupo': grupo, 'page': pagina});
-        return Pagina.desdeJson(r.data as Map<String, dynamic>, Pedido.fromJson);
-      });
+    final r = await _dio.get('/negocios/$negocioId/pedidos', queryParameters: {'grupo': grupo, 'page': pagina});
+    return Pagina.desdeJson(r.data as Map<String, dynamic>, Pedido.fromJson);
+  });
 
   Future<Pedido> pedido(int negocioId, int pedidoId) => _llamar(() async {
-        final r = await _dio.get('/negocios/$negocioId/pedidos/$pedidoId');
-        return Pedido.fromJson(r.data as Map<String, dynamic>);
-      });
+    final r = await _dio.get('/negocios/$negocioId/pedidos/$pedidoId');
+    return Pedido.fromJson(r.data as Map<String, dynamic>);
+  });
 
   /// Para "entregado" hace falta el [codigo] (PIN del cliente); para rechazar o cancelar, el [motivo].
+  /// Marca (o desmarca) un producto del pedido como alistado. Devuelve el pedido.
+  Future<Pedido> marcarAlistado(int negocioId, int pedidoId, int itemId, bool alistado) => _llamar(() async {
+    final r = await _dio.patch(
+      '/negocios/$negocioId/pedidos/$pedidoId/items/$itemId/alistado',
+      data: {'alistado': alistado},
+    );
+    return Pedido.fromJson(r.data as Map<String, dynamic>);
+  });
+
+  /// Documentos que subió el dueño (los del negocio tienen negocio_id).
+  Future<List<DocumentoSubido>> documentos() => _llamar(() async {
+    final r = await _dio.get('/documentos');
+    return (r.data as List).map((d) => DocumentoSubido.fromJson(d as Map<String, dynamic>)).toList();
+  });
+
   Future<Pedido> cambiarEstado(int negocioId, int pedidoId, EstadoPedido estado, {String? motivo, String? codigo}) =>
       _llamar(() async {
-        final r = await _dio.put('/negocios/$negocioId/pedidos/$pedidoId/estado', data: {
-          'estado': estado.api,
-          'motivo': ?motivo,
-          'codigo': ?codigo,
-        });
+        final r = await _dio.put(
+          '/negocios/$negocioId/pedidos/$pedidoId/estado',
+          data: {'estado': estado.api, 'motivo': ?motivo, 'codigo': ?codigo},
+        );
         return Pedido.fromJson(r.data as Map<String, dynamic>);
       });
 
   // ----- Compras y gastos -----
 
   Future<Pagina<Registro>> registros(int negocioId, {String? tipo, int pagina = 1}) => _llamar(() async {
-        final r = await _dio.get('/negocios/$negocioId/registros', queryParameters: {'tipo': ?tipo, 'page': pagina});
-        return Pagina.desdeJson(r.data as Map<String, dynamic>, Registro.fromJson);
-      });
+    final r = await _dio.get('/negocios/$negocioId/registros', queryParameters: {'tipo': ?tipo, 'page': pagina});
+    return Pagina.desdeJson(r.data as Map<String, dynamic>, Registro.fromJson);
+  });
 
-  Future<Registro> registrarCompra(int negocioId,
-          {required int productoId, required int cantidad, required double costoUnitario, String? proveedor, DateTime? fecha}) =>
-      _llamar(() async {
-        final r = await _dio.post('/negocios/$negocioId/registros', data: {
-          'tipo': 'compra',
-          'producto_id': productoId,
-          'cantidad': cantidad,
-          'costo_unitario': costoUnitario,
-          if (proveedor != null && proveedor.trim().isNotEmpty) 'proveedor': proveedor.trim(),
-          if (fecha != null) 'fecha': Formato.fechaApi(fecha),
-        });
-        return Registro.fromJson(r.data as Map<String, dynamic>);
-      });
+  Future<Registro> registrarCompra(
+    int negocioId, {
+    required int productoId,
+    required int cantidad,
+    required double costoUnitario,
+    String? proveedor,
+    DateTime? fecha,
+  }) => _llamar(() async {
+    final r = await _dio.post(
+      '/negocios/$negocioId/registros',
+      data: {
+        'tipo': 'compra',
+        'producto_id': productoId,
+        'cantidad': cantidad,
+        'costo_unitario': costoUnitario,
+        if (proveedor != null && proveedor.trim().isNotEmpty) 'proveedor': proveedor.trim(),
+        if (fecha != null) 'fecha': Formato.fechaApi(fecha),
+      },
+    );
+    return Registro.fromJson(r.data as Map<String, dynamic>);
+  });
 
-  Future<Registro> registrarGasto(int negocioId, {required String descripcion, required double monto, DateTime? fecha}) =>
-      _llamar(() async {
-        final r = await _dio.post('/negocios/$negocioId/registros', data: {
-          'tipo': 'gasto',
-          'descripcion': descripcion.trim(),
-          'monto': monto,
-          if (fecha != null) 'fecha': Formato.fechaApi(fecha),
-        });
-        return Registro.fromJson(r.data as Map<String, dynamic>);
-      });
+  Future<Registro> registrarGasto(
+    int negocioId, {
+    required String descripcion,
+    required double monto,
+    DateTime? fecha,
+  }) => _llamar(() async {
+    final r = await _dio.post(
+      '/negocios/$negocioId/registros',
+      data: {
+        'tipo': 'gasto',
+        'descripcion': descripcion.trim(),
+        'monto': monto,
+        if (fecha != null) 'fecha': Formato.fechaApi(fecha),
+      },
+    );
+    return Registro.fromJson(r.data as Map<String, dynamic>);
+  });
 
   Future<void> borrarRegistro(int negocioId, int registroId) =>
       _llamar(() => _dio.delete('/negocios/$negocioId/registros/$registroId'));
@@ -226,43 +284,43 @@ class MiNegocioRepository {
 
   /// agrupar: dia · semana · mes · anio
   Future<Reporte> reporte(int negocioId, DateTime desde, DateTime hasta, String agrupar) => _llamar(() async {
-        final r = await _dio.get('/negocios/$negocioId/reporte', queryParameters: {
-          'desde': Formato.fechaApi(desde),
-          'hasta': Formato.fechaApi(hasta),
-          'agrupar': agrupar,
-        });
-        return Reporte.fromJson(r.data as Map<String, dynamic>);
-      });
+    final r = await _dio.get(
+      '/negocios/$negocioId/reporte',
+      queryParameters: {'desde': Formato.fechaApi(desde), 'hasta': Formato.fechaApi(hasta), 'agrupar': agrupar},
+    );
+    return Reporte.fromJson(r.data as Map<String, dynamic>);
+  });
 
   Future<List<ReporteProducto>> reporteProductos(int negocioId, DateTime desde, DateTime hasta) => _llamar(() async {
-        final r = await _dio.get('/negocios/$negocioId/reporte-productos', queryParameters: {
-          'desde': Formato.fechaApi(desde),
-          'hasta': Formato.fechaApi(hasta),
-        });
-        return (r.data as List).map((p) => ReporteProducto.fromJson(p as Map<String, dynamic>)).toList();
-      });
+    final r = await _dio.get(
+      '/negocios/$negocioId/reporte-productos',
+      queryParameters: {'desde': Formato.fechaApi(desde), 'hasta': Formato.fechaApi(hasta)},
+    );
+    return (r.data as List).map((p) => ReporteProducto.fromJson(p as Map<String, dynamic>)).toList();
+  });
 
   // ----- Calificaciones -----
 
-  Future<({Calificaciones resumen, Pagina<Resena> resenas})> resenas(int negocioId, {int pagina = 1}) =>
-      _llamar(() async {
-        final r = await _dio.get('/negocios/$negocioId/resenas', queryParameters: {'page': pagina});
-        final json = r.data as Map<String, dynamic>;
-        final porEstrellas = (json['por_estrellas'] as Map).map((k, v) => MapEntry(int.parse('$k'), (v as num).toInt()));
-        return (
-          resumen: Calificaciones(
-            rating: (json['rating_promedio'] as num?)?.toDouble(),
-            total: (json['total_resenas'] as num?)?.toInt() ?? 0,
-            porEstrellas: porEstrellas,
-          ),
-          resenas: Pagina.desdeJson(json, Resena.fromJson),
-        );
-      });
+  Future<({Calificaciones resumen, Pagina<Resena> resenas})> resenas(int negocioId, {int pagina = 1}) => _llamar(
+    () async {
+      final r = await _dio.get('/negocios/$negocioId/resenas', queryParameters: {'page': pagina});
+      final json = r.data as Map<String, dynamic>;
+      final porEstrellas = (json['por_estrellas'] as Map).map((k, v) => MapEntry(int.parse('$k'), (v as num).toInt()));
+      return (
+        resumen: Calificaciones(
+          rating: (json['rating_promedio'] as num?)?.toDouble(),
+          total: (json['total_resenas'] as num?)?.toInt() ?? 0,
+          porEstrellas: porEstrellas,
+        ),
+        resenas: Pagina.desdeJson(json, Resena.fromJson),
+      );
+    },
+  );
 
   Future<Resena> responder(int negocioId, int resenaId, String respuesta) => _llamar(() async {
-        final r = await _dio.put('/negocios/$negocioId/resenas/$resenaId/respuesta', data: {'respuesta': respuesta});
-        return Resena.fromJson(r.data as Map<String, dynamic>);
-      });
+    final r = await _dio.put('/negocios/$negocioId/resenas/$resenaId/respuesta', data: {'respuesta': respuesta});
+    return Resena.fromJson(r.data as Map<String, dynamic>);
+  });
 
   Future<T> _llamar<T>(Future<T> Function() peticion) async {
     try {
@@ -286,6 +344,17 @@ final negocioActualProvider = FutureProvider<Negocio?>((ref) async {
 
 final resumenNegocioProvider = FutureProvider.family<ResumenNegocio, int>(
   (ref, negocioId) => ref.watch(miNegocioRepositoryProvider).resumen(negocioId),
+);
+
+/// Ventas día por día de los últimos 7 días (gráfico "Esta semana" del resumen).
+final semanaNegocioProvider = FutureProvider.family<Reporte, int>((ref, negocioId) {
+  final hoy = DateTime.now();
+  return ref.watch(miNegocioRepositoryProvider).reporte(negocioId, hoy.subtract(const Duration(days: 6)), hoy, 'dia');
+});
+
+/// Documentos del dueño del negocio (para "Más · Documentos").
+final documentosNegocioProvider = FutureProvider<List<DocumentoSubido>>(
+  (ref) => ref.watch(miNegocioRepositoryProvider).documentos(),
 );
 
 final misProductosProvider = FutureProvider.family<List<MiProducto>, int>(
