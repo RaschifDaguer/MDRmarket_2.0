@@ -1,4 +1,4 @@
-# API MDR Market (Laravel 12) — imagen para Railway o docker-compose.
+# API MDR Market (Laravel 12) — imagen para docker-compose (servidor de la universidad).
 # Versión exacta de PHP: la 8.3.36 corrige "PHP2Shell" (CVE-2026-109618 y
 # CVE-2026-109619, ejecución remota de código, oct-2026). Al salir una versión
 # de seguridad nueva de PHP 8.3, subir este número (https://www.php.net).
@@ -33,8 +33,8 @@ ENV CACHE_LIMITER=file
 # Cada proceso de Apache reutiliza su conexión con la base (ver config/database.php).
 ENV DB_PERSISTENT=true
 
-# Máximo 10 procesos de Apache a la vez: alcanza para la memoria del plan de
-# Railway y para las conexiones de Aiven. Si llegan más solicitudes, esperan
+# Máximo 10 procesos de Apache a la vez: alcanza para la memoria del
+# contenedor (1 GB) y para las conexiones de la base (máximo 40). Si llegan más solicitudes, esperan
 # su turno en vez de tumbar el servidor. Cada proceso se renueva cada 500.
 RUN sed -ri -e 's/^(\s*MaxRequestWorkers\s+).*/\1 10/' -e 's/^(\s*MaxConnectionsPerChild\s+).*/\1 500/' \
        /etc/apache2/mods-available/mpm_prefork.conf

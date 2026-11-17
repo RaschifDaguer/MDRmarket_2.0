@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Models\ProductoImagen;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -44,7 +45,11 @@ class ProductoRequest extends FormRequest
             'disponible' => ['sometimes', 'boolean'],
             // Vehículo mínimo para llevarlo: 1 liviano (moto), 2 mediano (auto), 3 grande (camión).
             'categoria_vehiculo_id' => ['nullable', 'integer', 'in:1,2,3'],
+            // Portada (reemplaza la actual).
             'foto' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+            // Fotos extra (se agregan); en total el producto tiene hasta 4 fotos.
+            'fotos' => ['nullable', 'array', 'max:'.ProductoImagen::MAXIMO],
+            'fotos.*' => ['image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
         ];
     }
 
@@ -71,13 +76,16 @@ class ProductoRequest extends FormRequest
             'stock.required' => 'Escribe cuántas unidades tienes para vender.',
             'stock.min' => $this->route('producto') ? 'El stock no puede ser negativo.' : 'Publica al menos 1 unidad.',
             'foto.max' => 'La foto no puede pesar más de 5 MB.',
+            'fotos.max' => 'Un producto puede tener hasta '.ProductoImagen::MAXIMO.' fotos.',
+            'fotos.*.max' => 'Cada foto puede pesar hasta 5 MB.',
+            'fotos.*.image' => 'Solo se pueden subir fotos (JPG, PNG o WEBP).',
         ];
     }
 
     /** Datos listos para guardar en `producto`. */
     public function datosProducto(): array
     {
-        $datos = $this->safe()->except(['foto']);
+        $datos = $this->safe()->except(['foto', 'fotos']);
         $datos['categoria_vehiculo_id'] ??= 1;
         $datos['disponible'] = $this->boolean('disponible', true);
 

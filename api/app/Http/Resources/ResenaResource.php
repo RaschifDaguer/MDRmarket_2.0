@@ -18,6 +18,7 @@ class ResenaResource extends JsonResource
             'tipo' => $this->tipo,
             'estrellas' => (int) $this->estrellas,
             'comentario' => $this->comentario,
+            'etiquetas' => $this->etiquetas ?? [],
             // "Lucía R." (sin el apellido completo).
             'autor' => $autor ? ($inicial !== '' ? "{$autor->nombre} {$inicial}." : $autor->nombre) : 'Usuario',
             'producto' => $this->when($this->tipo === 'producto', fn () => [

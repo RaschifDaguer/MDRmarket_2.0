@@ -77,7 +77,10 @@ class RepartidorApiTest extends TestCase
         $this->assertEqualsCanonicalizing([
             'documento.ci_anverso', 'documento.ci_reverso', 'documento.foto_rostro', 'documento.licencia_conducir',
             "documento.ruat:vehiculo$vehiculo", "documento.foto_vehiculo:vehiculo$vehiculo", "documento.foto_placa:vehiculo$vehiculo",
+            // La moto tiene placa: también pide el SOAT vigente (la bicicleta no).
+            "documento.soat:vehiculo$vehiculo",
         ], $faltantes->json('faltantes.*.codigo'));
+        $faltantes->assertJsonFragment(['codigo' => "documento.soat:vehiculo$vehiculo", 'texto' => 'Foto: SOAT vigente', 'vehiculo_id' => $vehiculo]);
         $faltantes->assertJsonFragment(['codigo' => "documento.foto_placa:vehiculo$vehiculo", 'vehiculo_id' => $vehiculo]);
 
         // Sube todo lo que pide (las fotos del vehículo, con su vehiculo_id).

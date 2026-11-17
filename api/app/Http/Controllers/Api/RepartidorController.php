@@ -126,6 +126,7 @@ class RepartidorController extends Controller
             'disponible' => $r->disponible,
             'rating_promedio' => $r->rating_promedio,
             'total_entregas' => $r->total_entregas,
+            'meta_diaria' => $r->meta_diaria,
             // El motivo solo se guarda en el aviso que se le dejó al rechazarlo.
             'motivo_rechazo' => $r->estado_verificacion === 'rechazado'
                 ? Notificacion::where('usuario_id', $r->usuario_id)->where('tipo', 'repartidor_rechazado')->latest('id')->value('cuerpo')

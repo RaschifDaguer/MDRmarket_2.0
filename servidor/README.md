@@ -1,7 +1,6 @@
 # MDR Market en el servidor de la universidad
 
-Todo el sistema corre en un solo servidor con Docker, en lugar de Railway (API)
-y Aiven (base de datos):
+Todo el sistema corre en un solo servidor con Docker (ya no se usan Railway ni Aiven):
 - la base de datos;
 - la API;
 - el panel de administración `/admin`;
@@ -93,27 +92,14 @@ cd /home/remoto1/mdrmarket/servidor
 | Consola de MySQL | `sudo docker compose exec db sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" mdrmarket_new'` |
 | Reiniciar la verificación en dos pasos de un admin | En la consola: `UPDATE usuario SET app_authentication_secret = NULL, app_authentication_recovery_codes = NULL WHERE email = '…';` |
 
-## Pasar los datos desde Aiven
+## Datos que vinieron de Railway y Aiven
 
-Hay que hacerlo dos veces:
-- una al principio;
-- otra justo antes de cambiar el APK a la dirección nueva, para traer lo que
-  se haya hecho en Railway mientras tanto.
-
-Pasos:
-1. **En la PC**, respaldar Aiven con `mysqldump` de Laragon:
-   - opciones: `--single-transaction --routines --triggers --events --set-gtid-purged=OFF --no-tablespaces`;
-   - la clave va en un `--defaults-extra-file` temporal, nunca en el repo.
-2. Copiarlo al servidor: `scp aiven.sql ssh-software:/tmp/`.
-3. Importarlo y borrar el `.sql`, porque tiene datos personales:
-   ```
-   sudo ./importar_base.sh /tmp/aiven.sql
-   sudo rm /tmp/aiven.sql
-   ```
-
-La `APP_KEY` del `.env` tiene que ser **la misma de Railway**. Con ella se
-cifró la verificación en dos pasos del panel; con otra clave, los admins
-tendrían que configurarla de nuevo.
+Los datos reales se pasaron desde Aiven (base) y Railway (fotos). Esos pasos
+ya no hacen falta; quedan en el historial de git (script
+`copiar_fotos_de_railway.sh`, quitado el 16-nov-2026). La `APP_KEY` de
+`.env` es la misma de entonces: con ella se cifró la verificación en dos pasos
+del panel, así que **no hay que cambiarla** (con otra clave, los admins
+tendrían que configurarla de nuevo).
 
 ## Cuidados
 

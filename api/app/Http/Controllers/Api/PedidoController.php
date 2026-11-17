@@ -63,6 +63,8 @@ class PedidoController extends Controller
             'notas' => ['nullable', 'string', 'max:500'],
             // Solo efectivo (al recibir) o QR (simulado, ver CobroQr). Sin tarjeta ni transferencia.
             'metodo_pago' => ['required', Rule::in(['efectivo', 'qr'])],
+            // Efectivo: con cuánto paga (para que el repartidor lleve cambio). Opcional.
+            'paga_con' => ['nullable', 'numeric', 'min:0', 'max:100000', 'prohibited_unless:metodo_pago,efectivo'],
             'items' => ['required', 'array', 'min:1', 'max:50'],
             'items.*.producto_id' => ['required', 'integer', 'distinct'],
             'items.*.cantidad' => ['required', 'integer', 'min:1', 'max:99'],
@@ -72,6 +74,8 @@ class PedidoController extends Controller
             'direccion.required_without' => 'Elige o escribe la dirección de entrega.',
             'latitud.required_without' => 'Marca la dirección de entrega en el mapa.',
             'metodo_pago.in' => 'Elige pagar en efectivo o con QR.',
+            'paga_con.prohibited_unless' => 'Con cuánto pagas solo se indica si pagas en efectivo.',
+            'paga_con.numeric' => 'Escribe con cuánto pagas, en bolivianos.',
         ]);
 
         $usuario = $request->user();
@@ -110,6 +114,14 @@ class PedidoController extends Controller
         $envio = Envio::cotizar($negocio, $latitud, $longitud, $categoriaVehiculo);
         $comisionPct = (float) Configuracion::valor('comision_plataforma_pct', 0);
 
+        // Con cuánto paga: al menos el total (productos + envío + servicio).
+        $total = round($subtotal + (float) $envio['costo_envio'] + (float) $envio['tarifa_servicio'], 2);
+        if (isset($datos['paga_con']) && (float) $datos['paga_con'] < $total) {
+            throw ValidationException::withMessages([
+                'paga_con' => 'Tiene que ser al menos el total del pedido: Bs '.number_format($total, 2).'.',
+            ]);
+        }
+
         $pedido = DB::transaction(function () use ($usuario, $negocio, $direccion, $datos, $latitud, $longitud, $items, $catalogo, $subtotal, $categoriaVehiculo, $envio, $comisionPct) {
             $pedido = Pedido::create([
                 'comprador_id' => $usuario->id,
@@ -126,6 +138,7 @@ class PedidoController extends Controller
                 'tarifa_servicio' => $envio['tarifa_servicio'],
                 'comision_plataforma' => round($subtotal * $comisionPct / 100, 2),
                 'metodo_pago' => $datos['metodo_pago'],
+                'paga_con' => $datos['paga_con'] ?? null,
                 // Con QR: la referencia del cobro (va dentro del QR que muestra la app).
                 'referencia_pago' => $datos['metodo_pago'] === 'qr' ? CobroQr::nuevaReferencia() : null,
                 'codigo_entrega' => str_pad((string) random_int(0, 9999), 4, '0', STR_PAD_LEFT),

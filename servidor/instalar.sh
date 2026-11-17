@@ -11,7 +11,7 @@ if [ ! -f .env ]; then
     echo "# Claves de MDR Market en este servidor. NUNCA subir este archivo a git."
     echo "DB_ROOT_PASSWORD=$(openssl rand -hex 24)"
     echo "DB_PASSWORD=$(openssl rand -hex 24)"
-    echo "# Para seguir usando la verificación en dos pasos del panel, la misma APP_KEY de Railway."
+    echo "# Para seguir usando la verificación en dos pasos del panel, la misma APP_KEY de siempre (no la cambies)."
     echo "APP_KEY=base64:$(openssl rand -base64 32)"
     echo "APP_URL=http://localhost:8090"
   } > .env

@@ -1,6 +1,6 @@
 #!/bin/bash
 # Reemplaza la base de MDR Market del servidor con un archivo .sql o .sql.gz
-# (por ejemplo, el respaldo que se baja de Aiven, o el script maestro).
+# (por ejemplo, un respaldo de ./respaldos).
 # ¡BORRA lo que haya ahora en la base del servidor! Antes guarda un respaldo
 # en ./respaldos por si acaso.
 #
@@ -34,8 +34,9 @@ sql -e "DROP DATABASE IF EXISTS mdrmarket_new;
         GRANT ALL PRIVILEGES ON mdrmarket_new.* TO 'mdr'@'%';" </dev/null
 
 echo "3/3 Importando $archivo..."
-# Sin DEFINER: en Aiven los triggers, vistas y procedimientos están a nombre
-# de su usuario (avnadmin), que aquí no existe; así quedan a nombre de root.
+# Sin DEFINER: si el respaldo viene de otro servidor, los triggers, vistas y
+# procedimientos pueden estar a nombre de un usuario que aquí no existe;
+# así quedan a nombre de root.
 leer | sed -E 's/DEFINER=`[^`]+`@`[^`]+`//g' | sql mdrmarket_new
 
 sql -N mdrmarket_new -e "

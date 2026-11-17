@@ -19,12 +19,10 @@ comerciante, aparece el botón **"cambiar vista"**.
 
 | Qué | Enlace | Acceso |
 |---|---|---|
-| **App web** (desde cualquier celular o computadora) | https://api-mdrmarket-production.up.railway.app/app/ | Pública: entras con tu cuenta de la app. Sin mapa de Google hasta tener una clave restringida (se usa el botón de GPS) |
-| **API publicada** | https://api-mdrmarket-production.up.railway.app/api | Pública. Abrirla muestra si el servidor y la base están funcionando |
-| **Panel de administrador** | https://api-mdrmarket-production.up.railway.app/admin | Solo cuentas administradoras, con verificación en dos pasos ([cómo entrar](#-crear-tu-cuenta-y-hacerte-administrador)) |
-| **Railway** (servidor de la API: logs, variables, despliegues) | https://railway.com/project/2f0bb79b-64b4-4c55-9e58-2bd9222020f3 | Pedir que te agreguen al proyecto `confident-hope` |
-| **Aiven** (base de datos de producción) | https://console.aiven.io → proyecto **`mdrmarket`** → servicio **`mdrmarket-db`** | Pedir invitación a la organización |
-| **Servidor de la universidad** (reemplazará a Railway + Aiven) | Por ahora, dirección temporal `*.trycloudflare.com` (cambia al reiniciar). Definitiva pendiente: `mdrmarket.sistemasunifranz.site` | Por SSH: [cómo conectarte y publicar tus cambios](#-servidor-de-la-universidad-conectarte-y-publicar-tus-cambios) · manejo en [servidor/README.md](servidor/README.md) |
+| **Servidor de la universidad** (el único servidor: base, API, panel y app web) | Dirección definitiva (pendiente): `https://mdrmarket.sistemasunifranz.site`. Mientras tanto, una temporal `*.trycloudflare.com` que cambia al reiniciar (verla con `sudo ./direccion_temporal.sh`) | Por SSH: [cómo conectarte y publicar tus cambios](#-servidor-de-la-universidad-conectarte-y-publicar-tus-cambios) · manejo en [servidor/README.md](servidor/README.md) |
+| **App web** (desde cualquier celular o computadora) | `DIRECCIÓN/app/` (la dirección del servidor de arriba) | Pública: entras con tu cuenta de la app. Sin mapa de Google hasta tener una clave restringida (se usa el botón de GPS) |
+| **API publicada** | `DIRECCIÓN/api` | Pública. Abrirla muestra si el servidor y la base están funcionando |
+| **Panel de administrador** | `DIRECCIÓN/admin` | Solo cuentas administradoras, con verificación en dos pasos ([cómo entrar](#-crear-tu-cuenta-y-hacerte-administrador)) |
 | **Repo de código** | https://github.com/RaschifDaguer/MDRmarket_2.0 | Público para leer; colaborador para subir cambios |
 | **Repo de la base (Docker)** | https://github.com/RaschifDaguer/MDRmarket_2.0_docker | Ídem |
 | **Google Cloud** (clave de Maps, para los módulos de mapa) | https://console.cloud.google.com/apis/credentials | Pedir al dueño |
@@ -35,6 +33,8 @@ comerciante, aparece el botón **"cambiar vista"**.
 
 | Fecha | Qué cambió | Qué significa para ti |
 |---|---|---|
+| 16-nov | **Ya no se usan Railway ni Aiven**: el único servidor es el de la universidad | Los pasos y la configuración que eran solo para Railway o Aiven se quitaron. Las entradas de abajo son historial |
+| 16-nov | **Regla de pedidos** (fase 0): la tienda solo acepta o rechaza un pedido nuevo y, aceptado, ya no lo cancela. Lo que nadie atiende vence solo (la tienda no responde en 1 min, el QR no se paga en 10 min o ningún repartidor lo toma en 30 min). Comisión de la plataforma: 8 % sobre los productos | Plazos y comisión se cambian en `/admin` → Configuración. Las tareas automáticas corren solas dentro del contenedor de la API |
 | 11-nov | **MDR Market corre también en el servidor de la universidad** (Docker: base, API, panel, app web y respaldo diario) | Va a reemplazar a Railway y Aiven cuando exista la dirección definitiva y se pasen los datos reales. Railway y Aiven siguen funcionando hasta entonces ([guía](servidor/README.md)) |
 | 11-nov | **Multimedia**: `POST /api/multimedia` guarda fotos, videos, audios y PDF (hasta 90 MB por archivo, 300 MB por usuario) | Disponible en la API para usarla desde la app donde haga falta (ej. videos de productos). Ver [docs/API_FRONTEND.md](docs/API_FRONTEND.md) |
 | 11-nov | **App web sin dirección fija**: usa la API del mismo sitio desde donde se abre | Sirve igual en Railway y en la universidad sin volver a armarla |
@@ -73,8 +73,8 @@ ataque) y **113 de la app** (`flutter test`).
 ## Guía para el equipo
 
 Pensada para quien trabaja en el **frontend (Flutter) y las pruebas**. No
-necesitas Laragon ni una base de datos en tu PC: la app usa el servidor de
-internet (Railway), que ya está conectado a la base (Aiven).
+necesitas Laragon ni una base de datos en tu PC: la app usa el servidor de la
+universidad, que tiene la API y la base juntas.
 
 ### Paso 1 — Accesos que tienes que pedir
 
@@ -104,10 +104,13 @@ como **`app/dart_defines.local.json`** y déjalo así:
 
 ```json
 {
-  "API_URL": "https://api-mdrmarket-production.up.railway.app/api",
+  "API_URL": "https://DIRECCIÓN-DEL-SERVIDOR/api",
   "GOOGLE_MAPS_KEY": "la-clave-que-te-pasó-Raschif"
 }
 ```
+
+`DIRECCIÓN-DEL-SERVIDOR` es la del [servidor de la universidad](#-enlaces-del-proyecto)
+(la definitiva cuando esté activa; mientras tanto, la temporal).
 
 Ese archivo **nunca se sube** al repositorio: ya está en `.gitignore`, porque el
 repo es público. Después ejecuta desde `app/`:
@@ -119,15 +122,15 @@ flutter run --dart-define-from-file=dart_defines.local.json             # emulad
 
 | Si quieres usar… | `API_URL` |
 |---|---|
-| El servidor de internet (lo normal) | `https://api-mdrmarket-production.up.railway.app/api` |
+| El servidor de la universidad (lo normal) | `https://DIRECCIÓN-DEL-SERVIDOR/api` |
 | Una API en tu propia PC, desde Chrome | `http://localhost:8001/api` |
 | Una API en tu PC, desde el emulador Android | `http://10.0.2.2:8001/api` |
 | Una API en tu PC, desde un celular en tu Wi-Fi | `http://IP-DE-TU-PC:8001/api` |
 
 > Si la app dice **"En mantenimiento"** o no carga nada, abre
-> https://api-mdrmarket-production.up.railway.app/api: si dice *sin conexión*,
-> la base gratuita de Aiven se durmió. Avisa a Raschif para que la encienda
-> (tarda 5–10 minutos).
+> `https://DIRECCIÓN-DEL-SERVIDOR/api`: si dice *sin conexión*, la base del
+> servidor está apagada. Avisa a Raschif para que la revise
+> (`sudo docker compose ps` en el servidor).
 
 ### Paso 4 — Crea tu cuenta y hazte administrador
 
@@ -167,22 +170,22 @@ esperabas, qué pasó, una captura y el dispositivo (Chrome, emulador o celular)
 
 ### Publicar la app web
 
-La versión web vive en el mismo servidor, en
-**https://api-mdrmarket-production.up.railway.app/app/**: Apache sirve los
-archivos de `api/public/app`. Cuando cambies pantallas y quieras que se vean ahí:
+La versión web vive en el mismo servidor, en **`DIRECCIÓN-DEL-SERVIDOR/app/`**:
+Apache sirve los archivos de `api/public/app`. Cuando cambies pantallas y
+quieras que se vean ahí:
 
 ```powershell
 cd app
 .\publicar_web.ps1                  # arma la app con la API del servidor y la copia a api/public/app
 git add api/public/app
 git commit -m "App web: nueva versión"
-git push                            # Railway la publica en 3–5 minutos
+git push                            # después, en el servidor: sudo ./actualizar.sh
 ```
 
-- La app web **usa los mismos datos reales** que la app del celular y el panel (Aiven).
+- La app web **usa los mismos datos reales** que la app del celular y el panel.
 - **Mapa de Google:** la clave queda dentro del código que descarga cualquier
   visitante. Úsala solo restringida en Google Cloud a "Sitios web" con
-  `https://api-mdrmarket-production.up.railway.app/*` y a la "Maps JavaScript
+  `https://mdrmarket.sistemasunifranz.site/*` y a la "Maps JavaScript
   API": `.\publicar_web.ps1 -ClaveMaps "AIza…"`. Sin clave, la app usa el botón de GPS.
 - Si después de publicar se sigue viendo la versión anterior, recarga con **Ctrl + F5**.
 
@@ -191,39 +194,41 @@ git push                            # Railway la publica en 3–5 minutos
 ## Cambios en el backend (API y base de datos)
 
 **Sí, puedes hacer cambios en el backend**, con estas reglas, porque todo lo que
-llega a `main` dentro de `api/` **se publica solo en el servidor real**:
+llega a `main` dentro de `api/` **se publica en el servidor real** al actualizarlo
+(`sudo ./actualizar.sh`):
 
 1. **Prepara tu PC:** PHP **8.3.36 o más nuevo** y Composer (con Laragon es lo
    más fácil; si trae una versión más vieja de PHP, actualízala), más la base
    local `mdrmarket_new` y la de pruebas `mdrmarket_prueba`. Pasos en la
    [sección 3](#3-ponerlo-en-marcha-en-tu-pc) y en [api/README.md](api/README.md#pruebas).
 2. **Siempre en una rama y con Pull Request.** Nunca hagas push directo a `main`:
-   al unir a `main`, Railway reconstruye la API en 3–5 minutos.
+   lo que está en `main` es lo que se publica en el servidor.
 3. **Antes de pedir revisión:** `php artisan test` sin fallos. Si agregas una
    ruta, agrega su prueba y actualiza [docs/API_FRONTEND.md](docs/API_FRONTEND.md).
    La documentación de `/docs/api` se genera sola.
 4. **La estructura de la base NO se cambia con migraciones de Laravel.** Se
    cambia en el script del [repo Docker](https://github.com/RaschifDaguer/MDRmarket_2.0_docker)
-   y con un archivo en su carpeta `cambios/`. Ese cambio se aplica en Aiven
-   **antes** de publicar el código que lo usa, con un respaldo previo, y lo
-   aplica quien tenga acceso a Aiven. **Nunca importes el script completo en
-   Aiven**: borra todos los datos. Ver [docs/BASE_DE_DATOS.md](docs/BASE_DE_DATOS.md).
+   y con un archivo en su carpeta `cambios/`. Ese cambio se aplica en el
+   servidor de la universidad **antes** de publicar el código que lo usa, con
+   un respaldo previo ([cómo](#5-cambios-en-la-base-de-datos)). **Nunca
+   importes el script completo en el servidor**: borra todos los datos. Ver
+   [docs/BASE_DE_DATOS.md](docs/BASE_DE_DATOS.md).
 5. **No toques sin hablarlo antes:**
    - la versión de PHP del `api/Dockerfile` (solo se sube, por seguridad);
    - los límites de seguridad y la verificación en dos pasos del panel;
    - `docker/entrypoint.sh`.
 6. **Secretos:** contraseñas, `.env`, `ca.pem`, `APP_KEY` y la clave de Google
    **nunca** van al repositorio ni a grupos de chat.
-7. **Para estas cosas necesitas a Raschif**, porque requieren acceso al servidor:
-   variables de Railway, encender o cambiar Aiven y aplicar cambios de la base.
+7. **Para estas cosas necesitas a Raschif** (o acceso al servidor): cambiar
+   las variables de `servidor/.env`, aplicar cambios de la base y actualizar
+   el servidor.
 
 ---
 
 ## 💻 Servidor de la universidad: conectarte y publicar tus cambios
 
-MDR Market también corre en el servidor que nos dio la universidad, y va a
-reemplazar a Railway y Aiven. Aquí está lo necesario para entrar y publicar lo
-que hagas. La guía completa de manejo del servidor está en
+MDR Market corre en el servidor que nos dio la universidad (es el único
+servidor). Aquí está lo necesario para entrar y publicar lo que hagas. La guía completa de manejo del servidor está en
 [servidor/README.md](servidor/README.md).
 
 ### 1. Lo que necesitas (una sola vez)
@@ -371,7 +376,7 @@ compras como cliente en la app y entras al panel web.
 > Si no tienes Flutter instalado, también puedes crear la cuenta directo contra la
 > API (Git Bash o terminal de Mac/Linux):
 > ```bash
-> curl -X POST https://api-mdrmarket-production.up.railway.app/api/auth/registro \
+> curl -X POST https://DIRECCIÓN-DEL-SERVIDOR/api/auth/registro \
 >   -H "Accept: application/json" -H "Content-Type: application/json" \
 >   -d '{"nombre":"Tu nombre","apellido":"Tu apellido","email":"tu@correo.com",
 >        "password":"Mdrmarket2026","password_confirmation":"Mdrmarket2026","ci_numero":"1234567"}'
@@ -386,7 +391,7 @@ Pásale tu **correo** a Raschif (o a cualquier admin) y él hace una de estas:
 | Quién lo da | Cómo |
 |---|---|
 | **Un admin, desde el panel** (lo normal) | `/admin` → **Operación → Usuarios** → busca tu correo → menú **⋮** → **"Hacer administrador"** |
-| Quien tenga acceso a Aiven | En un cliente MySQL conectado a producción: `UPDATE usuario SET es_admin = 1 WHERE email = 'tu@correo.com';` |
+| Quien tenga acceso al servidor | En el servidor (`cd /home/remoto1/mdrmarket/servidor`): `sudo docker compose exec api php artisan mdr:admin tu@correo.com` |
 | En una base local (Laragon) | Desde `api/`: `php artisan mdr:admin tu@correo.com` (con `--quitar` lo saca) |
 
 ### Paso 3 — Primer ingreso al panel (verificación en dos pasos)
@@ -395,7 +400,7 @@ El panel guarda datos personales (fotos de carnets), así que además de la
 contraseña pide un **código del celular**. Es obligatorio para todos los admins.
 
 1. Instala en tu celular **Google Authenticator** o **Microsoft Authenticator** (gratis).
-2. Entra a **https://api-mdrmarket-production.up.railway.app/admin** con tu correo y
+2. Entra a **`DIRECCIÓN-DEL-SERVIDOR/admin`** con tu correo y
    tu contraseña de la app.
 3. La primera vez aparece **"Configurar la aplicación de autenticación"** con un
    **código QR**. En la app del celular toca **+ → Escanear código QR** y apunta a la pantalla.
@@ -409,9 +414,9 @@ contraseña pide un **código del celular**. Es obligatorio para todos los admin
 > verificación. Si se compartió, cancela y vuelve a abrir: se genera otra.
 
 **¿Perdiste el celular y los códigos?** Pide a Raschif que reinicie tu
-verificación (en Aiven: `UPDATE usuario SET app_authentication_secret = NULL,
-app_authentication_recovery_codes = NULL WHERE email = 'tu@correo.com';`). Al
-entrar de nuevo aparece otra vez el QR.
+verificación (en la consola de MySQL del servidor: `UPDATE usuario SET
+app_authentication_secret = NULL, app_authentication_recovery_codes = NULL
+WHERE email = 'tu@correo.com';`). Al entrar de nuevo aparece otra vez el QR.
 
 ### Qué hace un administrador
 
@@ -422,18 +427,18 @@ entrar de nuevo aparece otra vez el QR.
 | **Aprobaciones → Documentos** | Revisar la identidad de comerciantes y repartidores: **el carnet (los dos lados) y la selfie van juntos en una sola solicitud**, con las fotos lado a lado. Comprueba que la cara de la selfie sea la del carnet. Al rechazar eliges qué parte debe volver a subir; la persona recibe el motivo. |
 | **Operación → Pedidos** | Ver todos los pedidos y cancelar uno si hace falta (devuelve el stock). |
 | **Operación → Usuarios** | Activar o desactivar cuentas y **dar o quitar el permiso de administrador**. |
-| **Configuración** | Tarifas de envío por distancia, tarifa de servicio y comisión. |
+| **Configuración** | Tarifas de envío por distancia, tarifa de servicio, comisión, plazos de los pedidos y umbral de "poco stock". |
 
 Reglas: no compartas tu cuenta de admin; cada persona usa la suya. Las fotos de
 documentos son privadas y solo se ven dentro del panel.
 
 ### Recorrido completo para probar (o para una demostración)
 
-1. **Antes de empezar:** abre https://api-mdrmarket-production.up.railway.app/api.
+1. **Antes de empezar:** abre `DIRECCIÓN-DEL-SERVIDOR/api`.
    Debe decir `"base_de_datos": "conectada"`. Si dice *sin conexión* o la app
-   muestra **"En mantenimiento"**, la base de Aiven está dormida: hay que
-   encenderla (ver [Problemas conocidos](#10-problemas-conocidos)) y esperar
-   5–10 minutos. Conviene revisarlo **10 minutos antes** de una presentación.
+   muestra **"En mantenimiento"**, la base del servidor está apagada (ver
+   [Problemas conocidos](#10-problemas-conocidos)). Conviene revisarlo
+   **10 minutos antes** de una presentación.
 2. **Cliente:** en la app, pestaña **Inicio** (productos), **Tiendas** y
    **Pedidos**. Los productos que ves son de los negocios **aprobados**.
 3. **Volverse comerciante:** en Inicio, **"¿Tienes un negocio? → Registrar"**:
@@ -474,7 +479,7 @@ documentos son privadas y solo se ven dentro del panel.
 - [1. Herramientas que tienes que instalar](#1-herramientas-que-tienes-que-instalar)
 - [2. Accesos que tienes que pedir](#2-accesos-que-tienes-que-pedir)
 - [3. Ponerlo en marcha en tu PC](#3-ponerlo-en-marcha-en-tu-pc)
-- [4. Servidor en internet (Railway + Aiven)](#4-servidor-en-internet-railway--aiven)
+- [4. Servidor en internet (universidad)](#4-servidor-en-internet-universidad)
 - [5. Cómo trabajar sin romper nada](#5-cómo-trabajar-sin-romper-nada)
 - [6. Estructura del código](#6-estructura-del-código)
 - [7. API: rutas disponibles](#7-api-rutas-disponibles)
@@ -492,7 +497,7 @@ documentos son privadas y solo se ven dentro del panel.
 | 1 | **Base de datos** completa: usuarios y roles, documentos, vehículos, 12 categorías con 49 subcategorías, productos, pedidos, envío por km y anillos, reseñas, reportes, sanciones, ganancias del comerciante | ✅ Hecho |
 | 2 | **API:** registro (contraseña segura escrita dos veces), inicio y cierre de sesión, perfil y cambio de vista | ✅ Hecho |
 | 3 | **App:** pantallas de arranque, inicio de sesión, registro e inicio por vista, con el botón "cambiar vista" | ✅ Hecho |
-| — | **Servidor en internet:** API en Railway + base en Aiven, con despliegue automático | ✅ Hecho |
+| — | **Servidor en internet:** todo en el servidor de la universidad (Docker: base, API, panel, app web, respaldo diario y tareas automáticas) | ✅ Hecho |
 | 4a | Registro de comerciante (negocio, mapa/GPS, foto, carnet y selfie) | ✅ Hecho |
 | 4b | Registro de repartidor (vehículo y documentos) | ✅ Hecho (API, panel y app; un solo vehículo por ahora) |
 | 5 | Catálogo con categorías, búsqueda, ofertas y páginas de tienda | ✅ Hecho |
@@ -513,8 +518,8 @@ El detalle de cada módulo pendiente, con qué construir y cómo probarlo, está
 ## Cómo está armado
 
 ```
-📱 App Flutter  ──HTTP──▶  API Laravel  ──SSL──▶  MySQL 8.4
- (Android, iOS, web)        (Railway)              (Aiven)
+📱 App Flutter  ──HTTPS──▶  API Laravel  ──────▶  MySQL 8.4
+ (Android, iOS, web)       └──── servidor de la universidad (Docker) ────┘
 ```
 
 | Repositorio | Contenido |
@@ -524,8 +529,8 @@ El detalle de cada módulo pendiente, con qué construir y cómo probarlo, está
 
 | Parte | Dónde corre | URL / acceso |
 |---|---|---|
-| API | Railway, plan Free | https://api-mdrmarket-production.up.railway.app/api |
-| Base de datos | Aiven for MySQL, plan Free, servicio `mdrmarket-db` | Consola de Aiven (pedir acceso) |
+| API, panel y app web | Servidor de la universidad (contenedor `mdrmarket-api-1`) | `DIRECCIÓN-DEL-SERVIDOR/api` |
+| Base de datos | Servidor de la universidad (contenedor `mdrmarket-db-1`, solo por dentro) | Por SSH ([servidor/README.md](servidor/README.md)) |
 | Código | GitHub | Los dos repos de arriba |
 
 **Decisión importante:** la estructura de la base **la define el script SQL**
@@ -541,12 +546,12 @@ sanciones…). Ver [docs/BASE_DE_DATOS.md](docs/BASE_DE_DATOS.md).
 
 | Vas a trabajar en… | Instala | ¿Laragon? |
 |---|---|---|
-| **Solo la app** (pantallas Flutter) | Git, Flutter, Android Studio (SDK y emulador), VS Code | ❌ No. La app usa la API de Railway, que ya está conectada a la base de Aiven |
+| **Solo la app** (pantallas Flutter) | Git, Flutter, Android Studio (SDK y emulador), VS Code | ❌ No. La app usa la API del servidor de la universidad, que ya tiene la base |
 | **La API** (Laravel) | Lo anterior + PHP 8.3 y Composer | ✅ Recomendado. Es la forma más fácil de tener PHP, Composer y MySQL en Windows (alternativas: XAMPP, Herd o Docker) |
-| **La base de datos** | Un cliente MySQL: **DBeaver**, **MySQL Workbench** o **HeidiSQL** | ❌ No obligatorio. Puedes conectarte directo a Aiven con SSL ([cómo](docs/BASE_DE_DATOS.md#conectarse-a-la-base-de-producción-aiven)) |
+| **La base de datos** | Un cliente MySQL: **DBeaver**, **MySQL Workbench** o **HeidiSQL** | ✅ Para tu base local. La de producción está dentro del servidor (consola de MySQL por SSH) |
 
-> ⚠️ Aiven es la base **de producción**. Prueba los cambios primero en una base
-> local (Laragon o Docker) y aplícalos en Aiven solo cuando funcionen.
+> ⚠️ La base del servidor es la **de producción**. Prueba los cambios primero en
+> una base local (Laragon o Docker) y aplícalos en el servidor solo cuando funcionen.
 
 ### Versiones
 
@@ -580,14 +585,12 @@ Pídeselos al dueño del proyecto (**Raschif Daguer**, GitHub `RaschifDaguer`):
 | Acceso | Para qué | Cómo te lo da |
 |---|---|---|
 | **GitHub** — colaborador en los dos repos | Subir cambios (push) | Repo → *Settings → Collaborators → Add people* |
-| **Railway** — proyecto `confident-hope` | Ver logs y variables de la API | *Project Settings → Members* (si el plan lo permite; si no, te comparte los logs) |
-| **Aiven** — proyecto `mdrmarket` | Ver/administrar la base de producción | *Admin → Users → Invite* |
-| **Valores del `.env` de producción** | Solo si vas a tocar el servidor | Por mensaje privado, **nunca** por el repo ni grupos |
+| **Servidor de la universidad** (SSH) | Ver logs, publicar y aplicar cambios de la base | Ver [cómo conectarte](#-servidor-de-la-universidad-conectarte-y-publicar-tus-cambios) |
+| **Valores de `servidor/.env`** | Solo si vas a tocar el servidor | Por mensaje privado, **nunca** por el repo ni grupos |
 | **Clave de Google Maps** | Mapa al registrar el negocio; rastreo (9) | Es la misma de la versión anterior; va en `app/dart_defines.local.json` (ver [app/README.md](app/README.md#con-el-mapa-de-google-chrome)), nunca en el código |
 
-> 🔒 **Secretos:** contraseñas, `APP_KEY`, la clave de Google y el `ca.pem` de
-> Aiven **nunca** se suben al repositorio. Los `.gitignore` ya excluyen `.env`
-> y `*.pem`.
+> 🔒 **Secretos:** contraseñas, `APP_KEY` y la clave de Google **nunca** se
+> suben al repositorio. Los `.gitignore` ya excluyen `.env` y `*.pem`.
 
 ---
 
@@ -602,11 +605,13 @@ git clone https://github.com/RaschifDaguer/MDRmarket_2.0_docker.git
 ### 3.2 Base de datos local
 1. Abre **Laragon → Start All**.
 2. Abre **phpMyAdmin** (o HeidiSQL) → **Importar** → uno de estos dos archivos del repo Docker:
-   - `mdrmarket_new_aiven_2026-10-03.sql`: **copia exacta de producción (Aiven)**. Úsala para tener lo mismo que la app publicada.
-   - `mdrmarketnewdatabase.sql`: script maestro comentado, para crear la base desde cero.
+   - `mdrmarketnewdatabase.sql`: script maestro comentado, para crear la base desde cero
+     (con 10 usuarios, 3 negocios y 26 productos de ejemplo).
+   - `mdrmarket_new_aiven_2026-10-03.sql`: copia vieja de la producción anterior (03-oct);
+     no tiene los cambios de `cambios/`.
 
-   Cualquiera de los dos crea solo la base **`mdrmarket_new`** (hoy con 10
-   usuarios, 3 negocios y 26 productos de ejemplo). ⚠️ Ninguno se importa en Aiven.
+   Cualquiera de los dos crea solo la base **`mdrmarket_new`**. ⚠️ Ninguno se
+   importa en el servidor de la universidad.
 
    *Alternativa con Docker:* dentro de `MDRmarket_2.0_docker`, `docker compose up -d --build`
    (queda en `localhost:3307`, usuario `root`, contraseña `root`).
@@ -635,7 +640,7 @@ flutter run                     # emulador Android abierto en Android Studio
 | Chrome | `http://localhost:8001/api` |
 | Emulador Android | `http://10.0.2.2:8001/api` (así ve el emulador a tu PC) |
 | Celular real en tu Wi-Fi | `flutter run --dart-define=API_URL=http://IP-DE-TU-PC:8001/api` |
-| Contra el servidor de internet | `flutter run --dart-define=API_URL=https://api-mdrmarket-production.up.railway.app/api` |
+| Contra el servidor de la universidad | `flutter run --dart-define=API_URL=https://DIRECCIÓN-DEL-SERVIDOR/api` |
 
 Para ver el **mapa de Google** en Chrome hace falta la clave en un archivo local:
 ver [app/README.md](app/README.md#con-el-mapa-de-google-chrome). Sin clave, la
@@ -647,23 +652,14 @@ Usuarios de ejemplo: los `*@mdrmarket.local` del script. Lo más simple es
 ### 3.5 Atajos sin Laragon
 
 - **Solo app:** salta 3.2 y 3.3, y en 3.4 corre
-  `flutter run --dart-define=API_URL=https://api-mdrmarket-production.up.railway.app/api`.
-- **API local contra la base de Aiven** (sin MySQL local): en `api/.env` pon los
-  datos de Aiven y la ruta del certificado (pídelos al dueño):
-  ```
-  DB_HOST=mdrmarket-db-mdrmarket.h.aivencloud.com
-  DB_PORT=26451
-  DB_DATABASE=mdrmarket_new
-  DB_USERNAME=avnadmin
-  DB_PASSWORD=(pedir al dueño)
-  MYSQL_ATTR_SSL_CA=C:/ruta/a/ca.pem
-  ```
-  ⚠️ Así trabajas sobre **datos reales**: lo que crees o borres se ve en la app publicada.
+  `flutter run --dart-define=API_URL=https://DIRECCIÓN-DEL-SERVIDOR/api`.
+- **Base con Docker en vez de Laragon:** ver la alternativa de 3.2
+  (`docker compose up -d --build` en el repo de la base).
 
 ### 3.6 Panel de administrador
 
 Es una página web dentro de la misma API: **`/admin`**
-(`http://localhost:8001/admin` en tu PC, `https://api-mdrmarket-production.up.railway.app/admin`
+(`http://localhost:8001/admin` en tu PC, `DIRECCIÓN-DEL-SERVIDOR/admin`
 en internet). Cómo crear la cuenta, hacerte administrador y configurar la
 verificación en dos pasos: ver
 [Crear tu cuenta y hacerte administrador](#-crear-tu-cuenta-y-hacerte-administrador).
@@ -673,18 +669,21 @@ En tu base local, el permiso se da con `php artisan mdr:admin tu@correo.com`
 
 ---
 
-## 4. Servidor en internet (Railway + Aiven)
+## 4. Servidor en internet (universidad)
 
-- **Despliegue automático:** cada `git push` a `main` que cambie algo dentro de
-  `api/` hace que Railway reconstruya y publique la API sola (3–5 min).
-  Cambios solo en `app/` no redespliegan nada.
+- **Un solo servidor:** base, API, panel, app web, respaldo diario y tareas
+  automáticas corren en Docker en el servidor de la universidad
+  ([servidor/README.md](servidor/README.md)).
+- **Publicar:** después de unir a `main`, en el servidor `sudo ./actualizar.sh`
+  baja lo último de GitHub y reconstruye la API (no toca la base ni los archivos).
 - **La app instalada en celulares no se actualiza sola:** si cambias pantallas,
   hay que generar e instalar un APK nuevo (`flutter build apk`).
-- **La base en Aiven NO se actualiza sola.** Si cambias el script SQL, hay que
-  aplicar el cambio a mano. **Nunca importes el script completo en Aiven**: borra
-  todas las tablas y los datos. Ver [docs/BASE_DE_DATOS.md](docs/BASE_DE_DATOS.md#cómo-cambiar-la-base).
-- Configuración de Railway (Root Directory `/api`, variables, `DB_SSL_CA_BASE64`):
-  ver [api/README.md](api/README.md#docker-y-railway).
+- **La base NO se actualiza sola.** Si cambias el script SQL, hay que aplicar
+  el archivo de `cambios/` a mano ([cómo](#5-cambios-en-la-base-de-datos)).
+  **Nunca importes el script completo en el servidor**: borra todas las tablas
+  y los datos. Ver [docs/BASE_DE_DATOS.md](docs/BASE_DE_DATOS.md#cómo-cambiar-la-base).
+- **Tareas automáticas:** el contenedor de la API corre el programador de
+  Laravel (vencer pedidos que nadie atendió). Se apaga con `TAREAS_AUTOMATICAS=0`.
 
 ---
 
@@ -698,8 +697,8 @@ En tu base local, el permiso se da con `php artisan mdr:admin tu@correo.com`
 2. **Prueba en tu PC** (Laragon + `flutter run`) antes de subir.
 3. **Corre las pruebas** (ver [Pruebas](#9-pruebas)) y `flutter analyze` sin errores.
 4. **Sube la rama y abre un Pull Request** a `main`. Que el otro lo revise.
-5. Al unir a `main`, si tocaste `api/`, Railway publica solo. Revisa que el
-   servicio quede *Online* y prueba `https://…/up`.
+5. Al unir a `main`, si tocaste `api/`, actualiza el servidor (`sudo ./actualizar.sh`)
+   y prueba `DIRECCIÓN-DEL-SERVIDOR/up`.
 
 Convenciones del código:
 
@@ -730,12 +729,12 @@ MDRmarket_2.0/
 │   ├── app/Http/Controllers/Api/Comerciante/  productos, pedidos, compras y gastos, ganancias, reseñas
 │   ├── app/Http/Requests/ y Resources/        validaciones y formato de las respuestas
 │   ├── app/Models/                            una clase por tabla (Usuario, Negocio, Producto, Pedido…)
-│   ├── app/Support/                           FlujoPedido (estados), Envio, Revision (admin), Archivos
+│   ├── app/Support/                           FlujoPedido (estados), VencimientoPedidos, Envio, RepartidoresCerca, Revision (admin), Archivos
 │   ├── app/Filament/                          panel de administración (/admin)
-│   ├── routes/api.php, web.php, console.php   rutas y el comando mdr:admin
+│   ├── routes/api.php, web.php, console.php   rutas, el comando mdr:admin y las tareas automáticas
 │   ├── tests/Feature/                         pruebas (php artisan test)
 │   ├── bootstrap/app.php                      errores JSON en español
-│   ├── Dockerfile + docker/entrypoint.sh      imagen para Railway
+│   ├── Dockerfile + docker/entrypoint.sh      imagen de la API (servidor de la universidad)
 │   └── README.md
 └── app/                      ← Flutter
     ├── lib/main.dart, app.dart
@@ -784,25 +783,30 @@ En la PC del dueño, `C:\Raschif\laragon\www\mdrmarket_v2_api` es un enlace a
 | POST | `/api/pedidos/{id}/aceptar`, `/soltar` | ✔ repartidor | Tomar un pedido (gana el primero) o soltarlo antes de recogerlo |
 | PUT | `/api/repartidor/pedidos/{id}/estado` | ✔ repartidor | "en_camino" (recogido) o "entregado" con el PIN |
 | GET | `/api/repartidor/entregas` | ✔ repartidor | Historial de entregas con lo ganado en envíos |
+| GET | `/api/repartidor/ganancias` | ✔ repartidor | Ganado hoy y en la semana (por día), meta del día y calificación |
+| PUT | `/api/repartidor/meta` | ✔ repartidor | Su meta de ganancia del día |
+| GET | `/api/notificaciones` | ✔ | Sus avisos, con cuántos faltan leer; `POST /api/notificaciones/{id}/leida` y `/leidas` (todas) |
+| GET | `/api/motivos-reporte?tipo=negocio\|repartidor` | ✔ | Motivos para reportar un problema |
+| POST | `/api/pedidos/{id}/reportes` | ✔ comprador | "Hubo un problema" con la tienda o el repartidor de su pedido |
 | GET | `/api/archivos/{ruta}` | — | Ver una foto pública (negocios, productos) |
 | GET | `/api/productos`, `/api/productos/{id}` | — | Catálogo (filtros: categoría, negocio, texto, ofertas, orden) y detalle |
-| GET | `/api/tiendas`, `/api/tiendas/{id}` | — | Negocios aprobados y página de cada uno |
+| GET | `/api/tiendas`, `/api/tiendas/{id}` | — | Negocios aprobados y página de cada uno. Con `latitud` y `longitud`: envío, distancia y tiempo estimado (y `orden=cerca`) |
 | GET/POST/PUT/DELETE | `/api/direcciones` | ✔ | Direcciones guardadas del cliente |
 | POST | `/api/envio/cotizar` | ✔ | Costo del envío hasta una dirección |
 | GET/POST | `/api/pedidos` | ✔ | Mis pedidos / hacer un pedido |
 | GET | `/api/pedidos/{id}` | ✔ | Detalle (lo ven el comprador y el negocio) |
 | POST | `/api/pedidos/{id}/cancelar` | ✔ | Cancelar (solo mientras está pendiente) |
-| PUT | `/api/resenas` | ✔ | Calificar un producto o negocio (crea o edita) |
+| PUT | `/api/resenas` | ✔ | Calificar un producto, negocio o repartidor (crea o edita; al repartidor, con etiquetas) |
 | … | `/api/negocios/{id}/…` | ✔ dueño | Perfil, horario, abierto, productos, pedidos, compras y gastos, ganancias, reseñas |
 
 **Todas las rutas, con sus campos y para probarlas:** `http://localhost:8001/docs/api`
-(o `https://api-mdrmarket-production.up.railway.app/docs/api`). La genera
+(o `DIRECCIÓN-DEL-SERVIDOR/docs/api`). La genera
 **Scramble** leyendo el código. Ejemplos en [docs/API_FRONTEND.md](docs/API_FRONTEND.md).
 
 Sesión = cabecera `Authorization: Bearer <token>` (Laravel Sanctum).
 Prueba rápida:
 ```bash
-curl https://api-mdrmarket-production.up.railway.app/api/me -H "Accept: application/json"
+curl https://DIRECCIÓN-DEL-SERVIDOR/api/me -H "Accept: application/json"
 # → 401 {"message":"Tu sesión expiró o no iniciaste sesión."}
 ```
 
@@ -819,7 +823,7 @@ curl https://api-mdrmarket-production.up.railway.app/api/me -H "Accept: applicat
 - **Convertirse en repartidor o comerciante** pidiendo solo lo que falta:
   `CALL sp_datos_faltantes(usuario, 'repartidor')`. Al repartidor se le piden
   carnet (anverso y reverso), **selfie**, licencia, foto del vehículo, foto de
-  la placa y RUAT; a una bicicleta solo carnet, selfie y foto del vehículo. Al
+  la placa, RUAT y **SOAT**; a una bicicleta solo carnet, selfie y foto del vehículo. Al
   comerciante, carnet y selfie. La selfie se toma con la cámara delantera y el
   administrador la compara con la foto del carnet.
 - **Envío:** precio por km recorrido (`tarifa_envio`: hasta 3 km 3 Bs, hasta
@@ -838,12 +842,20 @@ curl https://api-mdrmarket-production.up.railway.app/api/me -H "Accept: applicat
   catálogo (con la oferta vigente), respeta el pedido mínimo y la cobertura.
   Estados: pendiente → aceptado → preparando → listo → en camino → entregado
   (o rechazado / cancelado). El cliente cancela solo mientras está pendiente.
+  La tienda solo **acepta o rechaza** un pedido nuevo (con motivo, ej. "Sin
+  stock"); una vez aceptado **ya no lo cancela**. Lo que nadie atiende vence
+  solo: la tienda no responde en `minutos_para_aceptar` (rechazado), el QR no
+  se paga en `minutos_para_pagar_qr` o ningún repartidor lo toma en
+  `minutos_listo_sin_repartidor` (cancelado). En efectivo, el cliente puede
+  decir con cuánto paga (`paga_con`, al menos el total) para recibir cambio.
+- **Comisión:** `comision_plataforma_pct` (8 %) sobre los productos, no sobre
+  el envío; el repartidor gana todo el envío.
 - **Entrega:** un pedido "listo" lo acepta un **repartidor** (aprobado, sin
   sanción, en línea y con un vehículo del tamaño necesario), que lo recoge y lo
   marca "entregado" con el **PIN de 4 números** que solo ve el cliente. Lleva un
   pedido a la vez y puede soltarlo antes de recogerlo. **El local no entrega**
   (no tiene delivery propio): lleva el pedido hasta "listo" y ve "Buscando
-  repartidor…" o quién lo lleva; mientras nadie lo toma, puede cancelarlo.
+  repartidor…" (con cuántos repartidores hay cerca) o quién lo lleva.
 - **Aprobación:** un negocio nuevo queda "en revisión" hasta que un
   administrador lo aprueba en `/admin`; recién ahí aparece en el catálogo.
 - **Horario:** todo se guarda en **UTC**; los reportes se muestran en hora de
@@ -876,14 +888,12 @@ demuestre que cumple su función** (ver "Cómo probarlo" en cada módulo de la
 
 | Síntoma | Causa | Qué hacer |
 |---|---|---|
-| La primera consulta al servidor tarda 10–30 s | Railway Free "duerme" la API sin uso | Normal; las siguientes son rápidas |
-| La app o el panel dicen **"En mantenimiento"** (o `/api` dice `"base_de_datos": "sin conexión"`) | Aiven apagó la base gratuita por inactividad | https://console.aiven.io → proyecto `mdrmarket` → servicio `mdrmarket-db` → **Power on**. Pasa por *Rebuilding* y en 5–10 min queda **Running**; todo vuelve solo, sin tocar nada más. Si no tienes acceso a Aiven, avisa a Raschif |
-| Railway: `AH00534: More than one MPM loaded` | Imagen php:apache | Ya resuelto en `Dockerfile` y `entrypoint.sh`; no borrar esas líneas |
-| Railway: "Free plan resource provision limit exceeded" | Límite del plan Free (1 USD/mes) | Por eso la base está en Aiven y no en Railway |
+| La app o el panel dicen **"En mantenimiento"** (o `/api` dice `"base_de_datos": "sin conexión"`) | La base del servidor está apagada o reiniciándose | En el servidor: `sudo docker compose ps`; si `db` no está *healthy*, `sudo docker compose up -d`. Si no tienes acceso, avisa a Raschif |
+| `AH00534: More than one MPM loaded` | Imagen php:apache | Ya resuelto en `Dockerfile` y `entrypoint.sh`; no borrar esas líneas |
 | La app en el emulador no conecta | Usa `localhost` | El emulador usa `10.0.2.2`; un celular real necesita la IP de la PC |
 | Error de CORS en Chrome | API apagada o URL mal escrita | Revisa que la API esté encendida y la URL termine en `/api` |
 | Al registrar el negocio no aparece el mapa, solo el botón GPS | Falta la clave de Google Maps, o la clave no tiene activada la Maps JavaScript API | Ver [app/README.md](app/README.md#con-el-mapa-de-google-chrome) |
-| Una foto subida (negocio, producto, documento) no se ve o desapareció | Si es de antes del 29-oct, se borró con un despliegue (todavía no había disco permanente). Si es nueva, el Volume de Railway pudo desconectarse | Las antiguas hay que volver a subirlas. Abre https://api-mdrmarket-production.up.railway.app/api: si `"fotos"` no dice *disco permanente*, revisa el Volume del servicio en Railway ([cómo](api/README.md#fotos-que-no-se-borren-volume-de-railway)) |
+| Una foto subida (negocio, producto, documento) no se ve | El volumen `archivos` del servidor no está montado | `DIRECCIÓN-DEL-SERVIDOR/api` debe decir `"fotos": "disco permanente"`; si no, revisa `servidor/docker-compose.yml` |
 | En el panel, al entrar, no se ve el QR | Versión vieja del panel | Ya corregido (`AutenticadorApp`); recarga con Ctrl + F5 |
 | VS Code marca en rojo cosas de Laravel | El editor no tiene indexado `vendor/` | Abre la carpeta `api/` sola en VS Code o corre `composer install` |
 
@@ -895,6 +905,6 @@ demuestre que cumple su función** (ver "Cómo probarlo" en cada módulo de la
 - [docs/API_FRONTEND.md](docs/API_FRONTEND.md) — qué manda y recibe la app en cada pantalla (JSON de ejemplo).
 - [docs/DIAGRAMA_BD.md](docs/DIAGRAMA_BD.md) — diagrama de la base de datos.
 - [docs/BASE_DE_DATOS.md](docs/BASE_DE_DATOS.md) — tablas, vistas, triggers y cómo cambiar la base.
-- [api/README.md](api/README.md) — API y despliegue en Railway.
+- [api/README.md](api/README.md) — API: configuración, pruebas y seguridad.
 - [app/README.md](app/README.md) — app Flutter.
 - [Repo de la base (Docker)](https://github.com/RaschifDaguer/MDRmarket_2.0_docker).

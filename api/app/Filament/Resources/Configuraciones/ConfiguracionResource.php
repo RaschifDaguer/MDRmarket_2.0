@@ -30,6 +30,7 @@ class ConfiguracionResource extends Resource
         'minutos_para_aceptar' => [1, 60, 'min'],
         'minutos_para_pagar_qr' => [1, 120, 'min'],
         'minutos_listo_sin_repartidor' => [5, 1440, 'min'],
+        'umbral_poco_stock' => [0, 1000, 'u.'],
         'radio_busqueda_repartidor_km' => [1, 50, 'km'],
         'factor_ruta' => [1, 3, '×'],
     ];

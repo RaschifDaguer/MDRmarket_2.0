@@ -28,6 +28,7 @@ class Repartidor extends Model
             'latitud_actual' => 'float',
             'longitud_actual' => 'float',
             'rating_promedio' => 'float',
+            'meta_diaria' => 'decimal:2',
             'ubicacion_actualizada_en' => 'datetime',
             'verificado_en' => 'datetime',
         ];

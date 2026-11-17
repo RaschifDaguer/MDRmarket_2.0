@@ -20,6 +20,8 @@ class PedidoItem extends Model
     {
         return [
             'precio_unitario' => 'decimal:2',
+            'precio_original' => 'decimal:2',
+            'alistado' => 'boolean',
             'subtotal' => 'decimal:2',
             'cantidad' => 'integer',
         ];
