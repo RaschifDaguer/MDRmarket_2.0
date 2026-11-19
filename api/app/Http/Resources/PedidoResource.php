@@ -73,6 +73,8 @@ class PedidoResource extends JsonResource
             'latitud_entrega' => $this->latitud_entrega,
             'longitud_entrega' => $this->longitud_entrega,
             'notas' => $this->notas,
+            // Lleva bebidas alcohólicas: el repartidor pide el carnet al entregar (solo a mayores de 18).
+            'solo_mayores' => (bool) $this->solo_mayores,
             'subtotal' => $this->subtotal,
             'costo_envio' => $this->costo_envio,
             'tarifa_servicio' => $this->tarifa_servicio,

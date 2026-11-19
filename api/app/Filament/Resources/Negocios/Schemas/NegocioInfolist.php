@@ -6,6 +6,7 @@ use App\Filament\Estados;
 use App\Models\Documento;
 use App\Models\Negocio;
 use App\Support\Archivos;
+use App\Support\PermisosNegocio;
 use Filament\Infolists\Components\ImageEntry;
 use Filament\Infolists\Components\RepeatableEntry;
 use Filament\Infolists\Components\TextEntry;
@@ -70,6 +71,28 @@ class NegocioInfolist
                                     $record->usuario->ci_numero.' '.$record->usuario->ci_complemento.' '.$record->usuario->ci_expedido))
                                 ->placeholder('—'),
                         ]),
+                ]),
+            // Licorería o farmacia: documentos extra que hay que aprobar antes que el negocio.
+            Section::make('Permisos especiales')
+                ->description('Se aprueban en Aprobaciones → Documentos. El negocio no se puede aprobar sin ellos.')
+                ->visible(fn (Negocio $record) => $record->vende_alcohol || $record->es_farmacia)
+                ->columnSpanFull()
+                ->columns(['default' => 1, 'md' => 2])
+                ->schema([
+                    TextEntry::make('permisos')
+                        ->label('Vende')
+                        ->badge()
+                        ->color('warning')
+                        ->state(fn (Negocio $record) => array_map(
+                            fn (string $p) => $p === 'alcohol' ? '🍷 Bebidas alcohólicas' : '💊 Medicamentos (farmacia)',
+                            PermisosNegocio::delNegocio($record))),
+                    TextEntry::make('permisos_pendientes')
+                        ->label('Falta aprobar')
+                        ->state(fn (Negocio $record) => PermisosNegocio::pendientes($record))
+                        ->listWithLineBreaks()
+                        ->bulleted()
+                        ->color('danger')
+                        ->placeholder('Todo aprobado ✓'),
                 ]),
             Section::make('Documentos del dueño')
                 ->description('Revisa que el carnet coincida con el nombre del dueño. Se aprueban en Aprobaciones → Documentos.')

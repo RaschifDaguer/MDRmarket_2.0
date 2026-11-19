@@ -6,6 +6,7 @@ export 'aparecer.dart';
 export 'aviso_error.dart';
 export 'boton_principal.dart';
 export 'cabecera_flotante.dart';
+export 'confirmacion_doble.dart';
 export 'estado_vacio.dart';
 export 'estrellas.dart';
 export 'fondo_marca.dart';

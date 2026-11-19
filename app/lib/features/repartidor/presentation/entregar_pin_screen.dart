@@ -21,6 +21,32 @@ import '../data/repartidor_repository.dart';
   return (titulo: titulo, detalle: 'Paga con ${Formato.bs(pagaCon)} · dale ${Formato.bs(cambio)} de cambio');
 }
 
+/// Pedido con bebidas alcohólicas: el repartidor pide el carnet antes de entregarlo.
+class AvisoCarnet extends StatelessWidget {
+  const AvisoCarnet({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = Theme.of(context).colorScheme;
+    return Card(
+      key: const Key('aviso-carnet'),
+      color: c.errorContainer,
+      child: ListTile(
+        leading: Icon(Icons.badge_outlined, color: c.onErrorContainer),
+        title: Text(
+          'Pide el carnet de identidad',
+          style: TextStyle(color: c.onErrorContainer, fontWeight: FontWeight.w700),
+        ),
+        subtitle: Text(
+          'Lleva bebidas alcohólicas o tabaco: entrégalo solo a una persona mayor de 18 años. Si no muestra su carnet o es '
+          'menor, no lo entregues y reporta el problema.',
+          style: TextStyle(color: c.onErrorContainer),
+        ),
+      ),
+    );
+  }
+}
+
 /// Paso 2 · Entregar: cuánto cobrar (con el cambio) y el PIN de 4 números que
 /// el cliente ve en su app, con un teclado grande y 4 casillas.
 class EntregarPinScreen extends ConsumerStatefulWidget {
@@ -141,6 +167,7 @@ class _EntregarPinScreenState extends ConsumerState<EntregarPinScreen> {
                           ),
                   ),
                 ),
+                if (p.soloMayores) ...[const SizedBox(height: AppEspacios.s), const AvisoCarnet()],
                 const SizedBox(height: AppEspacios.l),
                 Text('Pide el código al cliente', textAlign: TextAlign.center, style: textos.titleMedium),
                 Text(

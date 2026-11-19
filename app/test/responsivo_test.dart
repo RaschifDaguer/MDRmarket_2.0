@@ -147,8 +147,11 @@ void main() {
 
   testWidgets('formulario de registro con errores (celular)', (tester) async {
     // Alto grande para ver el formulario entero en una sola imagen.
-    await abrir(tester, const Size(390, 2300), ruta: '/registrar-negocio');
+    // (Con la sección "Permisos especiales" el formulario es más largo.)
+    await abrir(tester, const Size(390, 2700), ruta: '/registrar-negocio');
     expect(find.byType(RegistrarNegocioScreen), findsOneWidget);
+    await tester.ensureVisible(find.widgetWithText(FilledButton, 'Registrar negocio'));
+    await tester.pump();
     await tester.tap(find.widgetWithText(FilledButton, 'Registrar negocio'));
     await tester.pump(const Duration(seconds: 1));
     // Un cuadro más: los errores de los campos aparecen con una animación.

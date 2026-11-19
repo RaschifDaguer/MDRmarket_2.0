@@ -96,6 +96,7 @@ class SeguridadTest extends TestCase
             'nombre' => 'Pirata', 'apellido' => 'Prueba', 'email' => 'pirata.'.uniqid().'@mdrmarket.local',
             'ci_numero' => (string) random_int(10000000, 99999999),
             'password' => 'Secreta123', 'password_confirmation' => 'Secreta123',
+            'acepta_terminos' => true,
             'es_admin' => true, 'activo' => true,
         ])->assertCreated()->assertJsonPath('usuario.es_admin', false);
 

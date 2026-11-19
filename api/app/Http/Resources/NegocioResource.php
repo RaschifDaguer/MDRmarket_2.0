@@ -22,6 +22,9 @@ class NegocioResource extends JsonResource
             'telefono' => $this->telefono,
             'nit' => $this->nit,
             'razon_social' => $this->razon_social,
+            // Permisos especiales: piden documentos extra (ver PermisosNegocio).
+            'vende_alcohol' => (bool) $this->vende_alcohol,
+            'es_farmacia' => (bool) $this->es_farmacia,
             'direccion' => $this->direccion,
             'referencia' => $this->referencia,
             'latitud' => $this->latitud,

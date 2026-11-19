@@ -2,11 +2,15 @@
 
 use App\Http\Controllers\Admin\DocumentoArchivoController;
 use App\Http\Controllers\PagoQrController;
+use App\Support\Terminos;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
     return view('welcome');
 });
+
+// Términos y condiciones (el mismo texto que la app pide aceptar al crear la cuenta).
+Route::get('terminos', fn () => view('terminos', ['terminos' => Terminos::datos()]))->name('terminos');
 
 // El panel de administración vive en /admin (Filament, ver AdminPanelProvider).
 // "login" es a donde Laravel manda a quien no tiene sesión: al ingreso del panel.

@@ -31,6 +31,8 @@ class Pedido extends Model
         'latitud_entrega',
         'longitud_entrega',
         'notas',
+        // Lleva bebidas alcohólicas: el cliente confirmó su edad y el repartidor pide el carnet.
+        'solo_mayores',
         'categoria_vehiculo_requerida_id',
         'estado',
         'subtotal',
@@ -66,6 +68,7 @@ class Pedido extends Model
             'total' => 'decimal:2',
             'comision_plataforma' => 'decimal:2',
             'paga_con' => 'decimal:2',
+            'solo_mayores' => 'boolean',
             'distancia_km' => 'float',
             'confirmado_en' => 'datetime',
             'asignado_en' => 'datetime',

@@ -20,7 +20,11 @@ class PedidoDisponible {
     this.propio = false,
     this.recorridoKm,
     this.tiempoEstimadoMin,
+    this.soloMayores = false,
   });
+
+  /// Lleva bebidas alcohólicas: al entregar hay que pedir el carnet (solo mayores de 18).
+  final bool soloMayores;
 
   /// Todo el recorrido: de él a la tienda (si mandó su GPS) y de la tienda al cliente.
   final double? recorridoKm;
@@ -68,6 +72,7 @@ class PedidoDisponible {
       tamano: json['tamano'] as String?,
       totalItems: (json['total_items'] as num?)?.toInt(),
       propio: json['propio'] == true,
+      soloMayores: json['solo_mayores'] == true,
       recorridoKm: (json['recorrido_km'] as num?)?.toDouble(),
       tiempoEstimadoMin: (json['tiempo_estimado_min'] as num?)?.toInt(),
     );

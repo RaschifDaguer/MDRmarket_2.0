@@ -61,7 +61,8 @@ Route::prefix('auth')->group(function () {
     Route::post('logout', [AuthController::class, 'logout'])->middleware('auth:sanctum');
 });
 
-// ---------- Públicas: catálogo ----------
+// ---------- Públicas: términos y catálogo ----------
+Route::get('terminos', [AuthController::class, 'terminos']);
 Route::get('categorias', [CatalogoController::class, 'categorias']);
 Route::get('productos', [CatalogoController::class, 'productos']);
 Route::get('productos/{id}', [CatalogoController::class, 'producto'])->whereNumber('id');
@@ -110,6 +111,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('throttle:escritura')->group(function () {
         Route::put('me', [PerfilController::class, 'actualizar']);
         Route::put('me/vista', [AuthController::class, 'cambiarVista']);
+        Route::post('me/terminos', [AuthController::class, 'aceptarTerminos']);
         Route::post('direcciones', [DireccionController::class, 'store']);
         Route::match(['put', 'patch'], 'direcciones/{direccion}', [DireccionController::class, 'update']);
         Route::delete('direcciones/{direccion}', [DireccionController::class, 'destroy']);

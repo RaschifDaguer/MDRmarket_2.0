@@ -8,10 +8,13 @@ import '../../../core/network/api_exception.dart';
 import '../../../core/theme/app_espacios.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../catalogo/data/catalogo_repository.dart';
+import '../../catalogo/domain/categoria.dart';
+import '../../perfil/data/perfil_repository.dart';
 import '../data/mi_negocio_repository.dart';
 import '../data/negocio_repository.dart';
 import '../domain/negocio.dart';
 import 'con_negocio.dart';
+import 'widgets/permisos_negocio.dart';
 
 /// Editar el perfil del negocio: foto, nombre, rubro, ubicación, pedido
 /// mínimo, tiempo para alistar un pedido y datos para facturas.
@@ -44,6 +47,8 @@ class _PerfilState extends ConsumerState<_Perfil> {
   late final _minimo = TextEditingController(text: n.pedidoMinimo > 0 ? n.pedidoMinimo.toStringAsFixed(0) : '');
   late final _nit = TextEditingController(text: n.nit);
   late final _razonSocial = TextEditingController(text: n.razonSocial);
+  late bool _vendeAlcohol = n.vendeAlcohol;
+  late bool _esFarmacia = n.esFarmacia;
   late int? _categoriaId = n.categoria?.id;
   late Coordenada? _ubicacion = n.latitud == null ? null : Coordenada(n.latitud!, n.longitud!);
   ArchivoElegido? _foto;
@@ -53,7 +58,9 @@ class _PerfilState extends ConsumerState<_Perfil> {
 
   @override
   void dispose() {
-    for (final c in [_nombre, _descripcion, _telefono, _direccion, _referencia, _tiempo, _minimo, _nit, _razonSocial]) {
+    for (final c in [
+      _nombre, _descripcion, _telefono, _direccion, _referencia, _tiempo, _minimo, _nit, _razonSocial,
+    ]) {
       c.dispose();
     }
     super.dispose();
@@ -84,10 +91,14 @@ class _PerfilState extends ConsumerState<_Perfil> {
               razonSocial: _razonSocial.text,
               tiempoPreparacionMin: int.tryParse(_tiempo.text.trim()),
               pedidoMinimo: double.tryParse(_minimo.text.trim().replaceAll(',', '.')),
+              vendeAlcohol: _vendeAlcohol || _rubroEsLicoreria,
+              esFarmacia: _esFarmacia,
             ),
             foto: _foto,
           );
       ref.invalidate(misNegociosProvider);
+      // Licorería o farmacia nueva: ahora le faltan sus permisos.
+      ref.invalidate(faltantesProvider('comerciante'));
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Perfil actualizado')));
       Navigator.of(context).pop();
@@ -103,6 +114,10 @@ class _PerfilState extends ConsumerState<_Perfil> {
       });
     }
   }
+
+  /// El rubro elegido es "Bebidas alcohólicas" (vender alcohol ya va incluido).
+  bool get _rubroEsLicoreria =>
+      (ref.read(categoriasProvider).value ?? const <Categoria>[]).any((c) => c.id == _categoriaId && c.permiso == 'alcohol');
 
   @override
   Widget build(BuildContext context) {
@@ -222,6 +237,15 @@ class _PerfilState extends ConsumerState<_Perfil> {
                 helperMaxLines: 2,
               ),
               forceErrorText: _errores['razon_social'],
+            ),
+            const SizedBox(height: AppEspacios.l),
+            SeccionPermisos(
+              vendeAlcohol: _vendeAlcohol,
+              esFarmacia: _esFarmacia,
+              rubroEsLicoreria: _rubroEsLicoreria,
+              errores: _errores,
+              alCambiarAlcohol: (v) => setState(() => _vendeAlcohol = v),
+              alCambiarFarmacia: (v) => setState(() => _esFarmacia = v),
             ),
             if (_errorGeneral != null) ...[const SizedBox(height: AppEspacios.m), AvisoError(_errorGeneral!)],
             const SizedBox(height: AppEspacios.xl),

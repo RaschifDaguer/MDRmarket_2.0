@@ -37,6 +37,7 @@ class Producto {
     this.imagenUrl,
     this.categoria,
     this.categoriaIcono,
+    this.soloMayores = false,
   });
 
   final int id;
@@ -56,6 +57,9 @@ class Producto {
   final String? categoriaIcono;
   final NegocioResumen negocio;
 
+  /// Bebida alcohólica: se muestra "+18" y al comprar se confirma la edad.
+  final bool soloMayores;
+
   bool get agotado => stock != null && stock! <= 0;
 
   factory Producto.fromJson(Map<String, dynamic> json) {
@@ -74,6 +78,7 @@ class Producto {
       imagenUrl: json['imagen_url'] as String?,
       categoria: categoria?['nombre'] as String?,
       categoriaIcono: categoria?['icono'] as String?,
+      soloMayores: json['solo_mayores'] == true,
       negocio: NegocioResumen.fromJson(json['negocio'] as Map<String, dynamic>),
     );
   }

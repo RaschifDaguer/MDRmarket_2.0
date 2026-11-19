@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\NegocioPerfilRequest;
 use App\Http\Requests\NegocioRequest;
 use App\Http\Resources\NegocioResource;
+use App\Models\Categoria;
 use App\Models\Negocio;
 use App\Support\Archivos;
 use App\Support\Envio;
@@ -32,13 +33,14 @@ class NegocioController extends Controller
      */
     public function store(NegocioRequest $request): JsonResponse
     {
-        $datos = $request->validated();
+        // Con las casillas de licorería y farmacia (ver PermisosDelNegocio).
+        $datos = $request->datosNegocio();
 
         // Solo se atiende del centro hasta el 10mo anillo de Santa Cruz.
         Envio::exigirCobertura((float) $datos['latitud'], (float) $datos['longitud']);
 
         $negocio = $request->user()->negocios()->create([
-            ...collect($datos)->except('foto')->all(),
+            ...$datos,
             'logo_url' => Archivos::guardarPublico($request->file('foto'), 'negocios'),
         ]);
 
@@ -51,8 +53,9 @@ class NegocioController extends Controller
     /** POST /api/negocios/{negocio} — editar el perfil (multipart; la foto es opcional). */
     public function update(NegocioPerfilRequest $request, Negocio $negocio): NegocioResource
     {
-        $datos = $request->validated();
+        $datos = $request->datosNegocio();
         Envio::exigirCobertura((float) $datos['latitud'], (float) $datos['longitud']);
+        $this->exigirSinProductosDelPermiso($negocio, $datos);
 
         if ($request->hasFile('foto')) {
             $anterior = $negocio->logo_url;
@@ -60,7 +63,7 @@ class NegocioController extends Controller
             Archivos::borrarPublico($anterior);
         }
         $datos['pedido_minimo'] ??= 0;
-        $negocio->update(collect($datos)->except('foto')->all());
+        $negocio->update($datos);
 
         return new NegocioResource($negocio->refresh()->load(['categoria', 'horarios']));
     }
@@ -100,5 +103,28 @@ class NegocioController extends Controller
         });
 
         return new NegocioResource($negocio->refresh()->load(['categoria', 'horarios']));
+    }
+
+    /**
+     * Quitar "Vendo bebidas alcohólicas" o "Es una farmacia" solo si ya no
+     * tiene productos de esas categorías (si no, seguiría vendiéndolos sin permiso).
+     */
+    private function exigirSinProductosDelPermiso(Negocio $negocio, array $datos): void
+    {
+        $quita = [
+            'alcohol' => $negocio->vende_alcohol && array_key_exists('vende_alcohol', $datos) && ! $datos['vende_alcohol'],
+            'farmacia' => $negocio->es_farmacia && array_key_exists('es_farmacia', $datos) && ! $datos['es_farmacia'],
+        ];
+
+        foreach (array_keys(array_filter($quita)) as $permiso) {
+            $categorias = Categoria::where('permiso', $permiso)->pluck('id');
+            if ($negocio->productos()->whereIn('categoria_id', $categorias)->exists()) {
+                throw ValidationException::withMessages([
+                    $permiso === 'alcohol' ? 'vende_alcohol' : 'es_farmacia' => $permiso === 'alcohol'
+                        ? 'Primero elimina tus bebidas alcohólicas (o cámbialas de categoría).'
+                        : 'Primero elimina tus medicamentos (o cámbialos de categoría).',
+                ]);
+            }
+        }
     }
 }

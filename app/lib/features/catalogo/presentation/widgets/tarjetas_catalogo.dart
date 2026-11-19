@@ -63,6 +63,59 @@ class EtiquetaDescuento extends StatelessWidget {
   }
 }
 
+/// Etiqueta oscura "+18": bebidas alcohólicas (solo mayores de edad).
+class EtiquetaMayores extends StatelessWidget {
+  const EtiquetaMayores({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: 'Solo para mayores de 18 años',
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: AppEspacios.s, vertical: 2),
+        decoration: BoxDecoration(
+          color: Colors.black87,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.white70),
+        ),
+        child: const Text('+18', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 12)),
+      ),
+    );
+  }
+}
+
+/// Aviso de productos para mayores de 18: bebidas alcohólicas y tabaco
+/// (detalle del producto y confirmar pedido).
+class AvisoSoloMayores extends StatelessWidget {
+  const AvisoSoloMayores({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = Theme.of(context).colorScheme;
+    final textos = Theme.of(context).textTheme;
+    return Container(
+      key: const Key('aviso-mayores'),
+      padding: const EdgeInsets.all(AppEspacios.m),
+      decoration: BoxDecoration(color: c.errorContainer, borderRadius: BorderRadius.circular(12)),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.no_drinks_outlined, color: c.onErrorContainer),
+          const SizedBox(width: AppEspacios.s + 2),
+          Expanded(
+            child: Text(
+              'VENTA PROHIBIDA A MENORES DE 18 AÑOS (Leyes 259 y 1280). Al recibir, el repartidor te pedirá tu '
+              'carnet; si no lo muestras, no entregará el pedido. El consumo excesivo de alcohol y el consumo de '
+              'tabaco son dañinos para la salud.',
+              style: textos.bodySmall?.copyWith(color: c.onErrorContainer),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// Producto en la grilla del catálogo.
 class TarjetaProducto extends StatelessWidget {
   const TarjetaProducto({
@@ -105,6 +158,8 @@ class TarjetaProducto extends StatelessWidget {
                       left: AppEspacios.s,
                       child: EtiquetaDescuento(producto.descuentoPct),
                     ),
+                  if (producto.soloMayores)
+                    const Positioned(top: AppEspacios.s, right: AppEspacios.s, child: EtiquetaMayores()),
                   if (noDisponible)
                     Positioned.fill(
                       child: ColoredBox(

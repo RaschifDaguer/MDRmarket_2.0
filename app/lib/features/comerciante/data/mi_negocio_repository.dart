@@ -30,7 +30,11 @@ class DatosProducto {
     this.stock,
     this.disponible = true,
     this.tamano = 1,
+    this.confirmaVentaLibre = false,
   });
+
+  /// Medicamento: la farmacia confirmó (en dos pasos) que se vende sin receta.
+  final bool confirmaVentaLibre;
 
   final String nombre;
   final int categoriaId;
@@ -62,6 +66,8 @@ class DatosPerfil {
     this.razonSocial,
     this.tiempoPreparacionMin,
     this.pedidoMinimo,
+    this.vendeAlcohol = false,
+    this.esFarmacia = false,
   });
 
   final String nombre;
@@ -75,6 +81,10 @@ class DatosPerfil {
   final String? razonSocial;
   final int? tiempoPreparacionMin;
   final double? pedidoMinimo;
+
+  /// Licorería o farmacia (piden documentos extra).
+  final bool vendeAlcohol;
+  final bool esFarmacia;
 }
 
 /// Todo lo que el comerciante hace con SU negocio (/api/negocios/{id}/…).
@@ -101,6 +111,9 @@ class MiNegocioRepository {
         'razon_social': datos.razonSocial?.trim() ?? '',
         'tiempo_preparacion_min': datos.tiempoPreparacionMin?.toString() ?? '',
         'pedido_minimo': datos.pedidoMinimo?.toString() ?? '',
+        // En multipart los booleanos van como "1" / "0".
+        'vende_alcohol': datos.vendeAlcohol ? '1' : '0',
+        'es_farmacia': datos.esFarmacia ? '1' : '0',
         if (foto != null) 'foto': MultipartFile.fromBytes(foto.bytes, filename: foto.nombre),
       }),
     );
@@ -154,6 +167,7 @@ class MiNegocioRepository {
       // Laravel acepta 1/0 como booleano (no "true"/"false").
       'disponible': datos.disponible ? '1' : '0',
       'categoria_vehiculo_id': datos.tamano,
+      if (datos.confirmaVentaLibre) 'confirma_venta_libre': '1',
     });
     // Laravel recibe la lista como "fotos[]".
     for (final f in fotos) {

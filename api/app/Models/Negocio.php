@@ -21,6 +21,9 @@ class Negocio extends Model
         'descripcion',
         'nit',
         'razon_social',
+        // Permisos especiales (ver App\Support\PermisosNegocio).
+        'vende_alcohol',
+        'es_farmacia',
         'telefono',
         'direccion',
         'referencia',
@@ -39,6 +42,8 @@ class Negocio extends Model
             'latitud' => 'float',
             'longitud' => 'float',
             'abierto' => 'boolean',
+            'vende_alcohol' => 'boolean',
+            'es_farmacia' => 'boolean',
             'pedido_minimo' => 'decimal:2',
             'rating_promedio' => 'float',
         ];

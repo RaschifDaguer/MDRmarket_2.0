@@ -13,7 +13,9 @@ use Filament\Actions\ActionGroup;
 use Filament\Actions\ViewAction;
 use Filament\Infolists\Components\ImageEntry;
 use Filament\Infolists\Components\TextEntry;
+use Filament\Infolists\Components\ViewEntry;
 use Filament\Resources\Resource;
+use Filament\Schemas\Components\Callout;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
@@ -90,9 +92,18 @@ class DocumentoResource extends Resource
             ->emptyStateHeading('No hay documentos en esta lista');
     }
 
+    /** Permisos con cartón de la Alcaldía o del SEDES: suelen traer un QR para verificarlos. */
+    private const CON_QR = ['licencia_funcionamiento', 'autorizacion_alcohol', 'resolucion_sedes'];
+
     public static function infolist(Schema $schema): Schema
     {
         return $schema->components([
+            // Qué revisar en este tipo de documento (ej. el rubro de la licencia).
+            Callout::make('Antes de aprobar')
+                ->description(fn (Documento $record) => $record->tipo?->instrucciones_revision)
+                ->warning()
+                ->visible(fn (Documento $record) => filled($record->tipo?->instrucciones_revision))
+                ->columnSpanFull(),
             // La identidad muestra el carnet (los dos lados) y la selfie juntos;
             // otros documentos, su única foto.
             Section::make('Fotos')
@@ -117,6 +128,17 @@ class DocumentoResource extends Resource
                         ->formatStateUsing(fn (string $state) => Estados::DOCUMENTO[$state] ?? $state)
                         ->color(fn (string $state) => Estados::color($state)),
                     TextEntry::make('observacion')->label('Motivo del rechazo')->visible(fn ($state) => filled($state)),
+                    TextEntry::make('numero')->label('Número')->visible(fn ($state) => filled($state)),
+                    // Licencias y permisos: leer el QR para verificarlos en la página de la Alcaldía.
+                    ViewEntry::make('qr')
+                        ->label('Verificar con el QR')
+                        ->view('filament.leer-qr')
+                        ->state(fn (Documento $record) => route('panel.documento.archivo', $record))
+                        ->visible(fn (Documento $record) => in_array($record->tipo?->codigo, self::CON_QR, true) && $record->esImagen()),
+                    TextEntry::make('qr_pdf')
+                        ->label('Verificar con el QR')
+                        ->state('Es un PDF: ábrelo y escanea el QR con la cámara de tu celular.')
+                        ->visible(fn (Documento $record) => in_array($record->tipo?->codigo, self::CON_QR, true) && ! $record->esImagen()),
                     TextEntry::make('usuario.nombre_completo')->label('Persona'),
                     TextEntry::make('usuario.ci_numero')
                         ->label('Carnet registrado')

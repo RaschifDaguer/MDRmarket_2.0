@@ -40,6 +40,8 @@ class DatosRegistro {
         if (ciComplemento != null && ciComplemento!.isNotEmpty) 'ci_complemento': ciComplemento,
         if (ciExpedido != null) 'ci_expedido': ciExpedido,
         if (telefono != null && telefono!.isNotEmpty) 'telefono': telefono,
+        // Marcó "Soy mayor de 18 años y acepto los Términos y condiciones" (sin eso no se llega aquí).
+        'acepta_terminos': true,
         'dispositivo': 'app-flutter',
       };
 }

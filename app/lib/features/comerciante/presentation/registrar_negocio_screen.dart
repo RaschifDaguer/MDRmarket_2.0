@@ -15,6 +15,7 @@ import '../../catalogo/data/catalogo_repository.dart';
 import '../../catalogo/domain/categoria.dart';
 import '../../perfil/data/perfil_repository.dart';
 import '../data/negocio_repository.dart';
+import 'widgets/permisos_negocio.dart';
 
 /// Registrar mi negocio: nombre, rubro, ubicación en el mapa, foto y (si
 /// faltan) las fotos del carnet. NIT y razón social son opcionales.
@@ -39,6 +40,10 @@ class _RegistrarNegocioScreenState extends ConsumerState<RegistrarNegocioScreen>
   final _ciNumero = TextEditingController();
 
   int? _categoriaId;
+
+  /// Licorería o farmacia (ver SeccionPermisos).
+  bool _vendeAlcohol = false;
+  bool _esFarmacia = false;
   Coordenada? _ubicacion;
   ArchivoElegido? _foto;
   ArchivoElegido? _ciFrente;
@@ -58,7 +63,9 @@ class _RegistrarNegocioScreenState extends ConsumerState<RegistrarNegocioScreen>
 
   @override
   void dispose() {
-    for (final c in [_nombre, _descripcion, _telefono, _direccion, _referencia, _nit, _razonSocial, _apellido, _ciNumero]) {
+    for (final c in [
+      _nombre, _descripcion, _telefono, _direccion, _referencia, _nit, _razonSocial, _apellido, _ciNumero,
+    ]) {
       c.dispose();
     }
     super.dispose();
@@ -127,6 +134,8 @@ class _RegistrarNegocioScreenState extends ConsumerState<RegistrarNegocioScreen>
               referencia: _referencia.text,
               nit: _nit.text,
               razonSocial: _razonSocial.text,
+              vendeAlcohol: _vendeAlcohol || _rubroEsLicoreria,
+              esFarmacia: _esFarmacia,
             ),
             _foto!,
           );
@@ -178,6 +187,10 @@ class _RegistrarNegocioScreenState extends ConsumerState<RegistrarNegocioScreen>
 
   String? _requerido(String? v, String mensaje) => (v == null || v.trim().isEmpty) ? mensaje : null;
 
+  /// El rubro elegido es "Bebidas alcohólicas" (vender alcohol ya va incluido).
+  bool get _rubroEsLicoreria =>
+      (ref.read(categoriasProvider).value ?? const <Categoria>[]).any((c) => c.id == _categoriaId && c.permiso == 'alcohol');
+
   @override
   Widget build(BuildContext context) {
     final usuario = ref.watch(authControllerProvider).value;
@@ -224,6 +237,18 @@ class _RegistrarNegocioScreenState extends ConsumerState<RegistrarNegocioScreen>
                                         Aparecer(orden: 3, child: _seccionFoto()),
                                         const SizedBox(height: AppEspacios.l + 4),
                                         Aparecer(orden: 4, child: _seccionFiscal()),
+                                        const SizedBox(height: AppEspacios.l + 4),
+                                        Aparecer(
+                                          orden: 4,
+                                          child: SeccionPermisos(
+                                            vendeAlcohol: _vendeAlcohol,
+                                            esFarmacia: _esFarmacia,
+                                            rubroEsLicoreria: _rubroEsLicoreria,
+                                            errores: _errores,
+                                            alCambiarAlcohol: (v) => setState(() => _vendeAlcohol = v),
+                                            alCambiarFarmacia: (v) => setState(() => _esFarmacia = v),
+                                          ),
+                                        ),
                                         ..._seccionCarnet(usuario),
                                         AnimatedSize(
                                           duration: animar ? AppMovimiento.normal : Duration.zero,

@@ -35,6 +35,8 @@ class MiProductoResource extends JsonResource
             // null = sin control de stock (ej. algo hecho a pedido)
             'stock' => $this->stock,
             'disponible' => (bool) $this->disponible,
+            // Medicamentos: la farmacia ya confirmó que se vende sin receta (si no, la app se lo pregunta al guardar).
+            'venta_libre_confirmada' => $this->venta_libre_confirmada_en !== null,
             // Vehículo mínimo para llevarlo: 1 moto, 2 auto, 3 camión.
             'categoria_vehiculo_id' => (int) ($this->categoria_vehiculo_id ?? 1),
             'imagen_url' => Archivos::url($this->imagenPrincipal?->url),

@@ -50,6 +50,8 @@ class ProductoRequest extends FormRequest
             // Fotos extra (se agregan); en total el producto tiene hasta 4 fotos.
             'fotos' => ['nullable', 'array', 'max:'.ProductoImagen::MAXIMO],
             'fotos.*' => ['image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+            // Medicamentos: "Confirmo que se vende sin receta médica" (ver ProductosRestringidos).
+            'confirma_venta_libre' => ['nullable', 'boolean'],
         ];
     }
 
@@ -85,7 +87,7 @@ class ProductoRequest extends FormRequest
     /** Datos listos para guardar en `producto`. */
     public function datosProducto(): array
     {
-        $datos = $this->safe()->except(['foto', 'fotos']);
+        $datos = $this->safe()->except(['foto', 'fotos', 'confirma_venta_libre']);
         $datos['categoria_vehiculo_id'] ??= 1;
         $datos['disponible'] = $this->boolean('disponible', true);
 

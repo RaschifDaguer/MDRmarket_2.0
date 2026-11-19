@@ -56,6 +56,10 @@ class _RegistroScreenState extends ConsumerState<RegistroScreen> {
   bool _verPassword = false;
   bool _enviando = false;
 
+  /// "Soy mayor de 18 años y acepto los Términos y condiciones".
+  bool _aceptaTerminos = false;
+  String? _errorTerminos;
+
   /// Errores que devuelve la API por campo (ej. correo ya registrado).
   Map<String, String> _erroresApi = {};
   String? _errorGeneral;
@@ -90,6 +94,13 @@ class _RegistroScreenState extends ConsumerState<RegistroScreen> {
     // Pasos 1 y 2: siguiente. En el último, se crea la cuenta.
     if (_paso < _pasos.length - 1) {
       setState(() => _paso++);
+      return;
+    }
+    if (!_aceptaTerminos) {
+      setState(() {
+        _errorTerminos = 'Para crear tu cuenta tienes que ser mayor de 18 años y aceptar los términos.';
+        _temblores++;
+      });
       return;
     }
 
@@ -386,7 +397,47 @@ class _RegistroScreenState extends ConsumerState<RegistroScreen> {
             return v == _password.text ? null : 'Las contraseñas no coinciden';
           },
         ),
+        espacio,
+        _casillaTerminos(),
       ],
+    );
+  }
+
+  /// Casilla obligatoria: mayor de 18 y acepta los términos (se pueden leer antes).
+  Widget _casillaTerminos() {
+    final c = Theme.of(context).colorScheme;
+    final error = _errorTerminos ?? _erroresApi['acepta_terminos'];
+    // Material propio: la casilla va dentro de una tarjeta con fondo.
+    return Material(
+      type: MaterialType.transparency,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          CheckboxListTile(
+            key: const Key('registro-terminos'),
+            value: _aceptaTerminos,
+            onChanged: _enviando
+                ? null
+                : (v) => setState(() {
+                    _aceptaTerminos = v ?? false;
+                    _errorTerminos = null;
+                  }),
+            controlAffinity: ListTileControlAffinity.leading,
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Soy mayor de 18 años y acepto los Términos y condiciones de MDR Market'),
+            subtitle: error == null ? null : Text(error, style: TextStyle(color: c.error)),
+          ),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              key: const Key('registro-ver-terminos'),
+              onPressed: () => context.push('/terminos'),
+              icon: const Icon(Icons.description_outlined, size: 18),
+              label: const Text('Leer los términos y condiciones'),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

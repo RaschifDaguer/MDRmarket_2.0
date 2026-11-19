@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Models\Categoria;
 use App\Support\Archivos;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -28,6 +29,8 @@ class ProductoCatalogoResource extends JsonResource
             'total_resenas' => (int) $this->total_resenas,
             'total_vendidos' => (int) $this->total_vendidos,
             'imagen_url' => Archivos::url($this->imagen_url),
+            // Bebida alcohólica: la app muestra "+18" y pide confirmar la edad al comprar.
+            'solo_mayores' => in_array((int) $this->categoria_id, Categoria::idsSoloMayores(), true),
             'categoria' => [
                 'id' => (int) $this->categoria_id,
                 'nombre' => $this->categoria,

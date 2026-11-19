@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\Terminos;
 use Filament\Auth\MultiFactor\App\Concerns\InteractsWithAppAuthentication;
 use Filament\Auth\MultiFactor\App\Concerns\InteractsWithAppAuthenticationRecovery;
 use Filament\Auth\MultiFactor\App\Contracts\HasAppAuthentication;
@@ -53,6 +54,7 @@ class Usuario extends Authenticatable implements FilamentUser, HasAppAuthenticat
         return [
             'email_verified_at' => 'datetime',
             'fecha_nacimiento' => 'date',
+            'terminos_aceptados_en' => 'datetime',
             'password' => 'hashed',
             'es_admin' => 'boolean',
             'activo' => 'boolean',
@@ -99,6 +101,24 @@ class Usuario extends Authenticatable implements FilamentUser, HasAppAuthenticat
     public function getFilamentName(): string
     {
         return $this->nombre_completo;
+    }
+
+    /** Acepta los términos vigentes (al crear la cuenta declara ser mayor de 18). */
+    public function aceptarTerminos(): void
+    {
+        $this->forceFill(['terminos_version' => Terminos::VERSION, 'terminos_aceptados_en' => now()])->save();
+    }
+
+    /** No aceptó los términos vigentes (cuenta antigua o cambiaron): la app se los pide. */
+    public function terminosPendientes(): bool
+    {
+        return $this->terminos_version !== Terminos::VERSION;
+    }
+
+    /** Solo si cargó su fecha de nacimiento y tiene menos de 18 años. */
+    public function esMenorDeEdad(): bool
+    {
+        return $this->fecha_nacimiento !== null && $this->fecha_nacimiento->age < 18;
     }
 
     /** ¿Tiene una suspensión o bloqueo vigente para ese rol? ('todos' = cuenta entera). */

@@ -10,6 +10,7 @@ use App\Filament\Widgets\Resumen;
 use App\Models\Documento;
 use App\Models\Notificacion;
 use App\Models\Repartidor;
+use App\Models\TipoDocumento;
 use Filament\Actions\Testing\TestAction;
 use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
@@ -68,6 +69,53 @@ class PanelAdminTest extends TestCase
 
         $this->assertSame('aprobado', $negocio->refresh()->estado_verificacion);
         $this->assertTrue(Notificacion::where('usuario_id', $negocio->usuario_id)->where('tipo', 'negocio_aprobado')->exists());
+    }
+
+    public function test_una_farmacia_no_se_aprueba_sin_sus_permisos(): void
+    {
+        $admin = $this->crearUsuario(admin: true);
+        $this->actingAs($admin);
+        $farmacia = $this->crearNegocio(estado: 'pendiente', datos: ['categoria_id' => 2, 'es_farmacia' => true]);
+
+        $this->get("/admin/negocios/{$farmacia->id}")->assertOk()
+            ->assertSee('Permisos especiales')->assertSee('Medicamentos (farmacia)')
+            ->assertSee('Resolución de apertura y funcionamiento (SEDES)');
+
+        Livewire::test(ListNegocios::class)
+            ->callAction(TestAction::make('aprobar')->table($farmacia))
+            ->assertNotified('Faltan sus permisos');
+        $this->assertSame('pendiente', $farmacia->refresh()->estado_verificacion);
+
+        // Con la licencia y la resolución del SEDES aprobadas, sí.
+        foreach (['licencia_funcionamiento', 'resolucion_sedes'] as $codigo) {
+            $tipo = TipoDocumento::where('codigo', $codigo)->value('id');
+            Documento::create([
+                'usuario_id' => $farmacia->usuario_id, 'tipo_documento_id' => $tipo, 'negocio_id' => $farmacia->id,
+                'archivo_url' => "documentos/{$farmacia->usuario_id}/$codigo.png",
+            ])->forceFill(['estado' => 'aprobado'])->save();
+        }
+        Livewire::test(ListNegocios::class)
+            ->callAction(TestAction::make('aprobar')->table($farmacia))
+            ->assertNotified('Negocio aprobado');
+        $this->assertSame('aprobado', $farmacia->refresh()->estado_verificacion);
+    }
+
+    public function test_la_licencia_muestra_que_revisar_y_el_lector_de_qr(): void
+    {
+        $this->actingAs($this->crearUsuario(admin: true));
+        $licoreria = $this->crearNegocio(estado: 'pendiente', datos: ['categoria_id' => 14, 'vende_alcohol' => true]);
+        $licencia = Documento::create([
+            'usuario_id' => $licoreria->usuario_id,
+            'tipo_documento_id' => TipoDocumento::where('codigo', 'licencia_funcionamiento')->value('id'),
+            'negocio_id' => $licoreria->id,
+            'archivo_url' => "documentos/{$licoreria->usuario_id}/licencia.png",
+        ]);
+
+        $this->get("/admin/documentos/{$licencia->id}")->assertOk()
+            ->assertSee('Antes de aprobar')
+            ->assertSee('Pulpería')
+            ->assertSee('Leer el QR de la foto')
+            ->assertSee('jsqr-1.4.0.js', false);
     }
 
     public function test_rechazar_un_documento_pide_motivo(): void

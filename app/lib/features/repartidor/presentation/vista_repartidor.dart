@@ -633,6 +633,15 @@ class _TarjetaDisponible extends StatelessWidget {
                   label: Text(p.metodoPago == 'efectivo' ? 'Cobras ${Formato.bs(p.total)}' : 'Pagado con QR'),
                   visualDensity: VisualDensity.compact,
                 ),
+                // Bebidas alcohólicas: al entregar, pide el carnet.
+                if (p.soloMayores)
+                  Chip(
+                    key: Key('disponible-mayores-${p.id}'),
+                    avatar: Icon(Icons.badge_outlined, size: 16, color: c.onErrorContainer),
+                    label: Text('+18 · Pide carnet', style: TextStyle(color: c.onErrorContainer)),
+                    backgroundColor: c.errorContainer,
+                    visualDensity: VisualDensity.compact,
+                  ),
               ],
             ),
             const SizedBox(height: AppEspacios.m - 4),

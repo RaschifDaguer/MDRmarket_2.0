@@ -90,6 +90,8 @@ class _ProductoScreenState extends ConsumerState<ProductoScreen> {
                     ),
                     if (p.enOferta)
                       Positioned(top: AppEspacios.m, left: AppEspacios.m, child: EtiquetaDescuento(p.descuentoPct)),
+                    if (p.soloMayores)
+                      const Positioned(top: AppEspacios.m, right: AppEspacios.m, child: EtiquetaMayores()),
                     if (fotos.length > 1)
                       Positioned(
                         bottom: AppEspacios.s,
@@ -137,6 +139,10 @@ class _ProductoScreenState extends ConsumerState<ProductoScreen> {
                     _TarjetaNegocio(producto: p, pedidoMinimo: d.pedidoMinimo, tiempo: d.tiempoPreparacionMin),
                     const SizedBox(height: AppEspacios.s),
                     _Llegada(negocioId: p.negocio.id),
+                    if (p.soloMayores) ...[
+                      const SizedBox(height: AppEspacios.s),
+                      const AvisoSoloMayores(),
+                    ],
                     if (p.descripcion != null && p.descripcion!.isNotEmpty) ...[
                       const SizedBox(height: AppEspacios.m),
                       Text('Descripción', style: Theme.of(context).textTheme.titleMedium),

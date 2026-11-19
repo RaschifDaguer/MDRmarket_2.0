@@ -9,6 +9,8 @@ use App\Models\Negocio;
 use App\Models\Producto;
 use App\Models\ProductoImagen;
 use App\Support\Archivos;
+use App\Support\PermisosNegocio;
+use App\Support\ProductosRestringidos;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -38,8 +40,18 @@ class ProductoController extends Controller
     /** POST — producto nuevo (multipart; la foto es opcional). */
     public function store(ProductoRequest $request, Negocio $negocio): JsonResponse
     {
-        $producto = DB::transaction(function () use ($request, $negocio) {
+        $categoria = (int) $request->validated('categoria_id');
+        // Bebidas alcohólicas y medicamentos: solo con el permiso (ver PermisosNegocio).
+        PermisosNegocio::exigirParaCategoria($negocio, $categoria);
+        // Tabaco o alcohol en otra categoría; medicamentos sin confirmar "venta libre".
+        ProductosRestringidos::exigirCategoriaCorrecta($request->validated('nombre'), $request->validated('descripcion'), $categoria);
+        $ventaLibre = ProductosRestringidos::confirmarVentaLibre($request->boolean('confirma_venta_libre'), $categoria, null);
+
+        $producto = DB::transaction(function () use ($request, $negocio, $ventaLibre) {
             $producto = $negocio->productos()->create($request->datosProducto());
+            if ($ventaLibre) {
+                $producto->forceFill(['venta_libre_confirmada_en' => now()])->save();
+            }
             if ($request->hasFile('foto')) {
                 $this->guardarFoto($producto, $request->file('foto'));
             }
@@ -57,8 +69,19 @@ class ProductoController extends Controller
      */
     public function update(ProductoRequest $request, Negocio $negocio, Producto $producto): MiProductoResource
     {
-        DB::transaction(function () use ($request, $producto) {
+        $categoria = (int) $request->validated('categoria_id');
+        // Solo si lo pasa a otra categoría: lo ya publicado se sigue pudiendo editar.
+        if ($categoria !== (int) $producto->categoria_id) {
+            PermisosNegocio::exigirParaCategoria($negocio, $categoria);
+        }
+        ProductosRestringidos::exigirCategoriaCorrecta($request->validated('nombre'), $request->validated('descripcion'), $categoria);
+        $ventaLibre = ProductosRestringidos::confirmarVentaLibre($request->boolean('confirma_venta_libre'), $categoria, $producto);
+
+        DB::transaction(function () use ($request, $producto, $ventaLibre) {
             $producto->update($request->datosProducto());
+            if ($ventaLibre) {
+                $producto->forceFill(['venta_libre_confirmada_en' => now()])->save();
+            }
             if ($request->hasFile('foto')) {
                 $this->guardarFoto($producto, $request->file('foto'));
             }

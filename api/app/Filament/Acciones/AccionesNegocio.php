@@ -3,6 +3,7 @@
 namespace App\Filament\Acciones;
 
 use App\Models\Negocio;
+use App\Support\PermisosNegocio;
 use App\Support\Revision;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Textarea;
@@ -27,9 +28,20 @@ class AccionesNegocio
             ->visible(fn (Negocio $record) => $record->estado_verificacion !== 'aprobado')
             ->requiresConfirmation()
             ->modalHeading(fn (Negocio $record) => "¿Aprobar «{$record->nombre}»?")
-            ->modalDescription('El negocio aparecerá en el catálogo y podrá recibir pedidos.')
+            ->modalDescription(fn (Negocio $record) => ($faltan = PermisosNegocio::pendientes($record))
+                ? 'No se puede aprobar todavía. Vende bebidas alcohólicas o medicamentos y falta aprobar: '.implode(', ', $faltan).'.'
+                : 'El negocio aparecerá en el catálogo y podrá recibir pedidos.')
             ->modalSubmitActionLabel('Sí, aprobar')
-            ->action(function (Negocio $record) {
+            ->action(function (Negocio $record, Action $action) {
+                // Licorería o farmacia: primero sus permisos (Aprobaciones → Documentos).
+                if ($faltan = PermisosNegocio::pendientes($record)) {
+                    Notification::make()
+                        ->title('Faltan sus permisos')
+                        ->body('Aprueba primero: '.implode(', ', $faltan).'.')
+                        ->danger()
+                        ->send();
+                    $action->halt();
+                }
                 Revision::aprobarNegocio($record);
                 Notification::make()->title('Negocio aprobado')->success()->send();
             });

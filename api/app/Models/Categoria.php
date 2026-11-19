@@ -11,11 +11,25 @@ class Categoria extends Model
 {
     protected $table = 'categoria';
 
-    protected $fillable = ['categoria_padre_id', 'nombre', 'icono', 'descripcion', 'orden', 'activo'];
+    /** Categoría principal "Tabaco" (cigarrillos y parecidos, solo mayores de 18). */
+    public const TABACO = 15;
+
+    protected $fillable = ['categoria_padre_id', 'nombre', 'icono', 'descripcion', 'orden', 'activo', 'solo_mayores', 'permiso'];
 
     protected function casts(): array
     {
-        return ['activo' => 'boolean'];
+        return ['activo' => 'boolean', 'solo_mayores' => 'boolean'];
+    }
+
+    /**
+     * Ids de las categorías solo para mayores de 18 (bebidas alcohólicas).
+     * Se consulta una vez por solicitud, aunque el catálogo tenga 20 productos.
+     *
+     * @return list<int>
+     */
+    public static function idsSoloMayores(): array
+    {
+        return once(fn () => static::where('solo_mayores', true)->pluck('id')->map(fn ($id) => (int) $id)->all());
     }
 
     public function subcategorias(): HasMany

@@ -85,7 +85,7 @@ const categoriasDePrueba = [
   Categoria(
     id: 2,
     nombre: 'Salud y Belleza',
-    subcategorias: [Categoria(id: 201, nombre: 'Farmacia')],
+    subcategorias: [Categoria(id: 201, nombre: 'Farmacia', permiso: 'farmacia')],
   ),
 ];
 
@@ -292,7 +292,7 @@ class PedidosFalso extends PedidosRepository {
   PedidosFalso({this.pedidoActual}) : super(Dio());
 
   Pedido? pedidoActual;
-  ({Carrito carrito, DestinoPedido destino, String metodoPago, double? pagaCon})? creado;
+  ({Carrito carrito, DestinoPedido destino, String metodoPago, double? pagaCon, bool confirmaMayorEdad})? creado;
   int cancelados = 0;
 
   @override
@@ -309,8 +309,15 @@ class PedidosFalso extends PedidosRepository {
     required String metodoPago,
     String? notas,
     double? pagaCon,
+    bool confirmaMayorEdad = false,
   }) async {
-    creado = (carrito: carrito, destino: destino, metodoPago: metodoPago, pagaCon: pagaCon);
+    creado = (
+      carrito: carrito,
+      destino: destino,
+      metodoPago: metodoPago,
+      pagaCon: pagaCon,
+      confirmaMayorEdad: confirmaMayorEdad,
+    );
     return pedidoActual = pedidoDeEjemplo(acciones: const [EstadoPedido.cancelado], metodoPago: metodoPago);
   }
 

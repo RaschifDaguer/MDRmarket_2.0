@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\PedidoResource;
+use App\Models\Categoria;
 use App\Models\Configuracion;
 use App\Models\Negocio;
 use App\Models\Notificacion;
@@ -69,6 +70,10 @@ class PedidoController extends Controller
             'items.*.producto_id' => ['required', 'integer', 'distinct'],
             'items.*.cantidad' => ['required', 'integer', 'min:1', 'max:99'],
             'items.*.notas' => ['nullable', 'string', 'max:255'],
+            // Bebidas alcohólicas o tabaco: la app pregunta dos veces antes de enviar.
+            // 1) "Sí, soy mayor de 18 años". 2) Acepta la declaración de compra bajo su responsabilidad.
+            'confirma_mayor_edad' => ['nullable', 'boolean'],
+            'acepta_declaracion' => ['nullable', 'boolean'],
         ], [
             'items.required' => 'Tu carrito está vacío.',
             'direccion.required_without' => 'Elige o escribe la dirección de entrega.',
@@ -104,6 +109,26 @@ class PedidoController extends Controller
         $catalogo = $this->productosDelCatalogo($negocio, $items);
         $subtotal = $items->sum(fn ($i) => (float) $catalogo[$i['producto_id']]->precio_final * $i['cantidad']);
 
+        // Bebidas alcohólicas y tabaco: solo a mayores de 18 (Leyes 259 y 1280).
+        // El cliente confirma su edad y acepta la declaración de compra; el
+        // repartidor pide el carnet al entregar.
+        $soloMayores = $catalogo->contains(fn ($p) => in_array((int) $p->categoria_id, Categoria::idsSoloMayores(), true));
+        if ($soloMayores && $usuario->esMenorDeEdad()) {
+            throw ValidationException::withMessages([
+                'confirma_mayor_edad' => 'La venta de bebidas alcohólicas y tabaco a menores de 18 años está prohibida. Quítalos del carrito para continuar.',
+            ]);
+        }
+        if ($soloMayores && ! $request->boolean('confirma_mayor_edad')) {
+            throw ValidationException::withMessages([
+                'confirma_mayor_edad' => 'Tu pedido tiene productos para mayores de 18 años: confirma que eres mayor de edad.',
+            ]);
+        }
+        if ($soloMayores && ! $request->boolean('acepta_declaracion')) {
+            throw ValidationException::withMessages([
+                'acepta_declaracion' => 'Para comprar productos para mayores de 18 años, acepta la declaración de compra.',
+            ]);
+        }
+
         if ($subtotal < (float) $negocio->pedido_minimo) {
             throw ValidationException::withMessages([
                 'items' => 'El pedido mínimo de este negocio es Bs '.number_format((float) $negocio->pedido_minimo, 2).'.',
@@ -122,7 +147,7 @@ class PedidoController extends Controller
             ]);
         }
 
-        $pedido = DB::transaction(function () use ($usuario, $negocio, $direccion, $datos, $latitud, $longitud, $items, $catalogo, $subtotal, $categoriaVehiculo, $envio, $comisionPct) {
+        $pedido = DB::transaction(function () use ($usuario, $negocio, $direccion, $datos, $latitud, $longitud, $items, $catalogo, $subtotal, $categoriaVehiculo, $envio, $comisionPct, $soloMayores) {
             $pedido = Pedido::create([
                 'comprador_id' => $usuario->id,
                 'negocio_id' => $negocio->id,
@@ -132,6 +157,7 @@ class PedidoController extends Controller
                 'latitud_entrega' => $latitud,
                 'longitud_entrega' => $longitud,
                 'notas' => $datos['notas'] ?? null,
+                'solo_mayores' => $soloMayores,
                 'categoria_vehiculo_requerida_id' => $categoriaVehiculo,
                 'subtotal' => $subtotal,
                 'costo_envio' => $envio['costo_envio'],

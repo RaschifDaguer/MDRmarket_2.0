@@ -114,6 +114,8 @@ class PedidoController extends Controller
             'total' => $p->total,
             'metodo_pago' => $p->metodo_pago,
             'tamano' => $p->categoriaVehiculo?->nombre,
+            // Lleva bebidas alcohólicas: al entregar hay que pedir el carnet.
+            'solo_mayores' => (bool) $p->solo_mayores,
             'total_items' => $p->items_count,
             // Su propia compra o de su negocio: lo tiene que llevar otro repartidor.
             'propio' => in_array($yo, [(int) $p->comprador_id, (int) $p->negocio->usuario_id], true),

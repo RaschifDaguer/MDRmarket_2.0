@@ -29,6 +29,7 @@ class Usuario {
     this.ciNumero,
     this.esAdmin = false,
     this.estadoRepartidor,
+    this.terminosPendientes = false,
   });
 
   final int id;
@@ -47,6 +48,10 @@ class Usuario {
 
   /// 'pendiente', 'aprobado', 'suspendido'… o null si no es repartidor.
   final String? estadoRepartidor;
+
+  /// No aceptó los términos vigentes (cuenta antigua o cambiaron): la app se
+  /// los muestra antes de dejarlo seguir.
+  final bool terminosPendientes;
 
   String get nombreCompleto => [nombre, apellido].whereType<String>().join(' ');
 
@@ -77,6 +82,7 @@ class Usuario {
           .whereType<Vista>()
           .toList(),
       estadoRepartidor: repartidor is Map ? repartidor['estado'] as String? : null,
+      terminosPendientes: json['terminos_pendientes'] == true,
     );
   }
 }

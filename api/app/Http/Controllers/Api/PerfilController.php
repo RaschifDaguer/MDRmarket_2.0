@@ -25,9 +25,9 @@ class PerfilController extends Controller
             fn ($fila) => $fila->dato,
             DB::select('CALL sp_datos_faltantes(?, ?)', [$request->user()->id, $rol])
         );
-        $nombresDocumento = TipoDocumento::pluck('nombre', 'codigo');
+        $tipos = TipoDocumento::get(['codigo', 'nombre', 'descripcion'])->keyBy('codigo');
 
-        $faltantes = array_map(fn (string $codigo) => $this->describir($codigo, $nombresDocumento), $codigos);
+        $faltantes = array_map(fn (string $codigo) => $this->describir($codigo, $tipos), $codigos);
 
         return response()->json([
             'rol' => $rol,
@@ -66,11 +66,11 @@ class PerfilController extends Controller
      * Convierte el código de sp_datos_faltantes en algo que la app pueda
      * mostrar y resolver. Ej. "documento.ci_reverso" → "Foto del carnet de identidad (reverso)".
      */
-    private function describir(string $codigo, $nombresDocumento): array
+    private function describir(string $codigo, $tipos): array
     {
         if (str_starts_with($codigo, 'documento.')) {
             [$tipo, $de] = array_pad(explode(':', substr($codigo, strlen('documento.')), 2), 2, null);
-            $nombre = $nombresDocumento[$tipo] ?? $tipo;
+            $nombre = $tipos[$tipo]->nombre ?? $tipo;
 
             return [
                 'codigo' => $codigo,
@@ -78,6 +78,8 @@ class PerfilController extends Controller
                 'documento' => $tipo,
                 // "Foto: Carnet de identidad (anverso)"; sin repetir si ya dice "Foto…".
                 'texto' => str_starts_with($nombre, 'Foto') ? $nombre : 'Foto: '.$nombre,
+                // Qué es y dónde se saca (ej. "Permiso especial de la Alcaldía…").
+                'ayuda' => $tipos[$tipo]->descripcion ?? null,
                 'vehiculo_id' => $de && str_starts_with($de, 'vehiculo') ? (int) substr($de, 8) : null,
                 'negocio_id' => $de && str_starts_with($de, 'negocio') ? (int) substr($de, 7) : null,
             ];
@@ -101,6 +103,7 @@ class PerfilController extends Controller
             'tipo' => 'dato',
             'documento' => null,
             'texto' => $texto,
+            'ayuda' => null,
             'vehiculo_id' => str_starts_with($base, 'vehiculo.') ? (int) $id : null,
             'negocio_id' => str_starts_with($base, 'negocio.') ? (int) $id : null,
         ];

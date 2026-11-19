@@ -10,6 +10,7 @@ import '../../carrito/domain/carrito.dart';
 import '../../carrito/presentation/carrito_controller.dart';
 import '../../catalogo/data/catalogo_repository.dart';
 import '../../catalogo/domain/tienda.dart';
+import '../../catalogo/presentation/widgets/tarjetas_catalogo.dart';
 import '../data/pedidos_repository.dart';
 import '../domain/direccion.dart';
 import 'direccion_sheet.dart';
@@ -84,7 +85,34 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     }
   }
 
+  /// Bebidas alcohólicas o tabaco: antes de pedir, dos mensajes. 1) ¿Es mayor
+  /// de edad? 2) Acepta comprarlos bajo su responsabilidad (la API exige los dos).
+  Future<bool> _confirmarMayorDeEdad() => confirmarEnDosPasos(
+    context,
+    icono: Icons.no_drinks_outlined,
+    pregunta: '¿Usted es mayor de edad?',
+    explicacion:
+        'Su pedido tiene productos solo para mayores de 18 años (bebidas alcohólicas o tabaco). '
+        'VENTA PROHIBIDA A MENORES DE 18 AÑOS.\n\n¿Es usted mayor de 18 años?',
+    textoSi: 'Sí, soy mayor de 18',
+    textoNo: 'No',
+    siDiceNo:
+        'No puede pedir bebidas alcohólicas ni tabaco: la venta a menores de 18 años está prohibida. '
+        'Quítelos del carrito para hacer su pedido.',
+    tituloDeclaracion: 'Confirme su compra',
+    resumen:
+        'Usted está de acuerdo en realizar la compra de estos productos, consciente de que marcó '
+        '«Sí, soy mayor de 18». El repartidor le pedirá su carnet al entregar: si no lo muestra o es menor '
+        'de edad, no entregará el pedido.',
+    declaracion:
+        'Declaro bajo mi responsabilidad que soy mayor de 18 años, que la información que di es verdadera '
+        'y que la compra es para un adulto.',
+    textoConfirmar: 'Confirmar compra',
+  );
+
   Future<void> _confirmar(Carrito carrito) async {
+    if (carrito.soloMayores && !await _confirmarMayorDeEdad()) return;
+    if (!mounted) return;
     setState(() {
       _enviando = true;
       _errorGeneral = null;
@@ -99,6 +127,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
             metodoPago: _metodoPago,
             notas: _notas.text,
             pagaCon: _metodoPago == 'efectivo' ? _pagaConValor : null,
+            confirmaMayorEdad: carrito.soloMayores,
           );
       ref.read(carritoProvider.notifier).vaciar();
       ref.invalidate(misPedidosProvider);
@@ -157,6 +186,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       child: ListView(
         padding: const EdgeInsets.all(AppEspacios.m),
         children: [
+          if (carrito.soloMayores) ...[const AvisoSoloMayores(), const SizedBox(height: AppEspacios.m)],
           const TituloSeccion('¿Dónde lo recibes?', Icons.place_outlined),
           direcciones.when(
             loading: () => const Center(

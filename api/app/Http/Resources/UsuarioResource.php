@@ -25,6 +25,8 @@ class UsuarioResource extends JsonResource
             'foto_perfil_url' => $this->foto_perfil_url,
             'rol_activo' => $this->rol_activo,
             'es_admin' => (bool) $this->es_admin,
+            // true = no aceptó los términos vigentes: la app se los muestra antes de seguir.
+            'terminos_pendientes' => $this->terminosPendientes(),
             'vistas' => $vistas,
             // El botón "cambiar vista" solo se muestra si tiene más de una.
             'puede_cambiar_vista' => count($vistas) > 1,

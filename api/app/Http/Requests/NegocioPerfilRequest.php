@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Http\Requests\Concerns\PermisosDelNegocio;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -11,6 +12,8 @@ use Illuminate\Validation\Rule;
  */
 class NegocioPerfilRequest extends FormRequest
 {
+    use PermisosDelNegocio;
+
     public function authorize(): bool
     {
         return true;
@@ -42,6 +45,7 @@ class NegocioPerfilRequest extends FormRequest
             'tiempo_preparacion_min' => ['nullable', 'integer', 'min:1', 'max:600'],
             'pedido_minimo' => ['nullable', 'numeric', 'min:0', 'max:100000'],
             'foto' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+            ...$this->reglasPermisos(),
         ];
     }
 

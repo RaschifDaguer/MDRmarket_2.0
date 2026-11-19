@@ -34,8 +34,8 @@ MySQL 8.4 · base **`mdrmarket_new`** · todo guardado en **UTC**.
 | **Usuarios** | `usuario`, `direccion` | Una cuenta por persona. Todos pueden comprar. `rol_activo` = última vista usada |
 | **Repartidor** | `repartidor` (1 a 1 con usuario), `vehiculo`, `tipo_vehiculo`, `categoria_vehiculo` | Vehículos liviano (moto, bici), mediano (auto, camioneta), grande (camión) |
 | **Comerciante** | `negocio` (1 a N con usuario), `negocio_horario` | NIT opcional, ubicación GPS, logo |
-| **Documentos** | `documento`, `tipo_documento`, `requisito_rol` | Qué se pide a cada rol está en `requisito_rol` (agregar filas, no columnas) |
-| **Catálogo** | `categoria` (2 niveles: principal y subcategoría), `producto`, `producto_imagen`, `favorito` | Los productos van siempre en una subcategoría |
+| **Documentos** | `documento`, `tipo_documento`, `requisito_rol` | Qué se pide a cada rol está en `requisito_rol` (agregar filas, no columnas). Licorerías y farmacias: documentos extra según `negocio.vende_alcohol` / `negocio.es_farmacia` (`tipo_documento.condicion_negocio`); `instrucciones_revision` es lo que revisa el admin |
+| **Catálogo** | `categoria` (2 niveles: principal y subcategoría), `producto`, `producto_imagen`, `favorito` | Los productos van siempre en una subcategoría. `categoria.solo_mayores` = bebidas alcohólicas (+18); `categoria.permiso` = qué permiso necesita el negocio para vender ahí (alcohol, farmacia) |
 | **Pedidos** | `pedido`, `pedido_item`, `pedido_estado_historial` | `total` y `subtotal` son columnas calculadas |
 | **Envío** | `tarifa_envio`, `anillo` | Precio por km; cobertura hasta el 10mo anillo |
 | **Rastreo** | `ubicacion_repartidor` | GPS del repartidor; un evento borra lo de más de 30 días |
@@ -166,8 +166,21 @@ Notas de Aiven Free:
 
 El script carga: 10 usuarios (`*@mdrmarket.local`: admin, 3 dueños de negocio,
 3 repartidores, 3 clientes), 3 negocios (TechStore SCZ, Sabor Cruceño,
-FarmaSuper) con 26 productos, 12 categorías con 49 subcategorías, tarifas de
-envío, anillos, motivos de reporte y tipos de documento/vehículo.
+FarmaSuper, que es farmacia) con 26 productos, 15 categorías con 57
+subcategorías (incluye Bebidas, Bebidas alcohólicas y Tabaco, estas dos solo
+para mayores de 18), tarifas de envío, anillos, motivos de reporte y tipos de
+documento/vehículo.
+
+**Productos restringidos:** si el nombre o la descripción de un producto
+parecen tabaco o alcohol, la API exige publicarlo en su categoría +18
+(`api/app/Support/ProductosRestringidos.php`). Las farmacias solo publican
+medicamentos de venta libre: `producto.venta_libre_confirmada_en` guarda cuándo
+lo confirmaron.
+
+**Términos y condiciones:** `usuario.terminos_version` guarda la versión que
+aceptó cada persona (al aceptarlos declara ser mayor de 18). El texto está en
+`api/app/Support/Terminos.php`; al cambiarlo se sube `Terminos::VERSION` y la
+app se los vuelve a pedir a todos.
 
 Las contraseñas de los usuarios de ejemplo vienen de la versión anterior y no
 se conocen: para probar, **crea una cuenta nueva** desde la app.

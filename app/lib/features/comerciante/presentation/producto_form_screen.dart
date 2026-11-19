@@ -126,6 +126,12 @@ class _FormularioState extends ConsumerState<_Formulario> {
     });
     if (!_form.currentState!.validate()) return;
 
+    // Medicamento: la farmacia confirma en dos pasos que se vende sin receta
+    // (al publicarlo, al cambiarlo de categoría o si todavía no lo confirmó).
+    final confirmaVentaLibre = _esMedicamento && (p == null || p!.categoriaId != _categoriaId || !p!.ventaLibreConfirmada);
+    if (confirmaVentaLibre && !await _confirmarVentaLibre()) return;
+    if (!mounted) return;
+
     final precio = _numero(_precio.text)!;
     final datos = DatosProducto(
       nombre: _nombre.text,
@@ -138,6 +144,7 @@ class _FormularioState extends ConsumerState<_Formulario> {
       stock: int.parse(_stock.text.trim()),
       disponible: _disponible,
       tamano: _tamano,
+      confirmaVentaLibre: confirmaVentaLibre,
     );
 
     setState(() => _guardando = true);
@@ -160,6 +167,32 @@ class _FormularioState extends ConsumerState<_Formulario> {
       });
     }
   }
+
+  /// La subcategoría elegida es de medicamentos (pide permiso de farmacia).
+  bool get _esMedicamento => (ref.read(categoriasProvider).value ?? const <Categoria>[])
+      .expand((principal) => principal.subcategorias)
+      .any((sub) => sub.id == _categoriaId && sub.permiso == 'farmacia');
+
+  Future<bool> _confirmarVentaLibre() => confirmarEnDosPasos(
+    context,
+    icono: Icons.medication_outlined,
+    pregunta: '¿Este producto se vende sin receta médica?',
+    explicacion:
+        'Usted está publicando un medicamento. En MDR Market solo se pueden vender medicamentos de venta libre, '
+        'que no necesitan receta médica.',
+    textoSi: 'Sí, es de venta libre',
+    textoNo: 'No, necesita receta',
+    siDiceNo:
+        'No se puede publicar: los medicamentos que necesitan receta médica no se venden en MDR Market.',
+    tituloDeclaracion: 'Confirme la publicación',
+    resumen:
+        'Usted está publicando un producto que no necesita receta médica, consciente de que marcó '
+        '«Sí, es de venta libre».',
+    declaracion:
+        'Declaro, como farmacia responsable, que este medicamento es de venta libre (no necesita receta médica) '
+        'y que la información que publico es verdadera.',
+    textoConfirmar: 'Publicar',
+  );
 
   Future<void> _borrar() async {
     final confirmar = await showDialog<bool>(

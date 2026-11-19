@@ -44,6 +44,8 @@ class Producto extends Model
             'oferta_fin' => 'datetime',
             'stock' => 'integer',
             'disponible' => 'boolean',
+            // Medicamentos: cuándo confirmó la farmacia que se vende sin receta (ver ProductosRestringidos).
+            'venta_libre_confirmada_en' => 'datetime',
             'rating_promedio' => 'float',
         ];
     }

@@ -38,7 +38,15 @@ class Negocio {
     this.tiempoPreparacionMin,
     this.pedidoMinimo = 0,
     this.horarios = const [],
+    this.vendeAlcohol = false,
+    this.esFarmacia = false,
   });
+
+  /// Licorería: vende bebidas alcohólicas (pide autorización de expendio y licencia).
+  final bool vendeAlcohol;
+
+  /// Farmacia: vende medicamentos (pide resolución del SEDES y licencia de funcionamiento).
+  final bool esFarmacia;
 
   final int id;
   final String nombre;
@@ -85,6 +93,8 @@ class Negocio {
         totalResenas: (json['total_resenas'] as num?)?.toInt() ?? 0,
         tiempoPreparacionMin: (json['tiempo_preparacion_min'] as num?)?.toInt(),
         pedidoMinimo: Formato.numero(json['pedido_minimo']),
+        vendeAlcohol: json['vende_alcohol'] == true,
+        esFarmacia: json['es_farmacia'] == true,
         horarios: ((json['horarios'] as List?) ?? const [])
             .map((h) => Horario.fromJson(h as Map<String, dynamic>))
             .toList(),

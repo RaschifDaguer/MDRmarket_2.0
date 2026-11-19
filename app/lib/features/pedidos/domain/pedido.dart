@@ -115,6 +115,7 @@ class Pedido {
     this.pagaCon,
     this.cambio,
     this.ahorro = 0,
+    this.soloMayores = false,
     this.repartidorId,
     this.resenaRepartidor,
     this.negocioLogo,
@@ -178,6 +179,9 @@ class Pedido {
 
   /// Lo que se ahorró con las ofertas (precio sin oferta − precio cobrado).
   final double ahorro;
+
+  /// Lleva bebidas alcohólicas: el repartidor pide el carnet al entregar.
+  final bool soloMayores;
 
   /// El repartidor que lo entregó (para calificarlo) y lo que ya le puso.
   final int? repartidorId;
@@ -299,6 +303,7 @@ class Pedido {
       total: Formato.numero(json['total']),
       metodoPago: (json['metodo_pago'] as String?) ?? 'efectivo',
       pagaCon: json['paga_con'] == null ? null : Formato.numero(json['paga_con']),
+      soloMayores: json['solo_mayores'] == true,
       cambio: json['cambio'] == null ? null : Formato.numero(json['cambio']),
       ahorro: Formato.numero(json['ahorro']),
       repartidorId: (resenas?['repartidor_id'] as num?)?.toInt(),

@@ -30,6 +30,7 @@ import '../../features/pedidos/presentation/pedido_screen.dart';
 import '../../features/repartidor/presentation/entregar_pin_screen.dart';
 import '../../features/repartidor/presentation/pedido_actual_screen.dart';
 import '../../features/repartidor/presentation/registrar_repartidor_screen.dart';
+import '../../features/terminos/presentation/terminos_screen.dart';
 
 /// Número de la ruta (ej. /producto/12 → 12).
 int _id(GoRouterState estado) => int.tryParse(estado.pathParameters['id'] ?? '') ?? 0;
@@ -37,13 +38,16 @@ int _id(GoRouterState estado) => int.tryParse(estado.pathParameters['id'] ?? '')
 /// Rutas de la app. Lleva solo a cada pantalla según la sesión:
 /// - revisando sesión o servidor caído -> /splash
 /// - sin sesión                       -> /login (o /registro)
+/// - con sesión, sin aceptar términos -> /aceptar-terminos
 /// - con sesión                       -> /inicio
+/// /terminos (solo leerlos) se abre con o sin sesión.
 final routerProvider = Provider<GoRouter>((ref) {
   final cambiosDeSesion = ValueNotifier(0);
   ref.listen(authControllerProvider, (_, _) => cambiosDeSesion.value++);
   ref.onDispose(cambiosDeSesion.dispose);
 
   const rutasPublicas = {'/login', '/registro'};
+  const aceptarTerminos = '/aceptar-terminos';
 
   return GoRouter(
     initialLocation: '/splash',
@@ -53,16 +57,21 @@ final routerProvider = Provider<GoRouter>((ref) {
       final sesion = ref.read(authControllerProvider);
 
       if (sesion is! AsyncData) return ruta == '/splash' ? null : '/splash';
+      if (ruta == '/terminos') return null;
 
-      final conectado = sesion.value != null;
-      if (!conectado) return rutasPublicas.contains(ruta) ? null : '/login';
-      if (rutasPublicas.contains(ruta) || ruta == '/splash') return '/inicio';
+      final usuario = sesion.value;
+      if (usuario == null) return rutasPublicas.contains(ruta) ? null : '/login';
+      // Cuenta antigua o términos nuevos: primero aceptarlos (mayor de 18).
+      if (usuario.terminosPendientes) return ruta == aceptarTerminos ? null : aceptarTerminos;
+      if (rutasPublicas.contains(ruta) || ruta == '/splash' || ruta == aceptarTerminos) return '/inicio';
       return null;
     },
     routes: [
       GoRoute(path: '/splash', builder: (_, _) => const SplashScreen()),
       GoRoute(path: '/login', builder: (_, _) => const LoginScreen()),
       GoRoute(path: '/registro', builder: (_, _) => const RegistroScreen()),
+      GoRoute(path: '/terminos', builder: (_, _) => const TerminosScreen()),
+      GoRoute(path: aceptarTerminos, builder: (_, _) => const TerminosScreen(aceptar: true)),
       GoRoute(path: '/inicio', builder: (_, _) => const InicioScreen()),
       GoRoute(path: '/registrar-negocio', builder: (_, _) => const RegistrarNegocioScreen()),
       GoRoute(path: '/registrar-repartidor', builder: (_, _) => const RegistrarRepartidorScreen()),

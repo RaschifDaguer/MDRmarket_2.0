@@ -20,6 +20,8 @@ class DatosNegocio {
     this.referencia,
     this.nit,
     this.razonSocial,
+    this.vendeAlcohol = false,
+    this.esFarmacia = false,
   });
 
   final String nombre;
@@ -31,6 +33,10 @@ class DatosNegocio {
   final String? referencia;
   final String? nit;
   final String? razonSocial;
+
+  /// Licorería o farmacia: se le piden documentos extra (ver PermisosNegocio en la API).
+  final bool vendeAlcohol;
+  final bool esFarmacia;
 }
 
 class NegocioRepository {
@@ -64,6 +70,9 @@ class NegocioRepository {
           'referencia': ?texto(datos.referencia),
           'nit': ?texto(datos.nit),
           'razon_social': ?texto(datos.razonSocial),
+          // En multipart los booleanos van como "1" / "0".
+          'vende_alcohol': datos.vendeAlcohol ? '1' : '0',
+          'es_farmacia': datos.esFarmacia ? '1' : '0',
           'foto': MultipartFile.fromBytes(foto.bytes, filename: foto.nombre),
         }),
       );

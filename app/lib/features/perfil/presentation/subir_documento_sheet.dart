@@ -80,7 +80,11 @@ class _SubirDocumentoState extends ConsumerState<_SubirDocumento> {
             selfie
                 ? 'Tómate una foto de frente, con buena luz y sin lentes ni gorra. La compararemos con la foto '
                     'de tu carnet. Solo la ve el equipo de MDR Market.'
-                : 'Que se lea bien y sin reflejos. Solo lo ve el equipo de MDR Market.',
+                : [
+                    // Ej. licencia de funcionamiento: qué es y qué debe decir.
+                    if (widget.faltante.ayuda case final ayuda? when ayuda.isNotEmpty) '$ayuda.',
+                    'Que se lea bien y sin reflejos. Solo lo ve el equipo de MDR Market.',
+                  ].join('\n\n'),
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),

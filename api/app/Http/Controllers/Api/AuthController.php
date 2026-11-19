@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\RegistroRequest;
 use App\Http\Resources\UsuarioResource;
 use App\Models\Usuario;
+use App\Support\Terminos;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -20,12 +21,34 @@ class AuthController extends Controller
         $datos = $request->validated();
 
         $usuario = Usuario::create([
-            ...collect($datos)->except(['dispositivo', 'password_confirmation'])->all(),
+            ...collect($datos)->except(['dispositivo', 'password_confirmation', 'acepta_terminos'])->all(),
             'ci_complemento' => $datos['ci_complemento'] ?? '',
             'rol_activo' => 'cliente',
         ]);
+        // Marcó "Soy mayor de 18 años y acepto los Términos y condiciones".
+        $usuario->aceptarTerminos();
 
         return $this->respuestaConToken($usuario, $datos['dispositivo'] ?? null, 201);
+    }
+
+    /** GET /api/terminos — términos y condiciones vigentes (público, para mostrarlos antes de crear la cuenta). */
+    public function terminos(): JsonResponse
+    {
+        return response()->json(Terminos::datos());
+    }
+
+    /**
+     * POST /api/me/terminos — cuentas antiguas o términos nuevos: los acepta
+     * (y declara ser mayor de 18). acepta: true.
+     */
+    public function aceptarTerminos(Request $request): UsuarioResource
+    {
+        $request->validate(['acepta' => ['accepted']], [
+            'acepta.accepted' => 'Para seguir usando MDR Market tienes que ser mayor de 18 años y aceptar los Términos y condiciones.',
+        ]);
+        $request->user()->aceptarTerminos();
+
+        return new UsuarioResource($request->user());
     }
 
     /** POST /api/auth/login */

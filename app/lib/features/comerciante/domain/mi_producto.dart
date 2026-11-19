@@ -21,7 +21,11 @@ class MiProducto {
     this.totalResenas = 0,
     this.totalVendidos = 0,
     this.imagenes = const [],
+    this.ventaLibreConfirmada = false,
   });
+
+  /// Medicamento: la farmacia ya confirmó que se vende sin receta médica.
+  final bool ventaLibreConfirmada;
 
   /// Hasta 4 fotos, la portada primero.
   final List<FotoProducto> imagenes;
@@ -74,6 +78,7 @@ class MiProducto {
       rating: (json['rating_promedio'] as num?)?.toDouble(),
       totalResenas: (json['total_resenas'] as num?)?.toInt() ?? 0,
       totalVendidos: (json['total_vendidos'] as num?)?.toInt() ?? 0,
+      ventaLibreConfirmada: json['venta_libre_confirmada'] == true,
       imagenes: [
         for (final i in (json['imagenes'] as List?) ?? const [])
           FotoProducto(

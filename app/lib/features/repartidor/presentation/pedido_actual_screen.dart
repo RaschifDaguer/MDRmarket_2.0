@@ -14,6 +14,7 @@ import '../../pedidos/presentation/widgets/piezas_pedido.dart';
 import '../data/envio_ubicacion.dart';
 import '../data/repartidor_repository.dart';
 import 'aviso_ubicacion.dart';
+import 'entregar_pin_screen.dart' show AvisoCarnet;
 import 'mapa_reparto.dart';
 import 'vista_repartidor.dart' show km;
 
@@ -278,6 +279,7 @@ class _PedidoActualScreenState extends ConsumerState<PedidoActualScreen> {
             ],
           ),
           Text('Tu envío: ${Formato.bs(p.costoEnvio)}', style: textos.bodySmall?.copyWith(color: c.onSurfaceVariant)),
+          if (p.soloMayores) ...[const SizedBox(height: AppEspacios.s), const AvisoCarnet()],
           const SizedBox(height: AppEspacios.m),
           const TituloSeccion('Productos', Icons.shopping_bag_outlined),
           DetalleMontos(pedido: p),

@@ -7,6 +7,7 @@ class Faltante {
     this.documento,
     this.negocioId,
     this.vehiculoId,
+    this.ayuda,
   });
 
   /// Código interno, ej. "documento.ci_reverso" o "negocio.foto:12".
@@ -20,6 +21,9 @@ class Faltante {
   final int? negocioId;
   final int? vehiculoId;
 
+  /// Qué es el documento y dónde se saca (ej. "Permiso especial de la Alcaldía…").
+  final String? ayuda;
+
   bool get esDocumento => documento != null;
 
   factory Faltante.fromJson(Map<String, dynamic> json) => Faltante(
@@ -28,5 +32,6 @@ class Faltante {
         documento: json['documento'] as String?,
         negocioId: json['negocio_id'] as int?,
         vehiculoId: json['vehiculo_id'] as int?,
+        ayuda: json['ayuda'] as String?,
       );
 }

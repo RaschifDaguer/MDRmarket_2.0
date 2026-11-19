@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Http\Requests\Concerns\PermisosDelNegocio;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -11,6 +12,8 @@ use Illuminate\Validation\Rule;
  */
 class NegocioRequest extends FormRequest
 {
+    use PermisosDelNegocio;
+
     public function authorize(): bool
     {
         return true;
@@ -31,6 +34,7 @@ class NegocioRequest extends FormRequest
             'latitud' => ['required', 'numeric', 'between:-90,90'],
             'longitud' => ['required', 'numeric', 'between:-180,180'],
             'foto' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+            ...$this->reglasPermisos(),
         ];
     }
 

@@ -38,6 +38,7 @@ class PedidosRepository {
     required String metodoPago,
     String? notas,
     double? pagaCon,
+    bool confirmaMayorEdad = false,
   }) => _llamar(() async {
     final r = await _dio.post(
       '/pedidos',
@@ -51,6 +52,9 @@ class PedidosRepository {
         'metodo_pago': metodoPago,
         // Efectivo: con cuánto paga (para que el repartidor lleve cambio).
         'paga_con': ?pagaCon,
+        // Alcohol o tabaco: dijo "Sí, soy mayor de 18" y aceptó la declaración de compra (la API exige las dos).
+        if (confirmaMayorEdad) 'confirma_mayor_edad': true,
+        if (confirmaMayorEdad) 'acepta_declaracion': true,
         if (notas != null && notas.trim().isNotEmpty) 'notas': notas.trim(),
         'items': [
           for (final item in carrito.items)

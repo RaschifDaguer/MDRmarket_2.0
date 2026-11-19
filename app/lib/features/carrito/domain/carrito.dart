@@ -24,6 +24,9 @@ class Carrito {
   final List<ItemCarrito> items;
 
   int get unidades => items.fold(0, (total, i) => total + i.cantidad);
+
+  /// Lleva bebidas alcohólicas: antes de pedir se confirma ser mayor de 18.
+  bool get soloMayores => items.any((i) => i.producto.soloMayores);
   double get subtotal => items.fold(0, (total, i) => total + i.subtotal);
   bool get vacio => items.isEmpty;
 
