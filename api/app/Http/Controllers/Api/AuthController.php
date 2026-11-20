@@ -25,7 +25,7 @@ class AuthController extends Controller
             'ci_complemento' => $datos['ci_complemento'] ?? '',
             'rol_activo' => 'cliente',
         ]);
-        // Marcó "Soy mayor de 18 años y acepto los Términos y condiciones".
+        // Marcó "Acepto los Términos y condiciones".
         $usuario->aceptarTerminos();
 
         return $this->respuestaConToken($usuario, $datos['dispositivo'] ?? null, 201);
@@ -39,12 +39,12 @@ class AuthController extends Controller
 
     /**
      * POST /api/me/terminos — cuentas antiguas o términos nuevos: los acepta
-     * (y declara ser mayor de 18). acepta: true.
+     * acepta: true.
      */
     public function aceptarTerminos(Request $request): UsuarioResource
     {
         $request->validate(['acepta' => ['accepted']], [
-            'acepta.accepted' => 'Para seguir usando MDR Market tienes que ser mayor de 18 años y aceptar los Términos y condiciones.',
+            'acepta.accepted' => 'Para seguir usando MDR Market tienes que aceptar los Términos y condiciones.',
         ]);
         $request->user()->aceptarTerminos();
 

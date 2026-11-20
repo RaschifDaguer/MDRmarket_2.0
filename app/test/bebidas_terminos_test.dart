@@ -35,8 +35,8 @@ void main() {
   const terminos = Terminos(
     version: '2026-11-18',
     actualizado: '18 de noviembre de 2026',
-    declaracion: 'Declaro que soy mayor de 18 años y acepto los Términos y condiciones de MDR Market.',
-    resumen: 'Para usarla tienes que ser mayor de 18 años.',
+    declaracion: 'Acepto los Términos y condiciones de MDR Market.',
+    resumen: 'Las bebidas alcohólicas y el tabaco solo se venden a mayores de 18 años.',
     secciones: [
       SeccionTerminos(titulo: '5. Bebidas alcohólicas', parrafos: ['Solo a mayores de 18 años.']),
     ],
@@ -121,7 +121,7 @@ void main() {
     await cerrar(tester);
   });
 
-  testWidgets('crear cuenta exige marcar "soy mayor de 18 y acepto los términos"', (tester) async {
+  testWidgets('crear cuenta exige aceptar los términos (sin preguntar la edad)', (tester) async {
     tester.view.physicalSize = const Size(1080, 3000);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -140,13 +140,15 @@ void main() {
     await tester.enterText(campo('Repetir contraseña'), 'Secreta123');
 
     expect(find.byKey(const Key('registro-ver-terminos')), findsOneWidget);
+    expect(find.text('Acepto los Términos y condiciones de MDR Market'), findsOneWidget);
+    expect(find.textContaining('mayor de 18'), findsNothing); // la edad se pregunta solo al comprar alcohol o tabaco
     await tester.tap(find.widgetWithText(FilledButton, 'Crear cuenta'));
     await tester.pump(const Duration(milliseconds: 400));
-    expect(find.textContaining('tienes que ser mayor de 18 años y aceptar los términos'), findsOneWidget);
+    expect(find.textContaining('tienes que aceptar los términos y condiciones'), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('registro-terminos')));
     await tester.pump();
-    expect(find.textContaining('tienes que ser mayor de 18 años y aceptar los términos'), findsNothing);
+    expect(find.textContaining('tienes que aceptar los términos y condiciones'), findsNothing);
   });
 
   testWidgets('una cuenta antigua tiene que aceptar los términos para seguir', (tester) async {

@@ -56,7 +56,7 @@ class _RegistroScreenState extends ConsumerState<RegistroScreen> {
   bool _verPassword = false;
   bool _enviando = false;
 
-  /// "Soy mayor de 18 años y acepto los Términos y condiciones".
+  /// "Acepto los Términos y condiciones" (la edad solo se pregunta al comprar alcohol o tabaco).
   bool _aceptaTerminos = false;
   String? _errorTerminos;
 
@@ -98,7 +98,7 @@ class _RegistroScreenState extends ConsumerState<RegistroScreen> {
     }
     if (!_aceptaTerminos) {
       setState(() {
-        _errorTerminos = 'Para crear tu cuenta tienes que ser mayor de 18 años y aceptar los términos.';
+        _errorTerminos = 'Para crear tu cuenta tienes que aceptar los términos y condiciones.';
         _temblores++;
       });
       return;
@@ -403,7 +403,7 @@ class _RegistroScreenState extends ConsumerState<RegistroScreen> {
     );
   }
 
-  /// Casilla obligatoria: mayor de 18 y acepta los términos (se pueden leer antes).
+  /// Casilla obligatoria: acepta los términos (se pueden leer antes).
   Widget _casillaTerminos() {
     final c = Theme.of(context).colorScheme;
     final error = _errorTerminos ?? _erroresApi['acepta_terminos'];
@@ -424,7 +424,7 @@ class _RegistroScreenState extends ConsumerState<RegistroScreen> {
                   }),
             controlAffinity: ListTileControlAffinity.leading,
             contentPadding: EdgeInsets.zero,
-            title: const Text('Soy mayor de 18 años y acepto los Términos y condiciones de MDR Market'),
+            title: const Text('Acepto los Términos y condiciones de MDR Market'),
             subtitle: error == null ? null : Text(error, style: TextStyle(color: c.error)),
           ),
           Align(

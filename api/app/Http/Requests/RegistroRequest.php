@@ -33,7 +33,8 @@ class RegistroRequest extends FormRequest
             'ci_expedido' => ['nullable', Rule::in(['LP', 'CB', 'SC', 'OR', 'PT', 'CH', 'TJ', 'BE', 'PD'])],
             'telefono' => ['nullable', 'string', 'max:20'],
             'dispositivo' => ['nullable', 'string', 'max:100'],
-            // Casilla "Soy mayor de 18 años y acepto los Términos y condiciones" (ver App\Support\Terminos).
+            // Casilla "Acepto los Términos y condiciones" (ver App\Support\Terminos). La edad solo se
+            // pregunta al comprar bebidas alcohólicas o tabaco.
             'acepta_terminos' => ['accepted'],
         ];
     }
@@ -41,7 +42,7 @@ class RegistroRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'acepta_terminos.accepted' => 'Para crear tu cuenta tienes que ser mayor de 18 años y aceptar los Términos y condiciones.',
+            'acepta_terminos.accepted' => 'Para crear tu cuenta tienes que aceptar los Términos y condiciones.',
         ];
     }
 

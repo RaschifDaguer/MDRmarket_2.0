@@ -26,7 +26,7 @@ class Terminos {
   final String version;
   final String actualizado;
 
-  /// Lo que se acepta con la casilla: "Declaro que soy mayor de 18 años y acepto…".
+  /// Lo que se acepta con la casilla: "Acepto los Términos y condiciones…".
   final String declaracion;
   final String resumen;
   final List<SeccionTerminos> secciones;
@@ -55,7 +55,7 @@ class TerminosRepository {
         return Terminos.fromJson(r.data as Map<String, dynamic>);
       });
 
-  /// Cuentas antiguas o términos nuevos: los acepta (y declara ser mayor de 18).
+  /// Cuentas antiguas o términos nuevos: los acepta.
   Future<Usuario> aceptar() => _llamar(() async {
         final r = await _dio.post('/me/terminos', data: {'acepta': true});
         return Usuario.fromJson(r.data as Map<String, dynamic>);

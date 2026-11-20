@@ -13,12 +13,12 @@ use App\Models\Configuracion;
  */
 class Terminos
 {
-    public const VERSION = '2026-11-18';
+    public const VERSION = '2026-11-19';
 
-    public const ACTUALIZADO = '18 de noviembre de 2026';
+    public const ACTUALIZADO = '19 de noviembre de 2026';
 
     /** Lo que se acepta con la casilla al crear la cuenta. */
-    public const DECLARACION = 'Declaro que soy mayor de 18 años y acepto los Términos y condiciones de MDR Market.';
+    public const DECLARACION = 'Acepto los Términos y condiciones de MDR Market.';
 
     public static function datos(): array
     {
@@ -27,8 +27,8 @@ class Terminos
             'actualizado' => self::ACTUALIZADO,
             'declaracion' => self::DECLARACION,
             'resumen' => 'MDR Market conecta a clientes con negocios y repartidores de Santa Cruz de la Sierra. '
-                .'Para usarla tienes que ser mayor de 18 años. Las bebidas alcohólicas y el tabaco solo se venden a '
-                .'mayores de edad y el repartidor te pedirá tu carnet al entregarlos.',
+                .'Las bebidas alcohólicas y el tabaco solo se venden a mayores de 18 años: antes de comprarlos '
+                .'confirmas tu edad y el repartidor te pedirá tu carnet al entregarlos.',
             'secciones' => self::secciones(),
         ];
     }
@@ -51,8 +51,10 @@ class Terminos
             [
                 'titulo' => '2. Quién puede usarla',
                 'parrafos' => [
-                    'Solo personas mayores de 18 años. Al crear tu cuenta declaras que eres mayor de edad y que tus datos '
-                    .'(nombre, carnet de identidad, teléfono) son verdaderos y tuyos.',
+                    'Cualquier persona puede crear su cuenta. Al hacerlo declaras que tus datos (nombre, carnet de '
+                    .'identidad, teléfono) son verdaderos y tuyos. Si eres menor de 18 años, usa la aplicación con '
+                    .'permiso de tus padres o tutores.',
+                    'Los menores de 18 años no pueden comprar bebidas alcohólicas ni tabaco (ver el punto 5).',
                     'Cada persona tiene una sola cuenta. Eres responsable de cuidar tu contraseña y de lo que se haga con tu cuenta.',
                 ],
             ],

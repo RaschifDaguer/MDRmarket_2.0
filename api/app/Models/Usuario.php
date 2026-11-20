@@ -103,7 +103,7 @@ class Usuario extends Authenticatable implements FilamentUser, HasAppAuthenticat
         return $this->nombre_completo;
     }
 
-    /** Acepta los términos vigentes (al crear la cuenta declara ser mayor de 18). */
+    /** Acepta los términos vigentes (al crear la cuenta o cuando cambian). */
     public function aceptarTerminos(): void
     {
         $this->forceFill(['terminos_version' => Terminos::VERSION, 'terminos_aceptados_en' => now()])->save();

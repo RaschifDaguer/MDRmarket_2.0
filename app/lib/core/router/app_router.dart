@@ -61,7 +61,7 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       final usuario = sesion.value;
       if (usuario == null) return rutasPublicas.contains(ruta) ? null : '/login';
-      // Cuenta antigua o términos nuevos: primero aceptarlos (mayor de 18).
+      // Cuenta antigua o términos nuevos: primero aceptarlos.
       if (usuario.terminosPendientes) return ruta == aceptarTerminos ? null : aceptarTerminos;
       if (rutasPublicas.contains(ruta) || ruta == '/splash' || ruta == aceptarTerminos) return '/inicio';
       return null;
