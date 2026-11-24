@@ -27,10 +27,11 @@ const _flotantes = [
   _Flotante(Icons.pets_outlined, Alignment(0.96, -0.05), 20, 0.35, 5.2),
   _Flotante(Icons.phone_iphone_outlined, Alignment(-0.96, 0.10), 22, 0.45, 0.7),
   _Flotante(Icons.local_pharmacy_outlined, Alignment(0.80, -0.75), 24, 0.55, 1.3),
-  _Flotante(Icons.handyman_outlined, Alignment(-0.62, 0.78), 26, 0.70, 2.1),
+  // Los de abajo, pegados a los bordes: al centro va el título (no lo tapan).
+  _Flotante(Icons.handyman_outlined, Alignment(-0.95, 0.92), 26, 0.70, 2.1),
   _Flotante(Icons.shopping_cart_outlined, Alignment(0.40, 0.95), 22, 0.60, 3.0),
   _Flotante(Icons.shopping_bag_outlined, Alignment(-0.82, -0.62), 30, 0.90, 0.0),
-  _Flotante(Icons.headphones_outlined, Alignment(0.74, 0.58), 30, 1.00, 3.4),
+  _Flotante(Icons.headphones_outlined, Alignment(0.95, 0.92), 30, 1.00, 3.4),
 ];
 
 /// Cabecera verde con íconos de productos flotando a distintas profundidades.
@@ -42,13 +43,7 @@ const _flotantes = [
 /// [child] va centrado encima (logo, título...). Sin [altura] ocupa todo el
 /// espacio disponible (como en la pantalla de arranque).
 class CabeceraFlotante extends StatefulWidget {
-  const CabeceraFlotante({
-    super.key,
-    required this.child,
-    this.altura,
-    this.redondeada = true,
-    this.discreta = false,
-  });
+  const CabeceraFlotante({super.key, required this.child, this.altura, this.redondeada = true, this.discreta = false});
 
   final Widget child;
 
@@ -146,9 +141,7 @@ class _CabeceraFlotanteState extends State<CabeceraFlotante> with SingleTickerPr
                   animation: _flotacion,
                   builder: (context, _) => Stack(
                     fit: StackFit.expand,
-                    children: [
-                      for (final f in _flotantes) _icono(f, puntero, _flotacion.value),
-                    ],
+                    children: [for (final f in _flotantes) _icono(f, puntero, _flotacion.value)],
                   ),
                 ),
               ),
@@ -233,9 +226,7 @@ class _Luz extends StatelessWidget {
       height: tamano,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        gradient: RadialGradient(
-          colors: [Colors.white.withValues(alpha: 0.14), Colors.white.withValues(alpha: 0)],
-        ),
+        gradient: RadialGradient(colors: [Colors.white.withValues(alpha: 0.14), Colors.white.withValues(alpha: 0)]),
       ),
     );
   }

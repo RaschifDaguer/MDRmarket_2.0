@@ -6,6 +6,7 @@ import '../../../core/theme/app_movimiento.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../auth/domain/usuario.dart';
 import '../../auth/presentation/auth_controller.dart';
+import '../../notificaciones/data/notificaciones_repository.dart';
 import 'vistas/inicio_cliente.dart';
 import 'vistas/inicio_comerciante.dart';
 import 'vistas/inicio_repartidor.dart';
@@ -28,45 +29,60 @@ class InicioScreen extends ConsumerWidget {
     // El cliente tiene su propia cabecera (Inicio) y su pestaña Cuenta, con el
     // cambio de vista y cerrar sesión.
     if (vista == Vista.cliente) {
-      return Scaffold(
-        body: FondoMarca(child: InicioCliente(usuario: usuario)),
+      return _conAvisos(
+        ref,
+        Scaffold(
+          body: FondoMarca(child: InicioCliente(usuario: usuario)),
+        ),
       );
     }
 
-    return Scaffold(
-      body: FondoMarca(
-        child: Column(
-          children: [
-            CabeceraInicio(
-              usuario: usuario,
-              vista: vista,
-              alCerrarSesion: () => ref.read(authControllerProvider.notifier).logout(),
-              selector: usuario.puedeCambiarVista
-                  ? SelectorVista(
-                      key: const Key('boton-cambiar-vista'),
-                      vistas: usuario.vistas,
-                      actual: vista,
-                      alElegir: (elegida) => _elegirVista(context, ref, usuario, elegida),
-                    )
-                  : null,
-            ),
-            Expanded(
-              // Al cambiar de vista, el contenido se funde suavemente.
-              child: AnimatedSwitcher(
-                duration: AppMovimiento.activo(context) ? AppMovimiento.normal : Duration.zero,
-                child: KeyedSubtree(
-                  key: ValueKey(vista),
-                  child: switch (vista) {
-                    Vista.cliente => InicioCliente(usuario: usuario),
-                    Vista.repartidor => InicioRepartidor(usuario: usuario),
-                    Vista.comerciante => InicioComerciante(usuario: usuario),
-                  },
+    return _conAvisos(
+      ref,
+      Scaffold(
+        body: FondoMarca(
+          child: Column(
+            children: [
+              CabeceraInicio(
+                usuario: usuario,
+                vista: vista,
+                alCerrarSesion: () => ref.read(authControllerProvider.notifier).logout(),
+                selector: usuario.puedeCambiarVista
+                    ? SelectorVista(
+                        key: const Key('boton-cambiar-vista'),
+                        vistas: usuario.vistas,
+                        actual: vista,
+                        alElegir: (elegida) => _elegirVista(context, ref, usuario, elegida),
+                      )
+                    : null,
+              ),
+              Expanded(
+                // Al cambiar de vista, el contenido se funde suavemente.
+                child: AnimatedSwitcher(
+                  duration: AppMovimiento.activo(context) ? AppMovimiento.normal : Duration.zero,
+                  child: KeyedSubtree(
+                    key: ValueKey(vista),
+                    child: switch (vista) {
+                      Vista.cliente => InicioCliente(usuario: usuario),
+                      Vista.repartidor => InicioRepartidor(usuario: usuario),
+                      Vista.comerciante => InicioComerciante(usuario: usuario),
+                    },
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
+    );
+  }
+
+  /// Los avisos (la campanita) se actualizan solos cada 20 segundos.
+  Widget _conAvisos(WidgetRef ref, Widget pantalla) {
+    return ActualizacionAutomatica(
+      cada: const Duration(seconds: 20),
+      alActualizar: () => ref.invalidate(notificacionesProvider),
+      child: pantalla,
     );
   }
 

@@ -36,8 +36,8 @@ class _PedidoScreenState extends ConsumerState<PedidoScreen> {
   @override
   void initState() {
     super.initState();
-    // Mientras el pedido está en curso, se actualiza solo cada 20 segundos.
-    _reloj = Timer.periodic(const Duration(seconds: 20), (_) {
+    // Mientras el pedido está en curso, se actualiza solo cada 8 segundos.
+    _reloj = Timer.periodic(const Duration(seconds: 8), (_) {
       final estado = ref.read(pedidoProvider(widget.pedidoId)).value?.estado;
       if (estado != null && !estado.terminado) ref.invalidate(pedidoProvider(widget.pedidoId));
     });

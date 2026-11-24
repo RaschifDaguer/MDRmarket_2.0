@@ -146,6 +146,14 @@ class _PedidosTabState extends ConsumerState<_PedidosTab> {
     await ref.refresh(pedidosDisponiblesProvider.future).catchError((_) => const <PedidoDisponible>[]);
   }
 
+  /// Solo, cada pocos segundos: pedidos nuevos, el que lleva y lo que ganó hoy.
+  void _actualizarSolo() {
+    ref.invalidate(miRepartidorProvider);
+    ref.invalidate(pedidoActualProvider);
+    ref.invalidate(gananciasProvider);
+    if (ref.read(miRepartidorProvider).value?.disponible ?? false) ref.invalidate(pedidosDisponiblesProvider);
+  }
+
   @override
   Widget build(BuildContext context) {
     final perfil = ref.watch(miRepartidorProvider).value;
@@ -155,51 +163,58 @@ class _PedidosTabState extends ConsumerState<_PedidosTab> {
     final usuario = ref.watch(authControllerProvider).value;
     final vehiculo = perfil?.vehiculo;
 
-    return RefreshIndicator(
-      onRefresh: _actualizar,
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(AppEspacios.m, AppEspacios.m, AppEspacios.m, AppEspacios.xl),
-        children: [
-          Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 560),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // Manda su GPS mientras lleva un pedido (o avisa si falta el permiso).
-                  const AvisoUbicacion(),
-                  _Saludo(
-                    nombre: usuario?.nombre,
-                    vehiculo: vehiculo == null ? null : [vehiculo.tipoNombre, ?vehiculo.placa].join(' · '),
-                  ),
-                  const SizedBox(height: AppEspacios.m),
-                  Aparecer(
-                    orden: 1,
-                    child: _InterruptorEnLinea(enLinea: enLinea, cambiando: _cambiandoLinea, alCambiar: _ponerEnLinea),
-                  ),
-                  const SizedBox(height: AppEspacios.m),
-                  Aparecer(
-                    orden: 2,
-                    child: _Hoy(ganancias: ganancias, alEditarMeta: () => _editarMeta(ganancias?.metaDiaria)),
-                  ),
-                  if (actual != null) ...[
+    return ActualizacionAutomatica(
+      alActualizar: _actualizarSolo,
+      child: RefreshIndicator(
+        onRefresh: _actualizar,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(AppEspacios.m, AppEspacios.m, AppEspacios.m, AppEspacios.xl),
+          children: [
+            Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 560),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Manda su GPS mientras lleva un pedido (o avisa si falta el permiso).
+                    const AvisoUbicacion(),
+                    _Saludo(
+                      nombre: usuario?.nombre,
+                      vehiculo: vehiculo == null ? null : [vehiculo.tipoNombre, ?vehiculo.placa].join(' · '),
+                    ),
                     const SizedBox(height: AppEspacios.m),
-                    Aparecer(orden: 3, child: _TarjetaEnCurso(actual)),
+                    Aparecer(
+                      orden: 1,
+                      child: _InterruptorEnLinea(
+                        enLinea: enLinea,
+                        cambiando: _cambiandoLinea,
+                        alCambiar: _ponerEnLinea,
+                      ),
+                    ),
+                    const SizedBox(height: AppEspacios.m),
+                    Aparecer(
+                      orden: 2,
+                      child: _Hoy(ganancias: ganancias, alEditarMeta: () => _editarMeta(ganancias?.metaDiaria)),
+                    ),
+                    if (actual != null) ...[
+                      const SizedBox(height: AppEspacios.m),
+                      Aparecer(orden: 3, child: _TarjetaEnCurso(actual)),
+                    ],
+                    const SizedBox(height: AppEspacios.m),
+                    if (!enLinea)
+                      const EstadoVacio(
+                        icono: Icons.cloud_off_outlined,
+                        titulo: 'Estás desconectado',
+                        texto: 'Conéctate para ver pedidos cerca de ti.',
+                      )
+                    else
+                      ..._disponibles(conPedido: actual != null),
                   ],
-                  const SizedBox(height: AppEspacios.m),
-                  if (!enLinea)
-                    const EstadoVacio(
-                      icono: Icons.cloud_off_outlined,
-                      titulo: 'Estás desconectado',
-                      texto: 'Conéctate para ver pedidos cerca de ti.',
-                    )
-                  else
-                    ..._disponibles(conPedido: actual != null),
-                ],
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -208,6 +223,8 @@ class _PedidosTabState extends ConsumerState<_PedidosTab> {
     final disponibles = ref.watch(pedidosDisponiblesProvider);
     return disponibles.when(
       skipLoadingOnRefresh: true,
+      // Si una actualización automática falla, se sigue viendo la última lista.
+      skipError: true,
       loading: () => const [
         Padding(
           padding: EdgeInsets.all(AppEspacios.xl),
@@ -220,7 +237,7 @@ class _PedidosTabState extends ConsumerState<_PedidosTab> {
               EstadoVacio(
                 icono: Icons.inventory_2_outlined,
                 titulo: 'No hay pedidos listos por ahora',
-                texto: 'Desliza hacia abajo para actualizar.',
+                texto: 'Apenas un negocio tenga uno listo, aparece aquí.',
               ),
             ]
           : [

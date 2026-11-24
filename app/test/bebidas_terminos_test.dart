@@ -14,7 +14,6 @@ import 'package:mdrmarket/features/comerciante/domain/negocio.dart';
 import 'package:mdrmarket/features/comerciante/presentation/producto_form_screen.dart';
 import 'package:mdrmarket/features/comerciante/presentation/registrar_negocio_screen.dart';
 import 'package:mdrmarket/features/repartidor/presentation/entregar_pin_screen.dart';
-import 'package:mdrmarket/features/terminos/data/terminos_repository.dart';
 import 'package:mdrmarket/features/terminos/presentation/terminos_screen.dart';
 
 import 'falsos.dart';
@@ -32,21 +31,13 @@ void main() {
     negocio: polleria,
   );
 
-  const terminos = Terminos(
-    version: '2026-11-18',
-    actualizado: '18 de noviembre de 2026',
-    declaracion: 'Acepto los Términos y condiciones de MDR Market.',
-    resumen: 'Las bebidas alcohólicas y el tabaco solo se venden a mayores de 18 años.',
-    secciones: [
-      SeccionTerminos(titulo: '5. Bebidas alcohólicas', parrafos: ['Solo a mayores de 18 años.']),
-    ],
-  );
-
   Future<void> abrirApp(WidgetTester tester, List overrides) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
-    await tester.pumpWidget(ProviderScope(retry: (_, _) => null, overrides: overrides.cast(), child: const MdrMarketApp()));
+    await tester.pumpWidget(
+      ProviderScope(retry: (_, _) => null, overrides: overrides.cast(), child: const MdrMarketApp()),
+    );
     for (var i = 0; i < 5; i++) {
       await tester.pump(const Duration(milliseconds: 300));
     }
@@ -61,7 +52,13 @@ void main() {
   testWidgets('las bebidas alcohólicas llevan la etiqueta +18', (tester) async {
     await abrirConFalsos(
       tester,
-      Center(child: SizedBox(width: 200, height: 300, child: TarjetaProducto(producto: cerveza, alTocar: () {}))),
+      Center(
+        child: SizedBox(
+          width: 200,
+          height: 300,
+          child: TarjetaProducto(producto: cerveza, alTocar: () {}),
+        ),
+      ),
       overrides: overridesFalsos(usuario: cliente),
     );
     expect(find.text('+18'), findsOneWidget);
@@ -98,6 +95,26 @@ void main() {
     expect(tester.widget<FilledButton>(find.byKey(const Key('paso2-confirmar'))).onPressed, isNull);
 
     // 3. Marca la declaración y confirma: se pide con las dos confirmaciones.
+    await paso(tester, find.byKey(const Key('paso2-casilla')));
+    await paso(tester, find.byKey(const Key('paso2-confirmar')));
+    await esperar(tester);
+    expect(pedidos.creado!.confirmaMayorEdad, isTrue);
+    expect(tester.takeException(), isNull);
+    await cerrar(tester);
+  });
+
+  testWidgets('si la API pide la edad aunque la app no lo sabía, se pregunta y se reintenta', (tester) async {
+    final pedidos = PedidosFalso()..exigeMayorEdad = true;
+    await abrirApp(tester, overridesFalsos(usuario: cliente, pedidos: pedidos));
+    final contenedor = ProviderScope.containerOf(tester.element(find.byType(MdrMarketApp)));
+    contenedor.read(carritoProvider.notifier).agregar(pollo, 1); // la app no sabe que es +18
+    contenedor.read(routerProvider).push('/checkout');
+    await esperar(tester);
+
+    await paso(tester, find.textContaining('Hacer pedido'));
+    await esperar(tester);
+    expect(find.text('¿Usted es mayor de edad?'), findsOneWidget);
+    await paso(tester, find.byKey(const Key('paso1-si')));
     await paso(tester, find.byKey(const Key('paso2-casilla')));
     await paso(tester, find.byKey(const Key('paso2-confirmar')));
     await esperar(tester);
@@ -160,14 +177,12 @@ void main() {
       vistaGuardada: 'cliente',
       terminosPendientes: true,
     );
-    await abrirApp(tester, [
-      ...overridesFalsos(usuario: antigua),
-      terminosProvider.overrideWith((ref) async => terminos),
-    ]);
+    // Los términos de prueba vienen en overridesFalsos (terminosDePrueba).
+    await abrirApp(tester, overridesFalsos(usuario: antigua));
 
     expect(find.byType(TerminosScreen), findsOneWidget);
     expect(find.text('Actualizamos nuestros términos'), findsOneWidget);
-    expect(find.text('5. Bebidas alcohólicas'), findsOneWidget);
+    expect(find.text('1. Qué es MDR Market'), findsOneWidget);
     // Sin marcar la casilla, el botón no hace nada.
     final boton = tester.widget<FilledButton>(
       find.descendant(of: find.byKey(const Key('terminos-aceptar')), matching: find.byType(FilledButton)),
@@ -243,7 +258,11 @@ void main() {
   });
 
   testWidgets('el repartidor ve que tiene que pedir el carnet', (tester) async {
-    await abrirConFalsos(tester, const Scaffold(body: AvisoCarnet()), overrides: overridesFalsos(usuario: cliente));
+    await abrirConFalsos(
+      tester,
+      const Scaffold(body: AvisoCarnet()),
+      overrides: overridesFalsos(usuario: cliente),
+    );
     expect(find.text('Pide el carnet de identidad'), findsOneWidget);
   });
 }

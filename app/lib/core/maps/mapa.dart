@@ -89,11 +89,7 @@ class _MapaMdrState extends State<MapaMdr> {
     final todos = _todos;
     if (Mapas.google) {
       final control = _google;
-      if (control == null) return;
-      final cambio = todos.length < 2
-          ? g.CameraUpdate.newLatLngZoom(_g(todos.firstOrNull ?? widget.centro), widget.zoom)
-          : g.CameraUpdate.newLatLngBounds(_limitesGoogle(todos), 48);
-      animar && AppMovimiento.activo(context) ? control.animateCamera(cambio) : control.moveCamera(cambio);
+      if (control != null) _encuadrarGoogle(control, todos, animar: animar);
       return;
     }
     if (!_osmListo) return;
@@ -109,6 +105,35 @@ class _MapaMdrState extends State<MapaMdr> {
       );
     }
   }
+
+  /// Google Maps en Android: recién creado, el mapa puede no tener tamaño
+  /// todavía y encuadrar falla ("Map size can't be 0"); entonces quedaba en el
+  /// centro de la ciudad. Se reintenta unas veces, con una pausa corta.
+  Future<void> _encuadrarGoogle(g.GoogleMapController control, List<Coordenada> todos, {required bool animar}) async {
+    final cambio = todos.length < 2
+        ? g.CameraUpdate.newLatLngZoom(_g(todos.firstOrNull ?? widget.centro), widget.zoom)
+        : g.CameraUpdate.newLatLngBounds(_limitesGoogle(todos), 48);
+    final deslizar = animar && AppMovimiento.activo(context);
+    for (var intento = 0; intento < 4; intento++) {
+      if (!mounted) return;
+      try {
+        if (deslizar) {
+          await control.animateCamera(cambio);
+        } else {
+          await control.moveCamera(cambio);
+        }
+        return;
+      } catch (_) {
+        await Future<void>.delayed(const Duration(milliseconds: 350));
+      }
+    }
+  }
+
+  /// Punto medio de todos los puntos: así el mapa ya arranca cerca de ellos.
+  static Coordenada _centroDe(List<Coordenada> puntos) => Coordenada(
+    puntos.map((p) => p.latitud).reduce((a, b) => a + b) / puntos.length,
+    puntos.map((p) => p.longitud).reduce((a, b) => a + b) / puntos.length,
+  );
 
   static ll.LatLng _ll(Coordenada c) => ll.LatLng(c.latitud, c.longitud);
   static g.LatLng _g(Coordenada c) => g.LatLng(c.latitud, c.longitud);
@@ -144,11 +169,17 @@ class _MapaMdrState extends State<MapaMdr> {
     final gestos = {Factory<OneSequenceGestureRecognizer>(EagerGestureRecognizer.new)};
 
     if (Mapas.google) {
+      final todos = _todos;
       return g.GoogleMap(
-        initialCameraPosition: g.CameraPosition(target: _g(inicio), zoom: widget.zoom),
+        // Con varios puntos (tienda, casa, repartidor) arranca entre ellos y después los encuadra.
+        initialCameraPosition: g.CameraPosition(
+          target: _g(todos.length < 2 ? inicio : _centroDe(todos)),
+          zoom: todos.length < 2 ? widget.zoom : 13,
+        ),
         onMapCreated: (control) {
           _google = control;
-          _encuadrar();
+          // Recién después del primer dibujo el mapa tiene tamaño para encuadrar.
+          WidgetsBinding.instance.addPostFrameCallback((_) => _encuadrar());
         },
         onTap: widget.alTocar == null ? null : (p) => widget.alTocar!(Coordenada(p.latitude, p.longitude)),
         markers: {

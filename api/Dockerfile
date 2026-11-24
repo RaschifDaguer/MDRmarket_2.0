@@ -10,7 +10,7 @@ LABEL proyecto=mdrmarket
 RUN apt-get update \
     && apt-get install -y --no-install-recommends git unzip libzip-dev libicu-dev \
     && docker-php-ext-install pdo_mysql zip intl opcache \
-    && a2enmod rewrite \
+    && a2enmod rewrite headers \
     && rm -rf /var/lib/apt/lists/*
 
 # Fotos y videos de celular: el límite por defecto de PHP (2 MB) es muy chico.

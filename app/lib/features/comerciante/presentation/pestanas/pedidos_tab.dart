@@ -34,8 +34,8 @@ class _PedidosTabState extends ConsumerState<PedidosTab> {
   @override
   void initState() {
     super.initState();
-    // Revisa cada 20 segundos si llegaron pedidos nuevos.
-    _reloj = Timer.periodic(const Duration(seconds: 20), (_) {
+    // Revisa cada 8 segundos si llegaron pedidos nuevos.
+    _reloj = Timer.periodic(const Duration(seconds: 8), (_) {
       ref.invalidate(pedidosNegocioProvider(_filtro));
       ref.invalidate(resumenNegocioProvider(widget.negocio.id));
     });

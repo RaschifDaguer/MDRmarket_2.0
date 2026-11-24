@@ -53,6 +53,7 @@ void main() {
     PedidosFalso? pedidos,
     MiNegocioFalso? miNegocio,
     bool conCarrito = false,
+    bool conMayores = false,
   }) async {
     tester.view.physicalSize = tamano;
     tester.view.devicePixelRatio = 1;
@@ -73,10 +74,13 @@ void main() {
         ..agregar(pollo, 2)
         ..agregar(papas, 1);
     }
-    await tester.pumpWidget(RepaintBoundary(
-      key: _raiz,
-      child: UncontrolledProviderScope(container: contenedor, child: const MdrMarketApp()),
-    ));
+    if (conMayores) contenedor.read(carritoProvider.notifier).agregar(cervezaDePrueba, 2);
+    await tester.pumpWidget(
+      RepaintBoundary(
+        key: _raiz,
+        child: UncontrolledProviderScope(container: contenedor, child: const MdrMarketApp()),
+      ),
+    );
     for (var i = 0; i < 4; i++) {
       await tester.pump(const Duration(milliseconds: 300));
     }
@@ -112,11 +116,20 @@ void main() {
     '2-producto': (t, s) => abrir(t, s, ruta: '/producto/10'),
     '3-carrito': (t, s) => abrir(t, s, ruta: '/carrito', conCarrito: true),
     '4-confirmar': (t, s) => abrir(t, s, ruta: '/checkout', conCarrito: true),
-    '5-pedido-cliente': (t, s) => abrir(t, s,
-        ruta: '/pedido/42', pedidos: PedidosFalso(pedidoActual: pedidoDeEjemplo(acciones: const [EstadoPedido.cancelado]))),
+    '5-pedido-cliente': (t, s) => abrir(
+      t,
+      s,
+      ruta: '/pedido/42',
+      pedidos: PedidosFalso(pedidoActual: pedidoDeEjemplo(acciones: const [EstadoPedido.cancelado])),
+    ),
     '6-resumen-comerciante': (t, s) => abrir(t, s, comoComerciante: true),
     '7-pedido-negocio': (t, s) => abrir(t, s, comoComerciante: true, ruta: '/negocio/pedido/42'),
     '8-producto-form': (t, s) => abrir(t, s, comoComerciante: true, ruta: '/negocio/producto'),
+    // Lo nuevo: términos, productos +18 y permisos de licorería o farmacia.
+    '9-terminos': (t, s) => abrir(t, s, ruta: '/terminos'),
+    '10-producto-mayores': (t, s) => abrir(t, s, ruta: '/producto/30'),
+    '11-confirmar-mayores': (t, s) => abrir(t, s, ruta: '/checkout', conMayores: true),
+    '12-registrar-negocio': (t, s) => abrir(t, s, ruta: '/registrar-negocio'),
   };
 
   for (final MapEntry(key: dispositivo, value: tamano) in _tamanos.entries) {
@@ -134,7 +147,12 @@ void main() {
 
   testWidgets('pestañas del comerciante (celular)', (tester) async {
     await abrir(tester, const Size(390, 844), comoComerciante: true);
-    for (final (pestana, archivo) in [('Productos', 'productos'), ('Pedidos', 'pedidos'), ('Ganancias', 'ganancias'), ('Más', 'mas')]) {
+    for (final (pestana, archivo) in [
+      ('Productos', 'productos'),
+      ('Pedidos', 'pedidos'),
+      ('Ganancias', 'ganancias'),
+      ('Más', 'mas'),
+    ]) {
       await tester.tap(find.text(pestana));
       for (var i = 0; i < 4; i++) {
         await tester.pump(const Duration(milliseconds: 300));

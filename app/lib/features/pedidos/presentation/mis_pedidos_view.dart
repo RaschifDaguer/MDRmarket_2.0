@@ -19,59 +19,65 @@ class MisPedidosView extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final pedidos = ref.watch(misPedidosProvider);
 
-    return RefreshIndicator(
-      onRefresh: () => ref.refresh(misPedidosProvider.future),
-      child: pedidos.when(
-        skipLoadingOnRefresh: true,
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => ListView(
-          children: [VistaError(error: e, alReintentar: () => ref.invalidate(misPedidosProvider))],
-        ),
-        data: (pagina) {
-          if (pagina.items.isEmpty) {
+    // Solo, cada pocos segundos: el estado de cada pedido (aceptado, en camino…).
+    return ActualizacionAutomatica(
+      alActualizar: () => ref.invalidate(misPedidosProvider),
+      cada: const Duration(seconds: 10),
+      child: RefreshIndicator(
+        onRefresh: () => ref.refresh(misPedidosProvider.future),
+        child: pedidos.when(
+          skipLoadingOnRefresh: true,
+          skipError: true,
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (e, _) => ListView(
+            children: [VistaError(error: e, alReintentar: () => ref.invalidate(misPedidosProvider))],
+          ),
+          data: (pagina) {
+            if (pagina.items.isEmpty) {
+              return ListView(
+                children: const [
+                  EstadoVacio(
+                    icono: Icons.receipt_long_outlined,
+                    titulo: 'Todavía no hiciste pedidos',
+                    texto: 'Cuando pidas algo, aquí verás cómo va.',
+                  ),
+                ],
+              );
+            }
+            final enCurso = pagina.items.where((p) => !p.estado.terminado).toList();
+            final anteriores = pagina.items.where((p) => p.estado.terminado).toList();
             return ListView(
-              children: const [
-                EstadoVacio(
-                  icono: Icons.receipt_long_outlined,
-                  titulo: 'Todavía no hiciste pedidos',
-                  texto: 'Cuando pidas algo, aquí verás cómo va.',
+              padding: const EdgeInsets.all(AppEspacios.m),
+              children: [
+                Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 720),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text(
+                          'Mis pedidos',
+                          style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
+                        ),
+                        const SizedBox(height: AppEspacios.m),
+                        if (enCurso.isNotEmpty) ...[
+                          const TituloSeccion('En curso', Icons.delivery_dining_outlined),
+                          for (final (i, p) in enCurso.indexed) Aparecer(orden: i, child: _TarjetaPedido(p)),
+                          const SizedBox(height: AppEspacios.m),
+                        ],
+                        if (anteriores.isNotEmpty) ...[
+                          const TituloSeccion('Anteriores', Icons.history),
+                          for (final (i, p) in anteriores.indexed)
+                            Aparecer(orden: (enCurso.length + i).clamp(0, 8), child: _TarjetaPedido(p)),
+                        ],
+                      ],
+                    ),
+                  ),
                 ),
               ],
             );
-          }
-          final enCurso = pagina.items.where((p) => !p.estado.terminado).toList();
-          final anteriores = pagina.items.where((p) => p.estado.terminado).toList();
-          return ListView(
-            padding: const EdgeInsets.all(AppEspacios.m),
-            children: [
-              Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 720),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Text(
-                        'Mis pedidos',
-                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
-                      ),
-                      const SizedBox(height: AppEspacios.m),
-                      if (enCurso.isNotEmpty) ...[
-                        const TituloSeccion('En curso', Icons.delivery_dining_outlined),
-                        for (final (i, p) in enCurso.indexed) Aparecer(orden: i, child: _TarjetaPedido(p)),
-                        const SizedBox(height: AppEspacios.m),
-                      ],
-                      if (anteriores.isNotEmpty) ...[
-                        const TituloSeccion('Anteriores', Icons.history),
-                        for (final (i, p) in anteriores.indexed)
-                          Aparecer(orden: (enCurso.length + i).clamp(0, 8), child: _TarjetaPedido(p)),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          );
-        },
+          },
+        ),
       ),
     );
   }

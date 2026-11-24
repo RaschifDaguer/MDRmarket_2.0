@@ -2,6 +2,7 @@
 /// `import '../../../core/widgets/widgets.dart';`
 library;
 
+export 'actualizacion_automatica.dart';
 export 'aparecer.dart';
 export 'aviso_error.dart';
 export 'boton_principal.dart';

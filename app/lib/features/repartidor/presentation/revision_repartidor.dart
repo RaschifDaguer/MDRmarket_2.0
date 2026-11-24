@@ -4,10 +4,12 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_espacios.dart';
 import '../../../core/widgets/widgets.dart';
+import '../../auth/presentation/auth_controller.dart';
 import '../../comerciante/domain/documento_subido.dart';
 import '../../perfil/data/perfil_repository.dart';
 import '../../perfil/domain/faltante.dart';
 import '../../perfil/presentation/subir_documento_sheet.dart';
+import '../data/repartidor_repository.dart';
 
 /// Cómo va un documento del repartidor.
 enum EstadoDocumento {
@@ -100,71 +102,84 @@ class RevisionRepartidor extends ConsumerWidget {
       }
     }
 
-    return RefreshIndicator(
-      onRefresh: actualizar,
-      child: ListView(
-        padding: const EdgeInsets.all(AppEspacios.m),
-        children: [
-          Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 560),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text('Paso 3 de 3 · Documentos', style: textos.labelLarge?.copyWith(color: c.primary)),
-                  const SizedBox(height: AppEspacios.xs),
-                  Text(
-                    'Estamos revisando tus datos',
-                    style: textos.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
-                  ),
-                  const SizedBox(height: AppEspacios.xs),
-                  Text.rich(
-                    key: const Key('llevas-documentos'),
-                    TextSpan(
-                      children: [
-                        const TextSpan(text: 'Llevas '),
-                        TextSpan(
-                          text: '$listos de ${filas.length} documentos',
-                          style: const TextStyle(fontWeight: FontWeight.w700),
-                        ),
-                        TextSpan(
-                          text: completo
-                              ? '. El equipo de MDR Market los está revisando y te avisa cuando puedas repartir.'
-                              : '. Cuando estén todos, el equipo de MDR Market los revisa y te avisa.',
-                        ),
-                      ],
+    // Solo, cada pocos segundos: si el equipo aprueba o rechaza algo, se ve
+    // enseguida; al aprobarlo, se pasa sola a la vista de repartidor (estado en /me).
+    void actualizarSolo() {
+      ref.invalidate(misDocumentosProvider);
+      ref.invalidate(faltantesProvider('repartidor'));
+      ref.invalidate(miRepartidorProvider);
+      ref.read(authControllerProvider.notifier).refrescar().catchError((_) {});
+    }
+
+    return ActualizacionAutomatica(
+      alActualizar: actualizarSolo,
+      cada: const Duration(seconds: 10),
+      child: RefreshIndicator(
+        onRefresh: actualizar,
+        child: ListView(
+          padding: const EdgeInsets.all(AppEspacios.m),
+          children: [
+            Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 560),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text('Paso 3 de 3 · Documentos', style: textos.labelLarge?.copyWith(color: c.primary)),
+                    const SizedBox(height: AppEspacios.xs),
+                    Text(
+                      'Estamos revisando tus datos',
+                      style: textos.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
                     ),
-                    style: textos.bodyMedium?.copyWith(color: c.onSurfaceVariant),
-                  ),
-                  if (filas.isNotEmpty) ...[
-                    const SizedBox(height: AppEspacios.s),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: LinearProgressIndicator(value: listos / filas.length, minHeight: 8),
-                    ),
-                  ],
-                  const SizedBox(height: AppEspacios.m),
-                  for (final f in otros)
-                    Card(
-                      child: ListTile(
-                        key: Key('falta-dato-${f.codigo}'),
-                        leading: Icon(Icons.radio_button_unchecked, color: c.outline),
-                        title: Text(f.texto),
-                        trailing: f.codigo == 'vehiculo'
-                            ? FilledButton.tonal(
-                                style: FilledButton.styleFrom(minimumSize: const Size(0, 40)),
-                                onPressed: () => context.go('/registrar-repartidor'),
-                                child: const Text('Registrar'),
-                              )
-                            : null,
+                    const SizedBox(height: AppEspacios.xs),
+                    Text.rich(
+                      key: const Key('llevas-documentos'),
+                      TextSpan(
+                        children: [
+                          const TextSpan(text: 'Llevas '),
+                          TextSpan(
+                            text: '$listos de ${filas.length} documentos',
+                            style: const TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                          TextSpan(
+                            text: completo
+                                ? '. El equipo de MDR Market los está revisando y te avisa cuando puedas repartir.'
+                                : '. Cuando estén todos, el equipo de MDR Market los revisa y te avisa.',
+                          ),
+                        ],
                       ),
+                      style: textos.bodyMedium?.copyWith(color: c.onSurfaceVariant),
                     ),
-                  for (final (i, f) in filas.indexed) _Fila(fila: f, alSubir: subir, indice: i),
-                ],
+                    if (filas.isNotEmpty) ...[
+                      const SizedBox(height: AppEspacios.s),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: LinearProgressIndicator(value: listos / filas.length, minHeight: 8),
+                      ),
+                    ],
+                    const SizedBox(height: AppEspacios.m),
+                    for (final f in otros)
+                      Card(
+                        child: ListTile(
+                          key: Key('falta-dato-${f.codigo}'),
+                          leading: Icon(Icons.radio_button_unchecked, color: c.outline),
+                          title: Text(f.texto),
+                          trailing: f.codigo == 'vehiculo'
+                              ? FilledButton.tonal(
+                                  style: FilledButton.styleFrom(minimumSize: const Size(0, 40)),
+                                  onPressed: () => context.go('/registrar-repartidor'),
+                                  child: const Text('Registrar'),
+                                )
+                              : null,
+                        ),
+                      ),
+                    for (final (i, f) in filas.indexed) _Fila(fila: f, alSubir: subir, indice: i),
+                  ],
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

@@ -114,31 +114,37 @@ class _PedidoActualScreenState extends ConsumerState<PedidoActualScreen> {
     const titulo = 'Mi pedido en curso';
     final pedido = ref.watch(pedidoActualProvider);
 
-    return pedido.when(
-      skipLoadingOnRefresh: true,
-      loading: () => const Pantalla(
-        titulo: titulo,
-        child: Center(child: CircularProgressIndicator()),
-      ),
-      error: (e, _) => Pantalla(
-        titulo: titulo,
-        child: VistaError(error: e, alReintentar: () => ref.invalidate(pedidoActualProvider)),
-      ),
-      data: (p) => p == null
-          ? Pantalla(
-              titulo: titulo,
-              child: EstadoVacio(
-                icono: Icons.delivery_dining_outlined,
-                titulo: 'No tienes un pedido en curso',
-                texto: 'Acepta uno de la lista de pedidos disponibles.',
-                accion: OutlinedButton(
-                  style: OutlinedButton.styleFrom(minimumSize: const Size(0, 44)),
-                  onPressed: () => context.go('/inicio'),
-                  child: const Text('Ver pedidos disponibles'),
+    // Solo, cada pocos segundos: si el negocio o el cliente cambian algo (ej. lo cancelan), se ve enseguida.
+    return ActualizacionAutomatica(
+      alActualizar: () => ref.invalidate(pedidoActualProvider),
+      child: pedido.when(
+        skipLoadingOnRefresh: true,
+        // Si una actualización falla (ej. un corte de internet), se sigue viendo lo último.
+        skipError: true,
+        loading: () => const Pantalla(
+          titulo: titulo,
+          child: Center(child: CircularProgressIndicator()),
+        ),
+        error: (e, _) => Pantalla(
+          titulo: titulo,
+          child: VistaError(error: e, alReintentar: () => ref.invalidate(pedidoActualProvider)),
+        ),
+        data: (p) => p == null
+            ? Pantalla(
+                titulo: titulo,
+                child: EstadoVacio(
+                  icono: Icons.delivery_dining_outlined,
+                  titulo: 'No tienes un pedido en curso',
+                  texto: 'Acepta uno de la lista de pedidos disponibles.',
+                  accion: OutlinedButton(
+                    style: OutlinedButton.styleFrom(minimumSize: const Size(0, 44)),
+                    onPressed: () => context.go('/inicio'),
+                    child: const Text('Ver pedidos disponibles'),
+                  ),
                 ),
-              ),
-            )
-          : Pantalla(titulo: 'Pedido #${p.id}', abajo: _botones(p), child: _detalle(p)),
+              )
+            : Pantalla(titulo: 'Pedido #${p.id}', abajo: _botones(p), child: _detalle(p)),
+      ),
     );
   }
 

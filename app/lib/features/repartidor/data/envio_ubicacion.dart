@@ -61,8 +61,11 @@ class EnvioUbicacion extends Notifier<EstadoGps> {
 
   @override
   EstadoGps build() {
-    final pedido = ref.watch(pedidoActualProvider).value;
-    if (pedido == null) return EstadoGps.inactivo;
+    // Solo el número del pedido: la pantalla lo actualiza cada pocos segundos y,
+    // si se vigilara el pedido entero, cada actualización reiniciaría el envío
+    // (mandando el GPS de más).
+    final pedidoId = ref.watch(pedidoActualProvider.select((actual) => actual.value?.id));
+    if (pedidoId == null) return EstadoGps.inactivo;
 
     final reloj = Timer.periodic(intervalo, (_) => enviar());
     ref.onDispose(reloj.cancel);

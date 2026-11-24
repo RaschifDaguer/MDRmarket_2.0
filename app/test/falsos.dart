@@ -21,6 +21,7 @@ import 'package:mdrmarket/features/catalogo/domain/categoria.dart';
 import 'package:mdrmarket/features/catalogo/domain/producto.dart';
 import 'package:mdrmarket/features/catalogo/domain/resena.dart';
 import 'package:mdrmarket/features/catalogo/domain/tienda.dart';
+import 'package:mdrmarket/features/terminos/data/terminos_repository.dart';
 import 'package:mdrmarket/features/comerciante/data/mi_negocio_repository.dart';
 import 'package:mdrmarket/features/comerciante/data/negocio_repository.dart';
 import 'package:mdrmarket/features/comerciante/domain/documento_subido.dart';
@@ -107,6 +108,45 @@ const pollo = Producto(
 );
 const papas = Producto(id: 11, nombre: 'Papas fritas', precio: 12, precioFinal: 12, negocio: polleria);
 const jarabe = Producto(id: 20, nombre: 'Jarabe para la tos', precio: 25, precioFinal: 25, negocio: farmacia);
+
+/// Bebida alcohólica (+18): para probar el aviso y la confirmación de edad.
+const cervezaDePrueba = Producto(
+  id: 30,
+  nombre: 'Cerveza Paceña 620 ml',
+  precio: 15,
+  precioFinal: 15,
+  stock: 24,
+  soloMayores: true,
+  categoria: 'Cervezas',
+  negocio: polleria,
+);
+
+/// Términos y condiciones de prueba (con secciones largas, como los reales).
+const terminosDePrueba = Terminos(
+  version: '2026-11-19',
+  actualizado: '19 de noviembre de 2026',
+  declaracion: 'Acepto los Términos y condiciones de MDR Market.',
+  resumen:
+      'MDR Market conecta a clientes con negocios y repartidores de Santa Cruz de la Sierra. Las bebidas '
+      'alcohólicas y el tabaco solo se venden a mayores de 18 años.',
+  secciones: [
+    SeccionTerminos(
+      titulo: '1. Qué es MDR Market',
+      parrafos: [
+        'MDR Market es una aplicación que conecta a personas que quieren comprar con negocios de Santa Cruz de la '
+            'Sierra y con repartidores independientes que llevan los pedidos.',
+      ],
+    ),
+    SeccionTerminos(
+      titulo: '5. Bebidas alcohólicas y tabaco',
+      parrafos: [
+        'VENTA PROHIBIDA A MENORES DE 18 AÑOS. La venta de bebidas alcohólicas y de tabaco a menores de edad está '
+            'prohibida (Ley N° 259 y Ley N° 1280).',
+        'El repartidor te pedirá tu carnet de identidad al entregar.',
+      ],
+    ),
+  ],
+);
 
 const negocioAprobado = Negocio(
   id: 5,
@@ -232,7 +272,7 @@ class CatalogoFalso extends CatalogoRepository {
 
   @override
   Future<ProductoDetalle> producto(int id) async => ProductoDetalle(
-    producto: [pollo, papas, jarabe].firstWhere((p) => p.id == id),
+    producto: [pollo, papas, jarabe, cervezaDePrueba].firstWhere((p) => p.id == id),
     pedidoMinimo: 20,
     tiempoPreparacionMin: 25,
     resenas: [
@@ -295,6 +335,9 @@ class PedidosFalso extends PedidosRepository {
   ({Carrito carrito, DestinoPedido destino, String metodoPago, double? pagaCon, bool confirmaMayorEdad})? creado;
   int cancelados = 0;
 
+  /// La API pide confirmar la edad (el carrito tiene algo +18 aunque la app no lo sepa).
+  bool exigeMayorEdad = false;
+
   @override
   Future<List<Direccion>> direcciones() async => [casa];
 
@@ -311,6 +354,18 @@ class PedidosFalso extends PedidosRepository {
     double? pagaCon,
     bool confirmaMayorEdad = false,
   }) async {
+    // Como la API: un producto +18 que la app no sabía que lo era.
+    if (exigeMayorEdad && !confirmaMayorEdad) {
+      throw ApiException(
+        'Tu pedido tiene productos para mayores de 18 años: confirma que eres mayor de edad.',
+        statusCode: 422,
+        errores: const {
+          'confirma_mayor_edad': [
+            'Tu pedido tiene productos para mayores de 18 años: confirma que eres mayor de edad.',
+          ],
+        },
+      );
+    }
     creado = (
       carrito: carrito,
       destino: destino,
@@ -861,6 +916,7 @@ List overridesFalsos({
   misNegociosProvider.overrideWith((ref) async => negocios),
   faltantesProvider.overrideWith((ref, rol) async => faltantes),
   misDocumentosProvider.overrideWith((ref) async => documentos),
+  terminosProvider.overrideWith((ref) async => terminosDePrueba),
   elegirFotoProvider.overrideWithValue(() async => fotoDePrueba),
 ];
 

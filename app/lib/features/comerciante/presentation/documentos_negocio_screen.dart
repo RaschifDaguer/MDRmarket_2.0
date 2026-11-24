@@ -46,61 +46,70 @@ class _Documentos extends ConsumerWidget {
 
     return Pantalla(
       titulo: 'Documentos',
-      child: RefreshIndicator(
-        onRefresh: () {
+      // Solo, cada pocos segundos: cuando el equipo aprueba o rechaza un documento, se ve enseguida.
+      child: ActualizacionAutomatica(
+        cada: const Duration(seconds: 10),
+        alActualizar: () {
+          ref.invalidate(documentosNegocioProvider);
           ref.invalidate(faltantesProvider('comerciante'));
-          return ref.refresh(documentosNegocioProvider.future);
         },
-        child: documentos.when(
-          skipLoadingOnRefresh: true,
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (e, _) => ListView(
-            children: [VistaError(error: e, alReintentar: () => ref.invalidate(documentosNegocioProvider))],
-          ),
-          data: (lista) {
-            // Si hay varios del mismo tipo, vale el último (la API los manda del más nuevo al más viejo).
-            final vistos = <String>{};
-            final actuales = [
-              for (final d in lista)
-                if (vistos.add('${d.tipo}:${d.negocioId}')) d,
-            ];
-            final delNegocio = actuales.where((d) => d.negocioId == negocio.id).toList();
-            final tuyos = actuales.where((d) => d.negocioId == null).toList();
+        child: RefreshIndicator(
+          onRefresh: () {
+            ref.invalidate(faltantesProvider('comerciante'));
+            return ref.refresh(documentosNegocioProvider.future);
+          },
+          child: documentos.when(
+            skipLoadingOnRefresh: true,
+            skipError: true,
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (e, _) => ListView(
+              children: [VistaError(error: e, alReintentar: () => ref.invalidate(documentosNegocioProvider))],
+            ),
+            data: (lista) {
+              // Si hay varios del mismo tipo, vale el último (la API los manda del más nuevo al más viejo).
+              final vistos = <String>{};
+              final actuales = [
+                for (final d in lista)
+                  if (vistos.add('${d.tipo}:${d.negocioId}')) d,
+              ];
+              final delNegocio = actuales.where((d) => d.negocioId == negocio.id).toList();
+              final tuyos = actuales.where((d) => d.negocioId == null).toList();
 
-            return ListView(
-              padding: const EdgeInsets.all(AppEspacios.m),
-              children: [
-                if (faltan.isNotEmpty) ...[
-                  const TituloSeccion('Te falta subir', Icons.upload_file_outlined),
-                  for (final f in faltan)
-                    Card(
-                      child: ListTile(
-                        key: Key('falta-${f.codigo}'),
-                        leading: const Icon(Icons.radio_button_unchecked),
-                        title: Text(f.texto),
-                        trailing: FilledButton.tonal(
-                          style: FilledButton.styleFrom(minimumSize: const Size(0, 40)),
-                          onPressed: () => subir(f),
-                          child: const Text('Subir'),
+              return ListView(
+                padding: const EdgeInsets.all(AppEspacios.m),
+                children: [
+                  if (faltan.isNotEmpty) ...[
+                    const TituloSeccion('Te falta subir', Icons.upload_file_outlined),
+                    for (final f in faltan)
+                      Card(
+                        child: ListTile(
+                          key: Key('falta-${f.codigo}'),
+                          leading: const Icon(Icons.radio_button_unchecked),
+                          title: Text(f.texto),
+                          trailing: FilledButton.tonal(
+                            style: FilledButton.styleFrom(minimumSize: const Size(0, 40)),
+                            onPressed: () => subir(f),
+                            child: const Text('Subir'),
+                          ),
                         ),
                       ),
-                    ),
-                  const SizedBox(height: AppEspacios.m),
+                    const SizedBox(height: AppEspacios.m),
+                  ],
+                  if (delNegocio.isNotEmpty) ...[
+                    const TituloSeccion('Del negocio', Icons.storefront_outlined),
+                    for (final d in delNegocio) _Fila(documento: d, alResubir: subir),
+                    const SizedBox(height: AppEspacios.m),
+                  ],
+                  if (tuyos.isNotEmpty) ...[
+                    const TituloSeccion('Tuyos', Icons.person_outline),
+                    for (final d in tuyos) _Fila(documento: d, alResubir: subir),
+                  ],
+                  if (actuales.isEmpty && faltan.isEmpty)
+                    const EstadoVacio(icono: Icons.badge_outlined, titulo: 'Todavía no subiste documentos'),
                 ],
-                if (delNegocio.isNotEmpty) ...[
-                  const TituloSeccion('Del negocio', Icons.storefront_outlined),
-                  for (final d in delNegocio) _Fila(documento: d, alResubir: subir),
-                  const SizedBox(height: AppEspacios.m),
-                ],
-                if (tuyos.isNotEmpty) ...[
-                  const TituloSeccion('Tuyos', Icons.person_outline),
-                  for (final d in tuyos) _Fila(documento: d, alResubir: subir),
-                ],
-                if (actuales.isEmpty && faltan.isEmpty)
-                  const EstadoVacio(icono: Icons.badge_outlined, titulo: 'Todavía no subiste documentos'),
-              ],
-            );
-          },
+              );
+            },
+          ),
         ),
       ),
     );

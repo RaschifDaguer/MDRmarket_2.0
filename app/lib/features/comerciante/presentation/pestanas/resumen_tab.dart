@@ -38,30 +38,41 @@ class ResumenTab extends ConsumerWidget {
     final nombre = ref.watch(authControllerProvider).value?.nombre;
     final aprobado = negocio.estado == EstadoNegocio.aprobado;
 
-    return RefreshIndicator(
-      onRefresh: () {
+    // Solo, cada pocos segundos: pedidos nuevos, si el negocio ya fue aprobado,
+    // lo que falta subir y el stock.
+    return ActualizacionAutomatica(
+      cada: const Duration(seconds: 10),
+      alActualizar: () {
         ref.invalidate(misNegociosProvider);
         ref.invalidate(faltantesProvider('comerciante'));
-        ref.invalidate(semanaNegocioProvider(negocio.id));
-        return ref.refresh(resumenNegocioProvider(negocio.id).future);
+        ref.invalidate(resumenNegocioProvider(negocio.id));
       },
-      child: PlantillaVista(
-        tarjeta: aprobado ? _Saludo(nombre: nombre, negocio: negocio) : _tarjetaEstado(negocio.estado),
-        extra: [
-          if (resumen != null && resumen.pedidosNuevos > 0)
-            _AvisoNuevos(cantidad: resumen.pedidosNuevos, alVer: () => alIrA(1)),
-          _TarjetaNegocio(negocio),
-          if (faltantes.isNotEmpty) _TarjetaFaltantes(faltantes, activo: aprobado),
-          if (resumen != null) _Hoy(resumen: resumen, alVerPedidos: () => alIrA(1), alVerGanancias: () => alIrA(3)),
-          if (semana != null) _Semana(semana),
-          if (resumen != null && resumen.productosSinStock > 0)
-            _AvisoStock(
-              cantidad: resumen.productosSinStock,
-              nombres: resumen.productosAgotados,
-              alRenovar: () => alIrA(2),
-            ),
-          if (resumen != null && resumen.pocoStock.isNotEmpty) _PocoStock(resumen: resumen, alRenovar: () => alIrA(2)),
-        ],
+      child: RefreshIndicator(
+        onRefresh: () {
+          ref.invalidate(misNegociosProvider);
+          ref.invalidate(faltantesProvider('comerciante'));
+          ref.invalidate(semanaNegocioProvider(negocio.id));
+          return ref.refresh(resumenNegocioProvider(negocio.id).future);
+        },
+        child: PlantillaVista(
+          tarjeta: aprobado ? _Saludo(nombre: nombre, negocio: negocio) : _tarjetaEstado(negocio.estado),
+          extra: [
+            if (resumen != null && resumen.pedidosNuevos > 0)
+              _AvisoNuevos(cantidad: resumen.pedidosNuevos, alVer: () => alIrA(1)),
+            _TarjetaNegocio(negocio),
+            if (faltantes.isNotEmpty) _TarjetaFaltantes(faltantes, activo: aprobado),
+            if (resumen != null) _Hoy(resumen: resumen, alVerPedidos: () => alIrA(1), alVerGanancias: () => alIrA(3)),
+            if (semana != null) _Semana(semana),
+            if (resumen != null && resumen.productosSinStock > 0)
+              _AvisoStock(
+                cantidad: resumen.productosSinStock,
+                nombres: resumen.productosAgotados,
+                alRenovar: () => alIrA(2),
+              ),
+            if (resumen != null && resumen.pocoStock.isNotEmpty)
+              _PocoStock(resumen: resumen, alRenovar: () => alIrA(2)),
+          ],
+        ),
       ),
     );
   }

@@ -29,3 +29,13 @@
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteRule ^ index.php [L]
 </IfModule>
+
+# App web (Flutter, en /app/): que Cloudflare y el navegador pregunten siempre
+# si hay una versión nueva. Si no cambió, el servidor responde "sigue igual"
+# (304) sin volver a mandar los archivos. Sin esto, Cloudflare guardaba la
+# versión vieja hasta 4 horas después de publicar una nueva.
+<IfModule mod_headers.c>
+    <If "%{REQUEST_URI} =~ m#^/app(/|$)#">
+        Header set Cache-Control "no-cache"
+    </If>
+</IfModule>

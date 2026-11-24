@@ -110,8 +110,12 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     textoConfirmar: 'Confirmar compra',
   );
 
-  Future<void> _confirmar(Carrito carrito) async {
-    if (carrito.soloMayores && !await _confirmarMayorDeEdad()) return;
+  Future<void> _confirmar(Carrito carrito, {bool edadYaConfirmada = false}) async {
+    var mayorDeEdad = edadYaConfirmada;
+    if (carrito.soloMayores && !mayorDeEdad) {
+      if (!await _confirmarMayorDeEdad()) return;
+      mayorDeEdad = true;
+    }
     if (!mounted) return;
     setState(() {
       _enviando = true;
@@ -127,7 +131,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
             metodoPago: _metodoPago,
             notas: _notas.text,
             pagaCon: _metodoPago == 'efectivo' ? _pagaConValor : null,
-            confirmaMayorEdad: carrito.soloMayores,
+            confirmaMayorEdad: mayorDeEdad,
           );
       ref.read(carritoProvider.notifier).vaciar();
       ref.invalidate(misPedidosProvider);
@@ -141,6 +145,15 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       }
     } on ApiException catch (e) {
       if (!mounted) return;
+      // La API pide confirmar la edad aunque la app no sabía que había productos +18 (ej. un
+      // producto que pasaron a Bebidas alcohólicas después de agregarlo al carrito): se muestran
+      // los dos mensajes y, si confirma, se vuelve a enviar.
+      final pideEdad = e.errorDe('confirma_mayor_edad') != null || e.errorDe('acepta_declaracion') != null;
+      if (pideEdad && !mayorDeEdad) {
+        setState(() => _enviando = false);
+        if (await _confirmarMayorDeEdad() && mounted) await _confirmar(carrito, edadYaConfirmada: true);
+        return;
+      }
       setState(() {
         _enviando = false;
         // El primer error que mande la API (stock, mínimo, cobertura…) o el mensaje general.
@@ -263,7 +276,8 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
               controller: _pagaCon,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
               decoration: InputDecoration(
-                labelText: '¿Con cuánto pagas? (para tu cambio)',
+                labelText: '¿Con cuánto pagas?',
+                helperText: 'Para que el repartidor lleve tu cambio',
                 prefixText: 'Bs ',
                 errorText: faltaParaElTotal && _cotizacion != null
                     ? 'Tiene que ser al menos ${Formato.bs(total)}'

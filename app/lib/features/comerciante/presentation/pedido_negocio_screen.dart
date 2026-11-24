@@ -107,13 +107,23 @@ class _DetalleState extends ConsumerState<_Detalle> {
     }
   }
 
+  /// Solo, cada pocos segundos: si un repartidor lo acepta, lo recoge o lo
+  /// entrega, o si el cliente lo cancela, se ve enseguida.
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => ActualizacionAutomatica(
+    alActualizar: () {
+      if (!_cambiando) ref.invalidate(pedidoNegocioProvider(_id));
+    },
+    child: _contenido(context),
+  );
+
+  Widget _contenido(BuildContext context) {
     final pedido = ref.watch(pedidoNegocioProvider(_id));
     final titulo = 'Pedido #${widget.pedidoId}';
 
     return pedido.when(
       skipLoadingOnRefresh: true,
+      skipError: true,
       loading: () => Pantalla(
         titulo: titulo,
         child: const Center(child: CircularProgressIndicator()),

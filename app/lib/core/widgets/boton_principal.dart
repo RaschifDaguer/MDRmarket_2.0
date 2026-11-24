@@ -9,13 +9,7 @@ import 'reaccion_toque.dart';
 ///
 /// Por dentro es un [FilledButton] con un [Text]: las pruebas lo buscan así.
 class BotonPrincipal extends StatelessWidget {
-  const BotonPrincipal({
-    super.key,
-    required this.texto,
-    required this.onPressed,
-    this.cargando = false,
-    this.icono,
-  });
+  const BotonPrincipal({super.key, required this.texto, required this.onPressed, this.cargando = false, this.icono});
 
   final String texto;
   final VoidCallback? onPressed;
@@ -41,10 +35,7 @@ class BotonPrincipal extends StatelessWidget {
           onPressed: cargando ? null : onPressed,
           // Mientras carga, el botón conserva su color en vez de verse gris.
           style: cargando
-              ? FilledButton.styleFrom(
-                  disabledBackgroundColor: c.primary,
-                  disabledForegroundColor: c.onPrimary,
-                )
+              ? FilledButton.styleFrom(disabledBackgroundColor: c.primary, disabledForegroundColor: c.onPrimary)
               : null,
           child: AnimatedSwitcher(
             duration: AppMovimiento.activo(context) ? AppMovimiento.rapido : Duration.zero,
@@ -58,12 +49,12 @@ class BotonPrincipal extends StatelessWidget {
                     key: const ValueKey('texto'),
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      if (icono != null) ...[
-                        Icon(icono, size: 20),
-                        const SizedBox(width: AppEspacios.s),
-                      ],
-                      // Flexible: en pantallas angostas o con letra grande no desborda.
-                      Flexible(child: Text(texto, overflow: TextOverflow.ellipsis)),
+                      if (icono != null) ...[Icon(icono, size: 20), const SizedBox(width: AppEspacios.s)],
+                      // En pantallas angostas o con letra grande, la letra se achica un poco
+                      // en vez de cortar el texto (ej. el precio de "Agregar · Bs 1.250,00").
+                      Flexible(
+                        child: FittedBox(fit: BoxFit.scaleDown, child: Text(texto, maxLines: 1)),
+                      ),
                     ],
                   ),
           ),
