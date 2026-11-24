@@ -30,12 +30,13 @@
     RewriteRule ^ index.php [L]
 </IfModule>
 
-# App web (Flutter, en /app/): que Cloudflare y el navegador pregunten siempre
-# si hay una versión nueva. Si no cambió, el servidor responde "sigue igual"
-# (304) sin volver a mandar los archivos. Sin esto, Cloudflare guardaba la
-# versión vieja hasta 4 horas después de publicar una nueva.
+# App web (Flutter, en /app/): Cloudflare guarda una copia solo 5 minutos.
+# - Sin esto la guardaba 4 horas: una versión nueva tardaba en verse.
+# - Con "no-cache" no la guardaba: cada visita bajaba los 4 MB por el túnel
+#   desde el servidor, que es lento hacia afuera.
+# Pasados los 5 minutos, Cloudflare pregunta y, si no cambió, recibe un 304.
 <IfModule mod_headers.c>
     <If "%{REQUEST_URI} =~ m#^/app(/|$)#">
-        Header set Cache-Control "no-cache"
+        Header set Cache-Control "public, max-age=300"
     </If>
 </IfModule>
