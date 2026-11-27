@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/formato/formato.dart';
+import '../../../core/maps/ruta.dart' show metrosParaLlegar;
 import '../../../core/network/api_exception.dart';
 import '../../../core/theme/app_espacios.dart';
 import '../../../core/widgets/widgets.dart';
@@ -217,7 +218,7 @@ class _PedidoActualScreenState extends ConsumerState<PedidoActualScreen> {
               subtitle: Text(
                 [
                   recogido ? p.direccionEntrega : (p.negocioDireccion ?? 'Ve a la tienda a recogerlo'),
-                  if (distancia != null) 'a ${km(distancia)}',
+                  if (distancia != null) distancia * 1000 <= metrosParaLlegar ? 'Llegaste' : 'a ${km(distancia)}',
                 ].join(' · '),
                 key: const Key('destino-detalle'),
                 style: TextStyle(color: c.onSecondaryContainer),

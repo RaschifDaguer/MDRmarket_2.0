@@ -114,7 +114,56 @@ void main() {
     await cerrar(tester);
   });
 
+  testWidgets('el repartidor llegó a la casa: "¡Tu repartidor llegó!"', (tester) async {
+    // A ~45 m del punto que marcó el cliente (lo normal por el error del GPS).
+    await abrirPedido(tester, seguimientos: [enCamino(repartidor: const Coordenada(-17.7896, -63.1802))]);
+    expect(find.text('¡Tu repartidor llegó!'), findsOneWidget);
+    expect(find.textContaining('Sal a recibirlo y dale tu PIN'), findsOneWidget);
+    await cerrar(tester);
+  });
+
+  testWidgets('todavía no lo recogió y está en la tienda: lo dice', (tester) async {
+    const enTienda = Seguimiento(
+      estado: EstadoPedido.listo,
+      negocioNombre: 'Pollos Marta',
+      negocio: Coordenada(-17.7745, -63.1935),
+      destino: Coordenada(-17.79, -63.18),
+      repartidor: Coordenada(-17.7747, -63.1933),
+      haceSegundos: 3,
+    );
+    await abrirPedido(tester, seguimientos: [enTienda]);
+    expect(find.text('Tu repartidor está en Pollos Marta'), findsOneWidget);
+    expect(find.textContaining('Está recogiendo tu pedido'), findsOneWidget);
+    await cerrar(tester);
+  });
+
   group('Repartidor: GPS en vivo', () {
+    testWidgets('sin señal (bajo techo): usa la ubicación aproximada y si no hay, avisa', (tester) async {
+      final repartidor = RepartidorFalso(perfil: const PerfilRepartidor(estado: 'aprobado', disponible: true))
+        ..actual = pedidoDeEjemplo(estado: EstadoPedido.enCamino, paraNegocio: true);
+      final callado = StreamController<LecturaGps>.broadcast(); // el GPS preciso no da nada
+      addTearDown(callado.close);
+      Coordenada? aproximada;
+      await abrirConFalsos(tester, const VistaRepartidor(),
+          overrides: overridesFalsos(
+            usuario: repartidorAprobado,
+            repartidor: repartidor,
+            fuenteGps: () => callado.stream,
+            leerGpsUnaVez: () async => aproximada,
+          ));
+      await tester.pump(EnvioUbicacion.vigia * 2 + const Duration(seconds: 1));
+      expect(find.byKey(const Key('aviso-senal')), findsOneWidget);
+      expect(find.text('Buscando la señal del GPS…'), findsOneWidget);
+      expect(repartidor.ubicacionesEnviadas, isEmpty);
+
+      // El teléfono da su ubicación aproximada (wifi y antenas): se usa y se manda.
+      aproximada = const Coordenada(-17.7801, -63.1802);
+      await tester.pump(EnvioUbicacion.vigia + const Duration(milliseconds: 300));
+      expect(find.byKey(const Key('aviso-senal')), findsNothing);
+      expect(repartidor.ubicacionesEnviadas, [const Coordenada(-17.7801, -63.1802)]);
+      await cerrar(tester);
+    });
+
     RepartidorFalso conPedido() => RepartidorFalso(perfil: const PerfilRepartidor(estado: 'aprobado', disponible: true))
       ..actual = pedidoDeEjemplo(estado: EstadoPedido.enCamino, paraNegocio: true);
 

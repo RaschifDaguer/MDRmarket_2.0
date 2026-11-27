@@ -7,6 +7,7 @@ import '../../../../core/maps/coordenada.dart';
 import '../../../../core/maps/mapa.dart';
 import '../../../../core/maps/mapas.dart';
 import '../../../../core/maps/mapas_repository.dart';
+import '../../../../core/maps/ruta.dart';
 import '../../../../core/maps/ruta_viva.dart';
 import '../../../../core/theme/app_espacios.dart';
 import '../../data/pedidos_repository.dart';
@@ -105,8 +106,20 @@ class _SeguimientoPedidoState extends ConsumerState<SeguimientoPedido> {
         final porCalles = ruta != null && ruta.porCalles && avance != null && seguimiento.repartidor != null;
         final llega = porCalles ? (ruta.segundosFaltan(avance) / 60).ceil().clamp(1, 999) : seguimiento.tiempoMin;
         final km = porCalles ? ruta.metrosFaltan(avance) / 1000 : seguimiento.distanciaKm;
+        // Ya llegó a la casa (o está en la tienda): con el margen del error del GPS.
+        final rep = seguimiento.repartidor;
+        final enLaCasa = recogido && rep != null && Ruta.metrosEntre(rep, seguimiento.destino) <= metrosParaLlegar;
+        final enLaTienda = !recogido && rep != null && Ruta.metrosEntre(rep, seguimiento.negocio) <= metrosParaLlegar;
+        final titulo = enLaCasa
+            ? '¡Tu repartidor llegó!'
+            : enLaTienda
+            ? 'Tu repartidor está en ${seguimiento.negocioNombre}'
+            : llega == null
+            ? 'Esperando la ubicación del repartidor…'
+            : 'Llega en unos $llega min';
         return Card(
           key: const Key('seguimiento'),
+          color: enLaCasa ? c.primaryContainer : null,
           clipBehavior: Clip.antiAlias,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -114,16 +127,18 @@ class _SeguimientoPedidoState extends ConsumerState<SeguimientoPedido> {
               if (mapa != null)
                 SizedBox(height: 260, child: mapa(seguimiento, _ruta.lineaRestante, ruta?.porCalles ?? false)),
               ListTile(
-                leading: Icon(Icons.two_wheeler, color: c.primary, size: 32),
-                title: Text(
-                  llega == null ? 'Esperando la ubicación del repartidor…' : 'Llega en unos $llega min',
-                  key: const Key('tiempo-estimado'),
-                  style: textos.titleMedium,
-                ),
+                leading: Icon(enLaCasa ? Icons.where_to_vote : Icons.two_wheeler, color: c.primary, size: 32),
+                title: Text(titulo, key: const Key('tiempo-estimado'), style: textos.titleMedium),
                 subtitle: Text(
                   [
-                    if (km != null) 'A ${km.toStringAsFixed(1).replaceAll('.', ',')} km',
-                    recogido ? 'ya lo recogió' : 'pasa primero por ${seguimiento.negocioNombre}',
+                    if (enLaCasa)
+                      'Sal a recibirlo y dale tu PIN de entrega'
+                    else if (enLaTienda)
+                      'Está recogiendo tu pedido'
+                    else ...[
+                      if (km != null) 'A ${km.toStringAsFixed(1).replaceAll('.', ',')} km',
+                      recogido ? 'ya lo recogió' : 'pasa primero por ${seguimiento.negocioNombre}',
+                    ],
                     if (seguimiento.haceSegundos != null) 'actualizado ${_hace(seguimiento.haceSegundos!)}',
                   ].join(' · '),
                   key: const Key('distancia-seguimiento'),

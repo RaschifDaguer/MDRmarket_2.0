@@ -915,6 +915,7 @@ List overridesFalsos({
   Stream<LecturaGps> Function()? fuenteGps,
   MapasFalso? mapas,
   Future<void> Function(LecturaGps)? abrirAjustesGps,
+  Future<Coordenada?> Function()? leerGpsUnaVez,
 }) => [
   repartidorRepositoryProvider.overrideWithValue(repartidor ?? RepartidorFalso()),
   // Ruta por las calles y dirección de un punto, sin internet.
@@ -929,6 +930,8 @@ List overridesFalsos({
   ubicacionActualProvider.overrideWithValue(() async => null),
   // Una lectura del GPS (o las que mande la prueba).
   fuenteGpsProvider.overrideWithValue(fuenteGps ?? () => Stream.value(gps)),
+  // La lectura suelta (si el GPS preciso no responde): la misma de prueba.
+  leerGpsUnaVezProvider.overrideWithValue(leerGpsUnaVez ?? () async => fuenteGps == null ? gps.punto : null),
   // Sin clave de Google Maps (como en las pruebas); se puede pasar un mapa falso.
   mapaSeguimientoProvider.overrideWithValue(mapa),
   authControllerProvider.overrideWith(() => SesionFalsa(usuario)),

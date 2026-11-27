@@ -14,11 +14,12 @@ class AvisoUbicacion extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final estado = ref.watch(envioUbicacionProvider);
+    final c = Theme.of(context).colorScheme;
+    final textos = Theme.of(context).textTheme;
+    if (estado == EstadoGps.sinSenal) return _sinSenal(context, ref, c, textos);
     if (estado != EstadoGps.sinPermiso && estado != EstadoGps.gpsApagado) return const SizedBox.shrink();
 
     final apagado = estado == EstadoGps.gpsApagado;
-    final c = Theme.of(context).colorScheme;
-    final textos = Theme.of(context).textTheme;
     return Padding(
       padding: const EdgeInsets.only(bottom: AppEspacios.m),
       child: Card(
@@ -74,4 +75,29 @@ class AvisoUbicacion extends ConsumerWidget {
       ),
     );
   }
+
+  /// El GPS está encendido y con permiso, pero no da ninguna posición (bajo techo).
+  Widget _sinSenal(BuildContext context, WidgetRef ref, ColorScheme c, TextTheme textos) => Padding(
+    padding: const EdgeInsets.only(bottom: AppEspacios.m),
+    child: Card(
+      key: const Key('aviso-senal'),
+      color: c.tertiaryContainer,
+      child: ListTile(
+        leading: SizedBox.square(
+          dimension: 22,
+          child: CircularProgressIndicator(strokeWidth: 2.5, color: c.onTertiaryContainer),
+        ),
+        title: Text('Buscando la señal del GPS…', style: textos.titleSmall?.copyWith(color: c.onTertiaryContainer)),
+        subtitle: Text(
+          'Todavía no tenemos tu ubicación. Si estás bajo techo, acércate a una ventana o sal a un lugar abierto.',
+          style: textos.bodySmall?.copyWith(color: c.onTertiaryContainer),
+        ),
+        trailing: IconButton(
+          tooltip: 'Reintentar',
+          icon: Icon(Icons.refresh, color: c.onTertiaryContainer),
+          onPressed: () => ref.read(envioUbicacionProvider.notifier).reintentar(),
+        ),
+      ),
+    ),
+  );
 }

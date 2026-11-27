@@ -79,6 +79,27 @@ Stream<LecturaGps> seguirGps() async* {
 /// De dónde sale el GPS. Las pruebas lo reemplazan.
 final fuenteGpsProvider = Provider<Stream<LecturaGps> Function()>((ref) => seguirGps);
 
+/// Una lectura suelta, por si el GPS preciso no responde (ej. bajo techo, donde
+/// no ve los satélites): primero la ubicación aproximada del teléfono (wifi y
+/// antenas) y, si tampoco, la última que conoce. Las pruebas lo reemplazan.
+final leerGpsUnaVezProvider = Provider<Future<Coordenada?> Function()>(
+  (ref) => () async {
+    try {
+      final p = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(accuracy: LocationAccuracy.medium, timeLimit: Duration(seconds: 12)),
+      );
+      return Coordenada(p.latitude, p.longitude);
+    } catch (_) {
+      try {
+        final ultima = kIsWeb ? null : await Geolocator.getLastKnownPosition();
+        return ultima == null ? null : Coordenada(ultima.latitude, ultima.longitude);
+      } catch (_) {
+        return null;
+      }
+    }
+  },
+);
+
 /// Abre los ajustes para encender la ubicación (o el permiso de la app). Las pruebas lo reemplazan.
 final abrirAjustesGpsProvider = Provider<Future<void> Function(LecturaGps)>(
   (ref) => (lectura) async {
@@ -93,7 +114,10 @@ final abrirAjustesGpsProvider = Provider<Future<void> Function(LecturaGps)>(
   },
 );
 
-enum EstadoGps { inactivo, buscando, enviando, sinPermiso, gpsApagado }
+/// - buscando: esperando la primera lectura;
+/// - sinSenal: pasaron 20 s sin ninguna lectura (bajo techo, sin satélites);
+/// - enviando: hay posición y se manda al cliente.
+enum EstadoGps { inactivo, buscando, enviando, sinSenal, sinPermiso, gpsApagado }
 
 /// La última posición del repartidor que se leyó del GPS (para su mapa y su modo GPS).
 class MiUbicacion extends Notifier<Coordenada?> {
@@ -118,8 +142,14 @@ class EnvioUbicacion extends Notifier<EstadoGps> {
   static const latido = Duration(seconds: 15);
   static const reintentoGps = Duration(seconds: 8);
 
+  /// Cada cuánto se revisa si el GPS ya dio alguna posición.
+  static const vigia = Duration(seconds: 10);
+
   StreamSubscription<LecturaGps>? _gps;
   Timer? _relojLatido;
+  Timer? _relojVigia;
+  int _vigiasSinLectura = 0;
+  bool _leyendoUnaVez = false;
   Timer? _relojEnvio;
   Timer? _relojReintento;
   AppLifecycleListener? _ciclo;
@@ -138,7 +168,10 @@ class EnvioUbicacion extends Notifier<EstadoGps> {
     if (pedidoId == null) return EstadoGps.inactivo;
 
     ref.onDispose(_parar);
+    _ultimo = null;
+    _vigiasSinLectura = 0;
     _relojLatido = Timer.periodic(latido, (_) => _alLatir());
+    _relojVigia = Timer.periodic(vigia, (_) => _vigilar());
     _ciclo = AppLifecycleListener(onResume: () {
       if (state == EstadoGps.sinPermiso || state == EstadoGps.gpsApagado) reintentar();
     });
@@ -221,6 +254,29 @@ class EnvioUbicacion extends Notifier<EstadoGps> {
     }
   }
 
+  /// Si todavía no hubo ninguna posición: pide una suelta (aproximada o la
+  /// última conocida), avisa a los 20 s y cada 30 s vuelve a abrir el GPS.
+  /// (Si ya hubo una y no llegan más, es que está quieto: el latido la repite.)
+  void _vigilar() {
+    if (!ref.mounted || _ultimo != null) return;
+    if (state == EstadoGps.sinPermiso || state == EstadoGps.gpsApagado) return;
+    _vigiasSinLectura++;
+    unawaited(_leerUnaVez());
+    if (_vigiasSinLectura >= 2) state = EstadoGps.sinSenal;
+    if (_vigiasSinLectura % 3 == 0) _escuchar();
+  }
+
+  Future<void> _leerUnaVez() async {
+    if (_leyendoUnaVez) return;
+    _leyendoUnaVez = true;
+    try {
+      final punto = await ref.read(leerGpsUnaVezProvider)();
+      if (punto != null && ref.mounted && _ultimo == null) _alLeer(LecturaGps(punto));
+    } finally {
+      _leyendoUnaVez = false;
+    }
+  }
+
   void _alLatir() {
     if (!ref.mounted) return;
     if (!_envioDesdeLatido && _ultimo != null) {
@@ -235,6 +291,7 @@ class EnvioUbicacion extends Notifier<EstadoGps> {
     _relojLatido?.cancel();
     _relojEnvio?.cancel();
     _relojReintento?.cancel();
+    _relojVigia?.cancel();
     _ciclo?.dispose();
     _gps = null;
   }

@@ -31,9 +31,6 @@ final pantallaEncendidaProvider = Provider<Future<void> Function(bool)>(
   },
 );
 
-/// A cuántos metros del destino ya cuenta como "llegaste".
-const metrosParaLlegar = 40.0;
-
 /// "350 m" o "2,4 km".
 String textoDistancia(double metros) => metros < 1000
     ? '${(metros / 10).round() * 10} m'

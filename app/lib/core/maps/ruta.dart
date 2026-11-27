@@ -3,6 +3,11 @@ import 'dart:math' as math;
 import '../formato/formato.dart';
 import 'coordenada.dart';
 
+/// A cuántos metros de la tienda o de la casa ya cuenta como "llegó". El GPS
+/// de un celular se equivoca de 20 a 50 m (más bajo techo) y el punto que el
+/// cliente marcó en el mapa también puede estar corrido unos metros.
+const metrosParaLlegar = 70.0;
+
 /// Una indicación del GPS: "Gira a la derecha hacia Av. Busch".
 class PasoRuta {
   const PasoRuta({
