@@ -5,10 +5,13 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mdrmarket/core/maps/coordenada.dart';
+import 'package:mdrmarket/core/maps/iconos_mapa.dart';
 import 'package:mdrmarket/core/maps/mapa.dart';
 import 'package:mdrmarket/core/maps/mapas.dart';
+import 'package:mdrmarket/core/maps/mapas_repository.dart';
 import 'package:mdrmarket/core/maps/selector_ubicacion.dart';
 import 'package:mdrmarket/core/storage/preferencias.dart';
+import 'package:mdrmarket/core/theme/app_theme.dart';
 import 'package:mdrmarket/features/comerciante/presentation/pestanas/mas_tab.dart';
 import 'package:mdrmarket/features/pedidos/domain/pedido.dart';
 import 'package:mdrmarket/features/pedidos/domain/seguimiento.dart';
@@ -16,6 +19,8 @@ import 'package:mdrmarket/features/pedidos/presentation/widgets/seguimiento_pedi
 import 'package:mdrmarket/features/repartidor/presentation/cuenta_repartidor.dart';
 
 import 'falsos.dart';
+
+void _nada(Coordenada _) {}
 
 /// Teselas falsas: una imagen chica, sin pedir nada a internet.
 class TeselasFalsas extends TileProvider {
@@ -81,12 +86,26 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('selector de dirección: se elige el punto tocando el mapa', (tester) async {
+    testWidgets('selector de dirección: se elige el punto tocando el mapa y sale la calle, no las coordenadas',
+        (tester) async {
       Coordenada? elegido;
+      DireccionEncontrada? encontrada;
+      final mapas = MapasFalso();
       await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: SingleChildScrollView(child: SelectorUbicacion(valor: null, alCambiar: (c) => elegido = c)),
+        ProviderScope(
+          overrides: [mapasRepositoryProvider.overrideWithValue(mapas)],
+          child: MaterialApp(
+            home: Scaffold(
+              body: SingleChildScrollView(
+                child: StatefulBuilder(
+                  builder: (context, setState) => SelectorUbicacion(
+                    valor: elegido,
+                    alCambiar: (c) => setState(() => elegido = c),
+                    alEncontrarDireccion: (d) => encontrada = d,
+                  ),
+                ),
+              ),
+            ),
           ),
         ),
       );
@@ -95,11 +114,50 @@ void main() {
       expect(find.byKey(const Key('mapa-selector')), findsOneWidget);
       expect(find.text('© OpenStreetMap'), findsOneWidget);
       expect(find.text('Usar mi ubicación'), findsOneWidget); // el GPS sigue
+      expect(find.text('Ubicación sin marcar'), findsOneWidget);
       await tester.tap(find.byKey(const Key('mapa-selector')));
-      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pump(const Duration(milliseconds: 500)); // el mapa espera por si es doble toque
       expect(elegido, isNotNull);
       expect(elegido!.latitud, closeTo(Coordenada.centroSantaCruz.latitud, 0.05));
+      expect(find.text('Buscando la dirección…'), findsOneWidget);
+
+      await tester.pump(SelectorUbicacion.espera + const Duration(milliseconds: 100));
+      expect(mapas.direccionesPedidas.single, elegido);
+      expect(find.text('Calle Libertad 123, Equipetrol'), findsOneWidget);
+      expect(find.text('Santa Cruz de la Sierra'), findsOneWidget);
+      expect(find.textContaining('-17.'), findsNothing); // sin coordenadas a la vista
+      expect(encontrada?.corta, 'Calle Libertad 123, Equipetrol');
       expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('sin servicio de direcciones: "Ubicación marcada" y pide escribirla', (tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [mapasRepositoryProvider.overrideWithValue(MapasFalso(direccionFija: null))],
+          child: const MaterialApp(
+            home: Scaffold(
+              body: SingleChildScrollView(child: SelectorUbicacion(valor: Coordenada(-17.78, -63.18), alCambiar: _nada)),
+            ),
+          ),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(find.text('Ubicación marcada en el mapa'), findsOneWidget);
+      expect(find.text('No encontramos el nombre de la calle: escríbela abajo.'), findsOneWidget);
+    });
+
+    testWidgets('los íconos de Google Maps se dibujan (moto, persona, tienda)', (tester) async {
+      await tester.runAsync(() async {
+        for (final tipo in [TipoPunto.repartidor, TipoPunto.casa, TipoPunto.tienda]) {
+          final (icono, color) = MapaMdr.estilo(tipo, AppTheme.claro.colorScheme);
+          final png = await IconosMapa.dibujarPng(icono, color, 2);
+          expect(png.sublist(1, 4), 'PNG'.codeUnits); // es un PNG
+          expect(png.length, greaterThan(200));
+        }
+      });
+      expect(MapaMdr.estilo(TipoPunto.repartidor, AppTheme.claro.colorScheme).$1, Icons.two_wheeler);
+      expect(MapaMdr.estilo(TipoPunto.casa, AppTheme.claro.colorScheme).$1, Icons.person);
+      expect(MapaMdr.estilo(TipoPunto.tienda, AppTheme.claro.colorScheme).$1, Icons.storefront);
     });
   });
 

@@ -28,6 +28,7 @@ import '../../features/pedidos/presentation/checkout_screen.dart';
 import '../../features/pedidos/presentation/pago_qr_screen.dart';
 import '../../features/pedidos/presentation/pedido_screen.dart';
 import '../../features/repartidor/presentation/entregar_pin_screen.dart';
+import '../../features/repartidor/presentation/navegacion_screen.dart';
 import '../../features/repartidor/presentation/pedido_actual_screen.dart';
 import '../../features/repartidor/presentation/registrar_repartidor_screen.dart';
 import '../../features/terminos/presentation/terminos_screen.dart';
@@ -79,6 +80,8 @@ final routerProvider = Provider<GoRouter>((ref) {
       // Repartidor (el pedido que lleva)
       GoRoute(path: '/repartidor/pedido', builder: (_, _) => const PedidoActualScreen()),
       GoRoute(path: '/repartidor/entregar', builder: (_, _) => const EntregarPinScreen()),
+      // Modo GPS ("Cómo llegar"): la ruta por las calles, dentro de la app.
+      GoRoute(path: '/repartidor/navegar', builder: (_, _) => const NavegacionScreen()),
 
       // Cliente
       GoRoute(

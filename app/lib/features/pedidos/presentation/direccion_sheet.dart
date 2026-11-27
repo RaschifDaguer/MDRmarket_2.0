@@ -32,6 +32,7 @@ class _NuevaDireccionState extends ConsumerState<_NuevaDireccion> {
   final _referencia = TextEditingController();
   String _etiqueta = 'Casa';
   Coordenada? _ubicacion;
+  String? _direccionAuto;
   bool _predeterminada = false;
   bool _guardando = false;
   Map<String, String> _errores = {};
@@ -116,6 +117,15 @@ class _NuevaDireccionState extends ConsumerState<_NuevaDireccion> {
                     _ubicacion = punto;
                     _errores = {..._errores}..remove('ubicacion');
                   }),
+                  // Llena "Dirección" con la calle y el barrio (si no la escribió a mano).
+                  alEncontrarDireccion: (d) {
+                    final actual = _direccion.text.trim();
+                    if (actual.isEmpty || actual == _direccionAuto) {
+                      _direccion.text = d.corta;
+                      _direccionAuto = d.corta;
+                      setState(() => _errores = {..._errores}..remove('direccion'));
+                    }
+                  },
                 ),
                 const SizedBox(height: 14),
                 TextFormField(

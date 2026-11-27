@@ -9,6 +9,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mdrmarket/core/archivos/archivo_elegido.dart';
 import 'package:mdrmarket/core/formato/formato.dart';
 import 'package:mdrmarket/core/maps/coordenada.dart';
+import 'package:mdrmarket/core/maps/mapas_repository.dart';
+import 'package:mdrmarket/core/maps/ruta.dart';
 import 'package:mdrmarket/core/network/api_exception.dart';
 import 'package:mdrmarket/core/network/pagina.dart';
 import 'package:mdrmarket/core/storage/preferencias.dart';
@@ -45,6 +47,7 @@ import 'package:mdrmarket/features/repartidor/domain/ganancias.dart';
 import 'package:mdrmarket/features/repartidor/domain/pedido_disponible.dart';
 import 'package:mdrmarket/features/repartidor/domain/repartidor.dart';
 import 'package:mdrmarket/features/repartidor/domain/tipo_vehiculo.dart';
+import 'package:mdrmarket/features/repartidor/presentation/navegacion_screen.dart';
 
 class SesionFalsa extends AuthController {
   SesionFalsa(this._usuario);
@@ -198,8 +201,13 @@ Pedido pedidoDeEjemplo({
   DateTime? aceptarAntes,
   int? repartidoresCerca,
   Set<int> alistados = const {},
+  Coordenada? tienda,
+  Coordenada? casa,
 }) {
   return Pedido(
+    negocioUbicacion: tienda,
+    latitudEntrega: casa?.latitud,
+    longitudEntrega: casa?.longitud,
     repartidorId: repartidorId,
     repartidorNombre: conRepartidor ? 'Diego Rodríguez' : null,
     repartidorVehiculo: conRepartidor ? 'Moto' : null,
@@ -793,7 +801,12 @@ class RepartidorFalso extends RepartidorRepository {
         );
       }
     }
-    return actual = pedidoDeEjemplo(estado: estado, paraNegocio: true);
+    return actual = pedidoDeEjemplo(
+      estado: estado,
+      paraNegocio: true,
+      tienda: actual?.negocioUbicacion,
+      casa: actual?.destino,
+    );
   }
 
   @override
@@ -895,18 +908,27 @@ List overridesFalsos({
   List<Negocio> negocios = const [],
   List<Faltante> faltantes = const [],
   LecturaGps gps = const LecturaGps(Coordenada(-17.78, -63.18)),
-  Widget Function(Seguimiento)? mapa,
+  MapaDelSeguimiento? mapa,
   NotificacionesFalso? notificaciones,
   Preferencias? preferencias,
   List<DocumentoSubido> documentos = const [],
+  Stream<LecturaGps> Function()? fuenteGps,
+  MapasFalso? mapas,
+  Future<void> Function(LecturaGps)? abrirAjustesGps,
 }) => [
   repartidorRepositoryProvider.overrideWithValue(repartidor ?? RepartidorFalso()),
+  // Ruta por las calles y dirección de un punto, sin internet.
+  mapasRepositoryProvider.overrideWithValue(mapas ?? MapasFalso()),
+  // Sin pantalla encendida ni ajustes del teléfono en las pruebas.
+  pantallaEncendidaProvider.overrideWithValue((_) async {}),
+  abrirAjustesGpsProvider.overrideWithValue(abrirAjustesGps ?? (_) async {}),
   notificacionesRepositoryProvider.overrideWithValue(notificaciones ?? NotificacionesFalso()),
   // Preferencias (tema, búsquedas) en memoria: sin almacenamiento del teléfono.
   preferenciasProvider.overrideWithValue(preferencias ?? PreferenciasEnMemoria()),
   // Sin GPS en las pruebas.
   ubicacionActualProvider.overrideWithValue(() async => null),
-  leerGpsProvider.overrideWithValue(() async => gps),
+  // Una lectura del GPS (o las que mande la prueba).
+  fuenteGpsProvider.overrideWithValue(fuenteGps ?? () => Stream.value(gps)),
   // Sin clave de Google Maps (como en las pruebas); se puede pasar un mapa falso.
   mapaSeguimientoProvider.overrideWithValue(mapa),
   authControllerProvider.overrideWith(() => SesionFalsa(usuario)),
@@ -919,6 +941,74 @@ List overridesFalsos({
   terminosProvider.overrideWith((ref) async => terminosDePrueba),
   elegirFotoProvider.overrideWithValue(() async => fotoDePrueba),
 ];
+
+/// Rutas y direcciones sin internet. Por defecto no hay servicio de rutas (la
+/// app usa una línea recta, como antes) y la dirección es "Calle Libertad 123".
+class MapasFalso extends MapasRepository {
+  MapasFalso({this.rutaFija, this.direccionFija = direccionDePrueba}) : super(Dio());
+
+  /// La ruta que devuelve (null = el servicio de rutas no responde).
+  final Ruta Function(List<Coordenada> puntos)? rutaFija;
+  final DireccionEncontrada? direccionFija;
+  final rutasPedidas = <List<Coordenada>>[];
+  final direccionesPedidas = <Coordenada>[];
+
+  @override
+  Future<Ruta> ruta(List<Coordenada> puntos, {String vehiculo = 'moto'}) async {
+    rutasPedidas.add(puntos);
+    final fija = rutaFija;
+    if (fija == null) throw ApiException('No se pudo calcular la ruta.', statusCode: 503);
+    return fija(puntos);
+  }
+
+  @override
+  Future<DireccionEncontrada?> direccion(Coordenada punto) async {
+    direccionesPedidas.add(punto);
+    return direccionFija;
+  }
+}
+
+const direccionDePrueba = DireccionEncontrada(
+  calle: 'Calle Libertad 123',
+  barrio: 'Equipetrol',
+  ciudad: 'Santa Cruz de la Sierra',
+  corta: 'Calle Libertad 123, Equipetrol',
+  texto: 'Calle Libertad 123, Equipetrol, Santa Cruz de la Sierra',
+);
+
+/// Una ruta "por las calles" de prueba: pasa por los puntos pedidos con un
+/// codo en el medio de cada tramo (gira a la derecha y llega), a 25 km/h.
+Ruta rutaEnL(List<Coordenada> puntos) {
+  final linea = <Coordenada>[puntos.first];
+  final pasos = <PasoRuta>[];
+  final fines = <int>[];
+  for (var t = 0; t < puntos.length - 1; t++) {
+    final a = puntos[t], b = puntos[t + 1];
+    final codo = Coordenada(a.latitud, b.longitud);
+    pasos.add(PasoRuta(instruccion: 'Sal por Calle Ingavi', tipo: 'depart', punto: a, indice: linea.length - 1, tramo: t));
+    linea.add(codo);
+    pasos.add(PasoRuta(
+      instruccion: 'Gira a la derecha hacia Av. Busch',
+      tipo: 'turn',
+      modificador: 'right',
+      calle: 'Av. Busch',
+      punto: codo,
+      indice: linea.length - 1,
+      tramo: t,
+    ));
+    linea.add(b);
+    fines.add(linea.length - 1);
+    pasos.add(PasoRuta(instruccion: 'Llegaste a tu destino', tipo: 'arrive', punto: b, indice: linea.length - 1, tramo: t));
+  }
+  final recta = Ruta.recta(linea);
+  return Ruta(
+    puntos: linea,
+    distanciaM: recta.distanciaM,
+    duracionS: recta.duracionS,
+    pasos: pasos,
+    finDeTramos: fines,
+  );
+}
 
 /// Una imagen PNG de 1×1 para elegir "de la galería" en las pruebas.
 final fotoDePrueba = ArchivoElegido(

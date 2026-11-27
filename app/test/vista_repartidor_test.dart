@@ -10,6 +10,7 @@ import 'package:mdrmarket/features/pedidos/domain/pedido.dart';
 import 'package:mdrmarket/features/repartidor/domain/pedido_disponible.dart';
 import 'package:mdrmarket/features/repartidor/domain/repartidor.dart';
 import 'package:mdrmarket/features/repartidor/presentation/entregar_pin_screen.dart';
+import 'package:mdrmarket/features/repartidor/presentation/navegacion_screen.dart';
 import 'package:mdrmarket/features/repartidor/presentation/pedido_actual_screen.dart';
 import 'package:mdrmarket/features/repartidor/presentation/vista_repartidor.dart';
 
@@ -233,41 +234,54 @@ void main() {
     expect(find.text('Ponte una meta del día'), findsOneWidget);
   });
 
-  testWidgets('"Cómo llegar" abre Google Maps con la tienda y, ya recogido, con la casa', (tester) async {
+  testWidgets('"Cómo llegar" abre el modo GPS de la app (no Google Maps)', (tester) async {
     final abiertos = <Uri>[];
-    final repartidor = falso(actual: pedidoDeEjemplo(estado: EstadoPedido.listo, paraNegocio: true));
-    await abrirPedido(
-      tester,
-      EstadoPedido.listo,
-      repartidor: repartidor,
-      extra: [
-        abrirEnlaceProvider.overrideWithValue((uri) async {
-          abiertos.add(uri);
-          return true;
-        }),
+    final repartidor = falso(
+      actual: pedidoDeEjemplo(
+        estado: EstadoPedido.listo,
+        paraNegocio: true,
+        tienda: const Coordenada(-17.7745, -63.1935),
+        casa: const Coordenada(-17.79, -63.18),
+      ),
+    );
+    final router = GoRouter(
+      initialLocation: '/repartidor/pedido',
+      routes: [
+        GoRoute(path: '/repartidor/pedido', builder: (_, _) => const PedidoActualScreen()),
+        GoRoute(path: '/repartidor/navegar', builder: (_, _) => const NavegacionScreen()),
+        GoRoute(path: '/repartidor/entregar', builder: (_, _) => const Scaffold(body: Text('pin'))),
+        GoRoute(path: '/inicio', builder: (_, _) => const Scaffold(body: Text('inicio'))),
       ],
     );
-    await tester.tap(find.byKey(const Key('como-llegar')));
-    await tester.pump();
-    expect(abiertos.single.host, 'www.google.com');
-    expect(abiertos.single.path, '/maps/dir/');
-    // El pedido de ejemplo no trae la ubicación de la tienda: va por nombre.
-    expect(abiertos.single.queryParameters['destination'], 'Pollos Marta');
-
-    // "Ya lo recogí": pasa al paso 2 y "Cómo llegar" va a la casa del cliente.
-    await tester.tap(find.byKey(const Key('boton-recogido')));
+    tester.view.physicalSize = const Size(390, 1200);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      ProviderScope(
+        retry: (_, _) => null,
+        overrides: [
+          ...overridesFalsos(usuario: repartidorAprobado, repartidor: repartidor, mapas: MapasFalso(rutaFija: rutaEnL)),
+          abrirEnlaceProvider.overrideWithValue((uri) async {
+            abiertos.add(uri);
+            return true;
+          }),
+        ].cast(),
+        child: MaterialApp.router(routerConfig: router),
+      ),
+    );
     await esperar(tester);
-    expect(find.byKey(const Key('destino-cliente')), findsOneWidget);
-    await tester.tap(find.byKey(const Key('como-llegar')));
-    await tester.pump();
-    expect(abiertos.last.queryParameters['destination'], 'Calle Libertad 123');
-  });
 
-  test('el enlace de "Cómo llegar" usa las coordenadas si las hay', () {
-    final uri = enlaceComoLlegar(destino: const Coordenada(-17.78, -63.18), bicicleta: true);
-    expect(uri.queryParameters['destination'], '-17.78,-63.18');
-    expect(uri.queryParameters['travelmode'], 'bicycling');
-    expect(uri.queryParameters['api'], '1');
+    await tester.tap(find.byKey(const Key('como-llegar')));
+    await esperar(tester);
+    expect(find.byType(NavegacionScreen), findsOneWidget);
+    expect(abiertos, isEmpty); // no salió de la app
+    expect(find.text('Recoger en Pollos Marta'), findsOneWidget);
+    expect(find.byKey(const Key('indicacion-gps')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('salir-gps')));
+    await esperar(tester);
+    expect(find.byType(PedidoActualScreen), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 1));
   });
 
   group('Entregar con el PIN', () {

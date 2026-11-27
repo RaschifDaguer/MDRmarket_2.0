@@ -28,6 +28,14 @@ return [
         'key' => env('RESEND_KEY'),
     ],
 
+    // Mapas (ver App\Support\Mapas): servicios gratis y sin clave de
+    // OpenStreetMap. Sus políticas de uso piden identificar la app.
+    'mapas' => [
+        'rutas_url' => env('MAPAS_RUTAS_URL', 'https://routing.openstreetmap.de'),
+        'direcciones_url' => env('MAPAS_DIRECCIONES_URL', 'https://nominatim.openstreetmap.org'),
+        'agente' => env('MAPAS_AGENTE', 'MDRMarket/1.2 (+'.env('APP_URL', 'https://mdrmarket.sistemasunifranz.site').')'),
+    ],
+
     'slack' => [
         'notifications' => [
             'bot_user_oauth_token' => env('SLACK_BOT_USER_OAUTH_TOKEN'),

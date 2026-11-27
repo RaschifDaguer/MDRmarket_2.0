@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 
@@ -192,10 +195,16 @@ final ubicacionActualProvider = Provider<Future<Coordenada?> Function()>(
       var permiso = await Geolocator.checkPermission();
       if (permiso == LocationPermission.denied) permiso = await Geolocator.requestPermission();
       if (permiso == LocationPermission.denied || permiso == LocationPermission.deniedForever) return null;
-      final p = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high, timeLimit: Duration(seconds: 10)),
-      );
-      return Coordenada(p.latitude, p.longitude);
+      try {
+        final p = await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(accuracy: LocationAccuracy.high, timeLimit: Duration(seconds: 12)),
+        );
+        return Coordenada(p.latitude, p.longitude);
+      } on TimeoutException {
+        // Bajo techo el GPS tarda: sirve la última posición conocida del teléfono.
+        final ultima = kIsWeb ? null : await Geolocator.getLastKnownPosition();
+        return ultima == null ? null : Coordenada(ultima.latitude, ultima.longitude);
+      }
     } catch (_) {
       return null; // sin GPS se conecta igual; los pedidos salen por antigüedad
     }

@@ -88,6 +88,11 @@ class AppServiceProvider extends ServiceProvider
         // Guardar o cambiar datos (direcciones, productos, estados, reseñas…).
         RateLimiter::for('escritura', fn (Request $request) => Limit::perMinute(40)->by($quien($request)));
 
+        // Rutas por las calles y direcciones del mapa: usan servicios gratis de
+        // OpenStreetMap que piden un uso moderado (la app solo recalcula la ruta
+        // si el repartidor se sale de ella, y la dirección al marcar un punto).
+        RateLimiter::for('mapas', fn (Request $request) => Limit::perMinute(30)->by($quien($request)));
+
         // Ver fotos de negocios y productos: un catálogo pide muchas juntas.
         RateLimiter::for('archivos', fn (Request $request) => Limit::perMinute(600)->by('ip'.self::ipCliente($request)));
 

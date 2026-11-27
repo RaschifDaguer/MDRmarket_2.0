@@ -4,6 +4,14 @@
          Android pide permiso al usuario la primera vez (geolocator). -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <!-- Mientras lleva un pedido, el GPS sigue con la pantalla apagada o la app
+         en segundo plano: servicio en primer plano de tipo "ubicación" (con la
+         notificación "Llevando un pedido"). Lo pide Android 14 en adelante. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!-- Para que se vea la notificación del reparto (Android 13 en adelante). -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <!-- usesCleartextTraffic: permite hablar con la API local por http://
          mientras desarrollamos. Quitarlo cuando la API esté en https. -->

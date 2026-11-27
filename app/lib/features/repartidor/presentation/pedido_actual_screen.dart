@@ -5,7 +5,6 @@ import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/formato/formato.dart';
-import '../../../core/maps/coordenada.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/theme/app_espacios.dart';
 import '../../../core/widgets/widgets.dart';
@@ -18,24 +17,16 @@ import 'entregar_pin_screen.dart' show AvisoCarnet;
 import 'mapa_reparto.dart';
 import 'vista_repartidor.dart' show km;
 
-/// Abre un enlace fuera de la app (Google Maps). Las pruebas lo reemplazan.
+/// Abre un enlace fuera de la app (ej. el teléfono para llamar). Las pruebas lo reemplazan.
 final abrirEnlaceProvider = Provider<Future<bool> Function(Uri)>(
   (_) =>
       (uri) => launchUrl(uri, mode: LaunchMode.externalApplication),
 );
 
-/// "Cómo llegar": Google Maps con el destino (por coordenadas o, si no hay,
-/// por la dirección escrita). En bicicleta, la ruta para bicicleta.
-Uri enlaceComoLlegar({Coordenada? destino, String? direccion, bool bicicleta = false}) =>
-    Uri.https('www.google.com', '/maps/dir/', {
-      'api': '1',
-      'destination': destino == null ? (direccion ?? '') : '${destino.latitud},${destino.longitud}',
-      'travelmode': bicicleta ? 'bicycling' : 'driving',
-    });
-
 /// El pedido que lleva el repartidor, en 2 pasos: 1 Recoger (mapa, la tienda,
 /// "Cómo llegar", "Ya lo recogí" y "Soltar pedido") y 2 Entregar (la casa del
-/// cliente, cuánto cobrar y "Entregar", que pide el PIN).
+/// cliente, cuánto cobrar y "Entregar", que pide el PIN). "Cómo llegar" abre
+/// el modo GPS de la app (ruta por las calles, paso a paso).
 class PedidoActualScreen extends ConsumerStatefulWidget {
   const PedidoActualScreen({super.key});
 
@@ -78,19 +69,8 @@ class _PedidoActualScreenState extends ConsumerState<PedidoActualScreen> {
     if (listo && mounted) context.go('/inicio');
   }
 
-  Future<void> _comoLlegar(Pedido p) async {
-    final recogido = p.estado == EstadoPedido.enCamino;
-    final vehiculo = ref.read(miRepartidorProvider).value?.vehiculo?.tipoCodigo;
-    final enlace = enlaceComoLlegar(
-      destino: recogido ? p.destino : p.negocioUbicacion,
-      direccion: recogido ? p.direccionEntrega : (p.negocioDireccion ?? p.negocioNombre),
-      bicicleta: vehiculo == 'bicicleta',
-    );
-    final mensajero = ScaffoldMessenger.of(context);
-    if (!await ref.read(abrirEnlaceProvider)(enlace)) {
-      mensajero.showSnackBar(const SnackBar(content: Text('No se pudo abrir Google Maps.')));
-    }
-  }
+  /// El modo GPS de la app: la ruta por las calles hasta la tienda o la casa.
+  void _comoLlegar() => context.push('/repartidor/navegar');
 
   /// Ejecuta un cambio y refresca; los errores de la API van en un aviso abajo.
   Future<bool> _hacer(Future<Object?> Function() cambio) async {
@@ -164,8 +144,8 @@ class _PedidoActualScreenState extends ConsumerState<PedidoActualScreen> {
                 child: OutlinedButton.icon(
                   key: const Key('como-llegar'),
                   style: OutlinedButton.styleFrom(minimumSize: const Size(0, 52)),
-                  onPressed: () => _comoLlegar(p),
-                  icon: const Icon(Icons.directions_outlined),
+                  onPressed: _comoLlegar,
+                  icon: const Icon(Icons.navigation_outlined),
                   label: const Text('Cómo llegar'),
                 ),
               ),

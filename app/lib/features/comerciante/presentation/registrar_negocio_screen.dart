@@ -45,6 +45,7 @@ class _RegistrarNegocioScreenState extends ConsumerState<RegistrarNegocioScreen>
   bool _vendeAlcohol = false;
   bool _esFarmacia = false;
   Coordenada? _ubicacion;
+  String? _direccionAuto;
   ArchivoElegido? _foto;
   ArchivoElegido? _ciFrente;
   ArchivoElegido? _ciReverso;
@@ -414,6 +415,15 @@ class _RegistrarNegocioScreenState extends ConsumerState<RegistrarNegocioScreen>
             _ubicacion = punto;
             _errores = {..._errores}..remove('ubicacion');
           }),
+          // Llena "Dirección" con la calle y el barrio (si no la escribió a mano).
+          alEncontrarDireccion: (d) {
+            final actual = _direccion.text.trim();
+            if (actual.isEmpty || actual == _direccionAuto) {
+              _direccion.text = d.corta;
+              _direccionAuto = d.corta;
+              setState(() => _errores = {..._errores}..remove('direccion'));
+            }
+          },
         ),
         espacio,
         TextFormField(

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mdrmarket/core/maps/coordenada.dart';
@@ -5,6 +7,7 @@ import 'package:mdrmarket/core/theme/app_theme.dart';
 import 'package:mdrmarket/features/pedidos/domain/pedido.dart';
 import 'package:mdrmarket/features/pedidos/domain/seguimiento.dart';
 import 'package:mdrmarket/features/pedidos/presentation/pedido_screen.dart';
+import 'package:mdrmarket/features/pedidos/presentation/widgets/seguimiento_pedido.dart';
 import 'package:mdrmarket/features/repartidor/data/envio_ubicacion.dart';
 import 'package:mdrmarket/features/repartidor/domain/repartidor.dart';
 import 'package:mdrmarket/features/repartidor/presentation/vista_repartidor.dart';
@@ -31,16 +34,23 @@ void main() {
 
   /// El detalle del pedido del cliente, en camino y con repartidor.
   Future<PedidosFalso> abrirPedido(WidgetTester tester,
-      {ThemeData? tema, List<Seguimiento>? seguimientos, Widget Function(Seguimiento)? mapa}) async {
+      {ThemeData? tema, List<Seguimiento>? seguimientos, MapaDelSeguimiento? mapa, MapasFalso? mapas}) async {
     final pedidos = PedidosFalso(pedidoActual: pedidoDeEjemplo(estado: EstadoPedido.enCamino, conRepartidor: true))
       ..seguimientos = seguimientos ?? [enCamino()];
     await abrirConFalsos(tester, const PedidoScreen(pedidoId: 42),
-        overrides: overridesFalsos(usuario: cliente, pedidos: pedidos, mapa: mapa), tema: tema);
+        overrides: overridesFalsos(usuario: cliente, pedidos: pedidos, mapa: mapa, mapas: mapas), tema: tema);
     await tester.pump(const Duration(milliseconds: 300));
     return pedidos;
   }
 
-  Widget mapaFalso(Seguimiento s) => Container(key: const Key('mapa-falso'), color: Colors.transparent);
+  /// El mapa falso guarda la última línea que le pasaron.
+  List<Coordenada> lineaDibujada = const [];
+  bool lineaPorCalles = false;
+  Widget mapaFalso(Seguimiento s, List<Coordenada> ruta, bool porCalles) {
+    lineaDibujada = ruta;
+    lineaPorCalles = porCalles;
+    return Container(key: const Key('mapa-falso'), color: Colors.transparent);
+  }
 
   for (final (nombre, tema) in [('claro', AppTheme.claro), ('oscuro', AppTheme.oscuro)]) {
     group('Tema $nombre', () {
@@ -73,7 +83,7 @@ void main() {
     ]);
     expect(find.text('Llega en unos 8 min'), findsOneWidget);
 
-    await tester.pump(const Duration(seconds: 7)); // pasa el intervalo de 6 s
+    await tester.pump(intervaloSeguimiento + const Duration(seconds: 1)); // pasa el intervalo de 4 s
     await tester.pump(const Duration(milliseconds: 300));
     expect(find.text('Llega en unos 3 min'), findsOneWidget);
     expect(find.textContaining('A 0,9 km'), findsOneWidget);
@@ -81,42 +91,125 @@ void main() {
     await cerrar(tester);
   });
 
-  group('Repartidor', () {
+  testWidgets('con ruta por las calles: la línea sigue las calles y el tiempo sale de la ruta', (tester) async {
+    final mapas = MapasFalso(rutaFija: rutaEnL);
+    await abrirPedido(tester, mapa: mapaFalso, mapas: mapas);
+    await tester.pump(const Duration(milliseconds: 300));
+
+    // Ya lo recogió: la ruta va del repartidor a la casa (sin pasar por la tienda).
+    expect(mapas.rutasPedidas.single, [const Coordenada(-17.776, -63.19), const Coordenada(-17.79, -63.18)]);
+    expect(lineaPorCalles, isTrue);
+    expect(lineaDibujada, hasLength(3)); // con el codo de la calle, no en diagonal
+    // 2,6 km por las calles (1,06 + 1,56) a 25 km/h = 6,3 min → 7 (la API decía 8 y 2,4 km en línea recta).
+    expect(find.text('Llega en unos 7 min'), findsOneWidget);
+    expect(find.textContaining('A 2,6 km'), findsOneWidget);
+    await cerrar(tester);
+  });
+
+  testWidgets('sin servicio de rutas: línea recta y el tiempo de la API', (tester) async {
+    await abrirPedido(tester, mapa: mapaFalso);
+    expect(lineaPorCalles, isFalse);
+    expect(lineaDibujada, [const Coordenada(-17.776, -63.19), const Coordenada(-17.79, -63.18)]);
+    expect(find.text('Llega en unos 8 min'), findsOneWidget);
+    await cerrar(tester);
+  });
+
+  group('Repartidor: GPS en vivo', () {
     RepartidorFalso conPedido() => RepartidorFalso(perfil: const PerfilRepartidor(estado: 'aprobado', disponible: true))
       ..actual = pedidoDeEjemplo(estado: EstadoPedido.enCamino, paraNegocio: true);
 
-    testWidgets('con un pedido activo manda su GPS cada pocos segundos', (tester) async {
+    testWidgets('manda cada posición nueva, sin pasarse del límite de la API', (tester) async {
       final repartidor = conPedido();
+      final gps = StreamController<LecturaGps>();
+      addTearDown(gps.close);
       await abrirConFalsos(tester, const VistaRepartidor(),
-          overrides: overridesFalsos(usuario: repartidorAprobado, repartidor: repartidor));
-      await tester.pump(const Duration(milliseconds: 300));
-      expect(repartidor.ubicacionesEnviadas, hasLength(1)); // la primera, enseguida
+          overrides: overridesFalsos(usuario: repartidorAprobado, repartidor: repartidor, fuenteGps: () => gps.stream));
 
-      await tester.pump(EnvioUbicacion.intervalo);
-      await tester.pump(const Duration(milliseconds: 100));
+      gps.add(const LecturaGps(Coordenada(-17.780, -63.180)));
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(repartidor.ubicacionesEnviadas, [const Coordenada(-17.780, -63.180)]); // la primera, enseguida
+
+      // Se mueve dos veces enseguida: no manda hasta que pasen 4 s, y entonces la más reciente.
+      gps.add(const LecturaGps(Coordenada(-17.781, -63.181)));
+      gps.add(const LecturaGps(Coordenada(-17.782, -63.182)));
+      await tester.pump(const Duration(seconds: 1));
+      expect(repartidor.ubicacionesEnviadas, hasLength(1));
+      await tester.pump(EnvioUbicacion.minimoEntreEnvios);
+      expect(repartidor.ubicacionesEnviadas.last, const Coordenada(-17.782, -63.182));
       expect(repartidor.ubicacionesEnviadas, hasLength(2));
-      expect(repartidor.ubicacionesEnviadas.last, const Coordenada(-17.78, -63.18));
       await cerrar(tester);
     });
 
-    testWidgets('sin pedido activo no manda nada', (tester) async {
+    testWidgets('quieto: repite la última posición cada pocos segundos (el cliente ve que sigue)', (tester) async {
+      final repartidor = conPedido();
+      await abrirConFalsos(tester, const VistaRepartidor(),
+          overrides: overridesFalsos(usuario: repartidorAprobado, repartidor: repartidor));
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(repartidor.ubicacionesEnviadas, hasLength(1));
+      await tester.pump(EnvioUbicacion.latido * 2 + const Duration(seconds: 1));
+      expect(repartidor.ubicacionesEnviadas.length, greaterThanOrEqualTo(2));
+      expect(repartidor.ubicacionesEnviadas.toSet(), {const Coordenada(-17.78, -63.18)});
+      await cerrar(tester);
+    });
+
+    testWidgets('sin pedido activo no lee ni manda nada', (tester) async {
       final repartidor = RepartidorFalso(perfil: const PerfilRepartidor(estado: 'aprobado', disponible: true));
       await abrirConFalsos(tester, const VistaRepartidor(),
           overrides: overridesFalsos(usuario: repartidorAprobado, repartidor: repartidor));
-      await tester.pump(EnvioUbicacion.intervalo * 2);
+      await tester.pump(EnvioUbicacion.latido * 2);
       expect(repartidor.ubicacionesEnviadas, isEmpty);
       await cerrar(tester);
     });
 
-    testWidgets('sin permiso de ubicación avisa que la necesita', (tester) async {
+    testWidgets('sin permiso: avisa, el botón pide el permiso y al darlo vuelve a mandar', (tester) async {
       final repartidor = conPedido();
+      var permiso = false;
+      var ajustesAbiertos = 0;
       await abrirConFalsos(tester, const VistaRepartidor(),
-          overrides: overridesFalsos(usuario: repartidorAprobado, repartidor: repartidor, gps: const LecturaGps(null, sinPermiso: true)));
+          overrides: overridesFalsos(
+            usuario: repartidorAprobado,
+            repartidor: repartidor,
+            fuenteGps: () => Stream.value(
+              permiso ? const LecturaGps(Coordenada(-17.78, -63.18)) : const LecturaGps(null, sinPermiso: true),
+            ),
+            abrirAjustesGps: (_) async {
+              ajustesAbiertos++;
+              permiso = true;
+            },
+          ));
       await tester.pump(const Duration(milliseconds: 300));
       expect(find.byKey(const Key('aviso-ubicacion')), findsOneWidget);
       expect(find.text('Necesitamos tu ubicación para repartir'), findsOneWidget);
       expect(repartidor.ubicacionesEnviadas, isEmpty);
+
+      await tester.tap(find.byKey(const Key('activar-ubicacion')));
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(ajustesAbiertos, 1);
+      expect(find.byKey(const Key('aviso-ubicacion')), findsNothing);
+      expect(repartidor.ubicacionesEnviadas, [const Coordenada(-17.78, -63.18)]);
       expect(tester.takeException(), isNull);
+      await cerrar(tester);
+    });
+
+    testWidgets('GPS apagado: lo dice y reintenta solo cuando lo enciende', (tester) async {
+      final repartidor = conPedido();
+      var encendido = false;
+      await abrirConFalsos(tester, const VistaRepartidor(),
+          overrides: overridesFalsos(
+            usuario: repartidorAprobado,
+            repartidor: repartidor,
+            fuenteGps: () => Stream.value(
+              encendido ? const LecturaGps(Coordenada(-17.78, -63.18)) : const LecturaGps(null, gpsApagado: true),
+            ),
+          ));
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.text('Enciende tu GPS para repartir'), findsOneWidget);
+      expect(find.text('Encender GPS'), findsOneWidget);
+
+      encendido = true; // lo enciende desde la barra del teléfono, sin tocar el botón
+      await tester.pump(EnvioUbicacion.reintentoGps + const Duration(milliseconds: 300));
+      expect(find.byKey(const Key('aviso-ubicacion')), findsNothing);
+      expect(repartidor.ubicacionesEnviadas, hasLength(1));
       await cerrar(tester);
     });
   });

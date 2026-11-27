@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\CatalogoController;
 use App\Http\Controllers\Api\Comerciante;
 use App\Http\Controllers\Api\DireccionController;
 use App\Http\Controllers\Api\DocumentoController;
+use App\Http\Controllers\Api\MapaController;
 use App\Http\Controllers\Api\MultimediaController;
 use App\Http\Controllers\Api\NegocioController;
 use App\Http\Controllers\Api\NotificacionController;
@@ -96,6 +97,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('multimedia', [MultimediaController::class, 'index']);
     // Rastreo en el mapa: la app lo consulta cada pocos segundos (límite general).
     Route::get('pedidos/{pedido}/seguimiento', [RastreoController::class, 'seguimiento']);
+    // Ruta por las calles (modo GPS y seguimiento) y dirección del punto marcado: límite propio.
+    Route::middleware('throttle:mapas')->group(function () {
+        Route::get('mapas/ruta', [MapaController::class, 'ruta']);
+        Route::get('mapas/direccion', [MapaController::class, 'direccion']);
+    });
 
     // Hacer un pedido: límite propio (evita pedidos falsos en masa).
     Route::post('pedidos', [PedidoController::class, 'store'])->middleware('throttle:pedidos');

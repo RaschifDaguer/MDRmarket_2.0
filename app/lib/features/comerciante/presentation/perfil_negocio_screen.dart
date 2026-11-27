@@ -51,6 +51,8 @@ class _PerfilState extends ConsumerState<_Perfil> {
   late bool _esFarmacia = n.esFarmacia;
   late int? _categoriaId = n.categoria?.id;
   late Coordenada? _ubicacion = n.latitud == null ? null : Coordenada(n.latitud!, n.longitud!);
+  bool _movioUbicacion = false;
+  late String? _direccionAuto = n.direccion?.trim();
   ArchivoElegido? _foto;
   bool _guardando = false;
   Map<String, String> _errores = {};
@@ -181,8 +183,17 @@ class _PerfilState extends ConsumerState<_Perfil> {
               error: _errores['ubicacion'],
               alCambiar: (punto) => setState(() {
                 _ubicacion = punto;
+                _movioUbicacion = true;
                 _errores = {..._errores}..remove('ubicacion');
               }),
+              // Si movió el punto, la dirección nueva reemplaza la vieja (salvo que la haya escrito a mano).
+              alEncontrarDireccion: (d) {
+                final actual = _direccion.text.trim();
+                if (_movioUbicacion && (actual.isEmpty || actual == _direccionAuto)) {
+                  _direccion.text = d.corta;
+                  _direccionAuto = d.corta;
+                }
+              },
             ),
             espacio,
             TextFormField(
